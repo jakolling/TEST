@@ -356,7 +356,7 @@ if uploaded_files:
             
             filtered_data = filtered_minutes_dataframe[filtered_minutes_dataframe['Age'].between(*age_range)]
             if selected_positions:
-                filtered_data = filtered_data[filtered_data['Position_split'].apply(lambda x: any(pos in x for pos in selected_positions)]
+                filtered_data = filtered_data[filtered_data['Position_split'].apply(lambda x: ... ))  # ← Dois parênteses no final
             
             figure = go.Figure()
             figure.add_trace(go.Scatter(
