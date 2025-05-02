@@ -249,7 +249,7 @@ if arquivos_enviados:
                     .format(precision=2)
                 )
                 
-                if st.button('Exportar Gráfico de Radar (300 DPI)', key='exportar_radar'):,
+                if st.button('Exportar Gráfico de Radar (300 DPI)', key='exportar_radar'):
                     figura_radar.update_layout(margin=dict(t=250))
                     bytes_imagem = figura_radar.to_image(format="png", width=1600, height=900, scale=3)
                     st.download_button(
@@ -336,7 +336,7 @@ if arquivos_enviados:
                 
                 st.plotly_chart(figura_barras)
                 
-                if st.button('Exportar Gráficos de Barras (300 DPI)', key='exportar_barras'):,
+                if st.button('Exportar Gráficos de Barras (300 DPI)', key='exportar_barras'):
                     figura_barras.update_layout(margin=dict(t=250))
                     bytes_imagem = figura_barras.to_image(format="png", width=1600, height=300*len(metricas_selecionadas)+300, scale=3)
                     st.download_button(
@@ -402,7 +402,7 @@ if arquivos_enviados:
             
             st.plotly_chart(figura_dispersao)
             
-            if st.button('Exportar Gráfico de Dispersão (300 DPI)', key='exportar_dispersao'):,
+            if st.button('Exportar Gráfico de Dispersão (300 DPI)', key='exportar_dispersao'):
                 figura_dispersao.update_layout(margin=dict(t=250))
                 bytes_imagem = figura_dispersao.to_image(format="png", width=1800, height=1200, scale=3)
                 st.download_button(
@@ -458,7 +458,7 @@ if arquivos_enviados:
                 
                 st.plotly_chart(figura_correlacao)
                 
-                if st.button('Exportar Matriz de Correlação (300 DPI)', key='exportar_correlacao'):,
+                if st.button('Exportar Matriz de Correlação (300 DPI)', key='exportar_correlacao'):
                     figura_correlacao.update_layout(margin=dict(t=250))
                     bytes_imagem = figura_correlacao.to_image(format="png", width=1400, height=1400, scale=3)
                     st.download_button(
@@ -597,7 +597,7 @@ if arquivos_enviados:
                             
                             st.plotly_chart(figura_pca)
                             
-                            if st.button('Exportar Scores PCA (300 DPI)', key='exportar_pca'):,
+                            if st.button('Exportar Scores PCA (300 DPI)', key='exportar_pca'):
                                 figura_pca.update_layout(margin=dict(t=250))
                                 bytes_imagem = figura_pca.to_image(format="png", width=1600, height=900, scale=3)
                                 st.download_button(
