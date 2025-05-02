@@ -563,7 +563,9 @@ def enhance_export(fig, metadata):
                 yref="paper",
                 showarrow=False,
                 font=dict(size=10)
-        ])
+            )  # Fechamento correto do dicionário e lista
+        ]
+    )
     return fig
 
 # [Implementações completas de todas as funções de exportação]
