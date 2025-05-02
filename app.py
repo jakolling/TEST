@@ -156,7 +156,7 @@ if uploaded_files:
         tabs = st.tabs(['Radar', 'Bars', 'Scatter', 'Profiler', 'Correlation', 'Composite Index (PCA)'])
 
         # =============================================
-        # Radar Chart (Aba 1)
+        # Radar Chart (Aba 1) - Com Tabela de Valores
         # =============================================
         with tabs[0]:
             st.header('Radar Chart')
@@ -166,14 +166,13 @@ if uploaded_files:
                 d1 = df_minutes[df_minutes['Player']==p1].iloc[0]
                 d2 = df_minutes[df_minutes['Player']==p2].iloc[0]
                 
-                # Percentis calculados contra o dataframe completo
+                # Cálculos de percentil
                 p1pct = {m: calc_percentile(df_minutes[m], d1[m]) for m in sel}
                 p2pct = {m: calc_percentile(df_minutes[m], d2[m]) for m in sel}
-                
-                # Média do grupo baseado nas posições selecionadas
                 gm = {m: df_group[m].mean() for m in sel}
-                gmpct = {m: calc_percentile(df_minutes[m], gm[m]) for m in sel}
+                gmpct = {m: calc_percentile(df_group[m], gm[m]) for m in sel}
                 
+                # Configuração do gráfico
                 show_avg = st.checkbox('Show Group Average', True)
                 fig = go.Figure()
                 
@@ -199,6 +198,7 @@ if uploaded_files:
                         name='Group Avg'
                     ))
                 
+                # Layout do título
                 title_text = (f"<b>{p1} vs {p2}</b><br>"
                              f"<sup>Leagues: {context['leagues']} | Seasons: {context['seasons']}<br>"
                              f"Filters: {context['min_min']}-{context['max_min']} mins | "
@@ -212,8 +212,43 @@ if uploaded_files:
                     margin=dict(t=200, b=100, l=100, r=100),
                     height=700
                 )
-                st.plotly_chart(fig)
                 
+                # Layout com colunas para gráfico e tabela
+                graph_col, table_col = st.columns([3, 1])
+                
+                with graph_col:
+                    st.plotly_chart(fig, use_container_width=True)
+                
+                with table_col:
+                    st.markdown("**Valores Nominais**")
+                    
+                    # Dados da tabela
+                    player1_values = [round(d1[m], 2) for m in sel]
+                    player2_values = [round(d2[m], 2) for m in sel]
+                    avg_values = [round(gm[m], 2) for m in sel]
+                    
+                    # Criação do DataFrame
+                    df_table = pd.DataFrame({
+                        'Metric': sel,
+                        p1: player1_values,
+                        p2: player2_values,
+                        'Média Grupo': avg_values
+                    }).set_index('Metric')
+                    
+                    # Estilização da tabela
+                    st.dataframe(
+                        df_table.style
+                        .set_properties(**{
+                            'font-size': '12px',
+                            'padding': '5px',
+                            'white-space': 'nowrap'
+                        })
+                        .format(precision=2),
+                        height=500,
+                        use_container_width=True
+                    )
+                
+                # Botão de exportação
                 if st.button('Export Radar Chart (300 DPI)', key='export_radar'):
                     fig.update_layout(margin=dict(t=250))
                     img_bytes = fig.to_image(format="png", width=1600, height=900, scale=3)
@@ -246,7 +281,7 @@ if uploaded_files:
                 for idx, metric in enumerate(selected_metrics, 1):
                     p1_val = df_minutes[df_minutes['Player'] == p1][metric].iloc[0]
                     p2_val = df_minutes[df_minutes['Player'] == p2][metric].iloc[0]
-                    avg_val = df_group[metric].mean()  # Média baseada no grupo filtrado
+                    avg_val = df_group[metric].mean()
                     
                     fig.add_trace(go.Bar(
                         y=[p1], 
