@@ -158,10 +158,16 @@ if uploaded_files:
                 d1 = df_minutes[df_minutes['Player']==p1].iloc[0]
                 d2 = df_minutes[df_minutes['Player']==p2].iloc[0]
                 
+                # Filtro para Group Avg baseado nas posições
+                if sel_pos:
+                    filtered_group = df_minutes[df_minutes['Position_split'].apply(lambda x: any(pos in x for pos in sel_pos))]
+                else:
+                    filtered_group = df_minutes
+                
                 p1pct = {m: calc_percentile(df_minutes[m], d1[m]) for m in sel}
                 p2pct = {m: calc_percentile(df_minutes[m], d2[m]) for m in sel}
-                gm = {m: df_minutes[m].mean() for m in sel}
-                gmpct = {m: calc_percentile(df_minutes[m], gm[m]) for m in sel}
+                gm = {m: filtered_group[m].mean() for m in sel}  # Média ajustada
+                gmpct = {m: calc_percentile(filtered_group[m], gm[m]) for m in sel}
                 
                 show_avg = st.checkbox('Show Group Average', True)
                 fig = go.Figure()
@@ -235,7 +241,14 @@ if uploaded_files:
                 for idx, metric in enumerate(selected_metrics, 1):
                     p1_val = df_minutes[df_minutes['Player'] == p1][metric].iloc[0]
                     p2_val = df_minutes[df_minutes['Player'] == p2][metric].iloc[0]
-                    avg_val = df_minutes[metric].mean()
+                    
+                    # Filtro para Group Avg baseado nas posições
+                    if sel_pos:
+                        filtered_group = df_minutes[df_minutes['Position_split'].apply(lambda x: any(pos in x for pos in sel_pos))]
+                    else:
+                        filtered_group = df_minutes
+                    
+                    avg_val = filtered_group[metric].mean()  # Média ajustada
                     
                     fig.add_trace(go.Bar(
                         y=[p1], 
@@ -421,7 +434,6 @@ if uploaded_files:
                     0.0, 1.0, 0.5, 0.05,
                     help='Minimum average correlation for feature inclusion',
                     disabled=st.session_state.get('manual_weights', False)
-                )
             with col4:
                 manual_weights = st.checkbox('Manual Weights', key='manual_weights')
 
