@@ -556,6 +556,7 @@ def enhance_export(fig, metadata):
         ),
         annotations=[
             dict(
+                
                 text=f"Fonte: Wyscout | {datetime.now().strftime('%d/%m/%Y %H:%M')}",
                 x=1,
                 y=-0.25,
