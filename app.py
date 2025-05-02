@@ -260,7 +260,7 @@ if arquivos_enviados:
                     )
 
         # =============================================
-        # Gráficos de Barras (Aba 2)
+        # Gráficos de Barras (Aba 2) - Correção Aplicada
         # =============================================
         with abas_analise[1]:
             st.header('Comparação por Barras')
@@ -326,14 +326,13 @@ if arquivos_enviados:
                     f"Jogadores: {contexto['total_jogadores']} | Filtros: {contexto['min_idade']}-{contexto['max_idade']} anos</sup>"
                 )
                 
-                                 figura_barras.update_layout(
+                figura_barras.update_layout(
                     title=dict(text=titulo_barras, x=0.03, xanchor='left', font=dict(size=18)),
                     height=300*len(metricas_selecionadas),
                     width=800,
                     template='plotly_white',
                     barmode='group',
                     margin=dict(t=200, b=100, l=100, r=100)
-                )  # Parêntese de fechamento adicionado
                 
                 st.plotly_chart(figura_barras)
                 
@@ -358,7 +357,6 @@ if arquivos_enviados:
             
             dados_filtrados = dataframe_filtrado_minutos[dataframe_filtrado_minutos['Age'].between(*intervalo_idade)]
             
-            # Correção aplicada aqui
             if posicoes_selecionadas:
                 dados_filtrados = dados_filtrados[dados_filtrados['Posicoes_Separadas'].apply(
                     lambda posicoes: any(posicao in posicoes for posicao in posicoes_selecionadas)
@@ -401,7 +399,7 @@ if arquivos_enviados:
                 height=700,
                 template='plotly_dark',
                 margin=dict(t=200, b=100, l=100, r=100)
-            )
+            
             st.plotly_chart(figura_dispersao)
             
             if st.button('Exportar Gráfico de Dispersão (300 DPI)', key='exportar_dispersao'):
@@ -456,8 +454,8 @@ if arquivos_enviados:
                 figura_correlacao.update_layout(
                     title=dict(text=titulo_correlacao, x=0.03, xanchor='left', font=dict(size=18)),
                     template='plotly_dark',
-                    margin=dict(t=200, b=100, l=100, r=100)
-                )
+                    margin=dict(t=200, b=100, l=100, r=100))
+                
                 st.plotly_chart(figura_correlacao)
                 
                 if st.button('Exportar Matriz de Correlação (300 DPI)', key='exportar_correlacao'):
@@ -487,7 +485,7 @@ if arquivos_enviados:
                     'Limiar de Correlação', 
                     0.0, 1.0, 0.5, 0.05,
                     help='Correlação média mínima para inclusão de métricas',
-                    disabled=st.session_state.get('pesos_manuais', False)
+                    disabled=st.session_state.get('pesos_manuais', False))
             with col4:
                 pesos_manuais = st.checkbox('Pesos Manuais', key='pesos_manuais')
 
@@ -565,7 +563,6 @@ if arquivos_enviados:
                         dataframe_pca['Position'].astype(str).apply(lambda x: any(pos in x for pos in posicoes_selecionadas)) 
                         if posicoes_selecionadas 
                         else pd.Series(True, index=dataframe_pca.index)
-                    )
                     dataframe_filtrado_pca = dataframe_pca[filtro_idade & filtro_posicao]
 
                     if not dataframe_filtrado_pca.empty:
@@ -574,8 +571,7 @@ if arquivos_enviados:
                             'Filtrar por Score PCA',
                             min_value=float(score_min),
                             max_value=float(score_max),
-                            value=(float(score_min), float(score_max))
-                        )
+                            value=(float(score_min), float(score_max)))
                         
                         dataframe_final = dataframe_filtrado_pca[dataframe_filtrado_pca['Score PCA'].between(*intervalo_score)]
                         if dataframe_final.empty:
@@ -597,8 +593,8 @@ if arquivos_enviados:
                             figura_pca.update_layout(
                                 title=dict(text=titulo_pca, x=0.03, xanchor='left', font=dict(size=18)),
                                 template='plotly_dark',
-                                margin=dict(t=200, b=100, l=100, r=100)
-                            )
+                                margin=dict(t=200, b=100, l=100, r=100))
+                            
                             st.plotly_chart(figura_pca)
                             
                             if st.button('Exportar Scores PCA (300 DPI)', key='exportar_pca'):
