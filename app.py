@@ -333,7 +333,8 @@ if arquivos_enviados:
                     template='plotly_white',
                     barmode='group',
                     margin=dict(t=200, b=100, l=100, r=100)
-                
+                )
+
                 st.plotly_chart(figura_barras)
                 
                 if st.button('Exportar Gráficos de Barras (300 DPI)', key='exportar_barras'):
@@ -399,6 +400,7 @@ if arquivos_enviados:
                 height=700,
                 template='plotly_dark',
                 margin=dict(t=200, b=100, l=100, r=100)
+            )
             
             st.plotly_chart(figura_dispersao)
             
@@ -454,7 +456,8 @@ if arquivos_enviados:
                 figura_correlacao.update_layout(
                     title=dict(text=titulo_correlacao, x=0.03, xanchor='left', font=dict(size=18)),
                     template='plotly_dark',
-                    margin=dict(t=200, b=100, l=100, r=100))
+                    margin=dict(t=200, b=100, l=100, r=100)
+                )
                 
                 st.plotly_chart(figura_correlacao)
                 
@@ -563,6 +566,7 @@ if arquivos_enviados:
                         dataframe_pca['Position'].astype(str).apply(lambda x: any(pos in x for pos in posicoes_selecionadas)) 
                         if posicoes_selecionadas 
                         else pd.Series(True, index=dataframe_pca.index)
+                    )
                     dataframe_filtrado_pca = dataframe_pca[filtro_idade & filtro_posicao]
 
                     if not dataframe_filtrado_pca.empty:
