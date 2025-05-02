@@ -23,6 +23,7 @@ st.set_page_config(
 # Header with logo
 col1, col2, col3 = st.columns([1, 3, 1])
 with col2:
+    
 st.image('vif_logo.png.jpg', width=400)
 
 st.title('Technical Scouting Department')
