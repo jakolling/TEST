@@ -333,6 +333,7 @@ if arquivos_enviados:
                     template='plotly_white',
                     barmode='group',
                     margin=dict(t=200, b=100, l=100, r=100)
+                )
                 
                 st.plotly_chart(figura_barras)
                 
@@ -399,6 +400,7 @@ if arquivos_enviados:
                 height=700,
                 template='plotly_dark',
                 margin=dict(t=200, b=100, l=100, r=100)
+                    )
             
             st.plotly_chart(figura_dispersao)
             
