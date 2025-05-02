@@ -1,4 +1,4 @@
-# Football Analytics App – Full Feature Version with Improved UI, PCA Explanation and Excel Export
+# Football Analytics App – Full Feature Version with Improved UI, PCA Explanation, Excel Export and Metadata Handling
 
 import streamlit as st
 import pandas as pd
@@ -18,7 +18,7 @@ st.set_page_config(
 )
 
 # Header with logo
-col1, col2, col3 = st.columns([1,3,1])
+col1, col2, col3 = st.columns([1, 3, 1])
 with col2:
     st.image('vif_logo.png.jpg', width=400)
 
@@ -90,7 +90,7 @@ if uploaded_files:
             label = st.text_input("Data origin label (e.g., Bundesliga 2)", key=f"label_{file.name}")
             
             # Season selector with multiple formats
-            seasons = [f"{y}/{y+1}" for y in range(2020, 2024)] + [str(y) for y in range(2020, 2024)]
+            seasons = [f"{y}/{y+1}" for y in range(2020, 2026)] + [str(y) for y in range(2020, 2026)]
             season = st.selectbox("Season", seasons, key=f"season_{file.name}")
             
             if st.form_submit_button("Confirm"):
@@ -98,7 +98,7 @@ if uploaded_files:
                     'label': label,
                     'season': season
                 }
-                st.experimental_rerun()
+                st.rerun()
 
     # Check for missing metadata
     missing_metadata = [f.name for f in uploaded_files if f.name not in st.session_state.file_metadata]
@@ -341,8 +341,8 @@ if uploaded_files:
                         'PCA Score': scores,
                         'Age': df_minutes.loc[idx,'Age'],
                         'Position': df_minutes.loc[idx,'Position'],
-                        'Data Origin': df_minutes.loc[idx,'Data Origin'],  # New metadata
-                        'Season': df_minutes.loc[idx,'Season']           # New metadata
+                        'Data Origin': df_minutes.loc[idx,'Data Origin'],
+                        'Season': df_minutes.loc[idx,'Season']
                     })
 
                     st.write('**Feature Weights**')
@@ -372,6 +372,7 @@ if uploaded_files:
                                 st.download_button("⬇️ Download PCA Chart", data=img_bytes, 
                                                 file_name="pca_scores.png", mime="image/png")
                             
+                            # Excel export
                             bio = BytesIO()
                             with pd.ExcelWriter(bio,engine='xlsxwriter') as writer:
                                 df_final.to_excel(writer,sheet_name='PCA Results',index=False)
