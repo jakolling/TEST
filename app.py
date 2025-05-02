@@ -148,37 +148,21 @@ if uploaded_files:
         tabs = st.tabs(['Radar', 'Bars', 'Scatter', 'Profiler', 'Correlation', 'Composite Index (PCA)'])
 
         # =============================================
-        # Radar Chart (Aba 1) - Versão Corrigida
+        # Radar Chart (Aba 1)
         # =============================================
         with tabs[0]:
             st.header('Radar Chart')
             sel = st.multiselect('Metrics for Radar (6–12)', numeric_cols, default=numeric_cols[:6])
             
             if 6 <= len(sel) <= 12:
-                # Obter dados dos jogadores
                 d1 = df_minutes[df_minutes['Player']==p1].iloc[0]
                 d2 = df_minutes[df_minutes['Player']==p2].iloc[0]
                 
-                # Definir grupo de referência
-                if sel_pos:
-                    filtered_group = df_minutes[df_minutes['Position_split'].apply(lambda x: any(pos in x for pos in sel_pos))]
-                else:
-                    filtered_group = df_minutes
+                p1pct = {m: calc_percentile(df_minutes[m], d1[m]) for m in sel}
+                p2pct = {m: calc_percentile(df_minutes[m], d2[m]) for m in sel}
+                gm = {m: df_minutes[m].mean() for m in sel}
+                gmpct = {m: calc_percentile(df_minutes[m], gm[m]) for m in sel}
                 
-                # Calcular percentis relativos ao grupo filtrado
-                p1pct = {m: calc_percentile(filtered_group[m], d1[m]) for m in sel}
-                p2pct = {m: calc_percentile(filtered_group[m], d2[m]) for m in sel}
-                gm = {m: filtered_group[m].mean() for m in sel}
-                gmpct = {m: calc_percentile(filtered_group[m], gm[m]) for m in sel}
-                
-                # Criar tabela de valores
-                comparison_df = pd.DataFrame({
-                    'Metric': sel,
-                    p1: [d1[m] for m in sel],
-                    p2: [d2[m] for m in sel],
-                    'Group Avg': [gm[m] for m in sel]
-                }).set_index('Metric').round(2)
-
                 show_avg = st.checkbox('Show Group Average', True)
                 fig = go.Figure()
                 
@@ -219,17 +203,6 @@ if uploaded_files:
                 )
                 st.plotly_chart(fig)
                 
-                # Exibir tabela de valores nominais
-                st.subheader('Nominal Values Comparison')
-                st.dataframe(
-                    comparison_df.style
-                    .set_table_styles([{
-                        'selector': 'th',
-                        'props': [('background-color', '#f0f2f6'), ('font-weight', 'bold')]
-                    }])
-                    .format(precision=2)
-                )
-                
                 if st.button('Export Radar Chart (300 DPI)', key='export_radar'):
                     fig.update_layout(margin=dict(t=250))
                     img_bytes = fig.to_image(format="png", width=1600, height=900, scale=3)
@@ -262,13 +235,7 @@ if uploaded_files:
                 for idx, metric in enumerate(selected_metrics, 1):
                     p1_val = df_minutes[df_minutes['Player'] == p1][metric].iloc[0]
                     p2_val = df_minutes[df_minutes['Player'] == p2][metric].iloc[0]
-                    
-                    if sel_pos:
-                        filtered_group = df_minutes[df_minutes['Position_split'].apply(lambda x: any(pos in x for pos in sel_pos))]
-                    else:
-                        filtered_group = df_minutes
-                    
-                    avg_val = filtered_group[metric].mean()
+                    avg_val = df_minutes[metric].mean()
                     
                     fig.add_trace(go.Bar(
                         y=[p1], 
@@ -437,7 +404,7 @@ if uploaded_files:
                     )
 
         # =============================================
-        # Composite PCA Index (Aba 6) - Correção Aplicada
+        # Composite PCA Index (Aba 6)
         # =============================================
         with tabs[5]:
             st.header('Composite PCA Index + Excel Export')
@@ -528,11 +495,8 @@ if uploaded_files:
                     st.dataframe(wdf.style.format({'Weight':'{:.2f}'}))
 
                     af = df_pca['Age'].between(*age_range)
-                    pf = (
-                        df_pca['Position'].astype(str).apply(lambda x: any(pos in x for pos in sel_pos)) 
-                        if sel_pos 
-                        else pd.Series(True, index=df_pca.index)
-                    )
+                    pf = (df_pca['Position'].astype(str).apply(lambda x: any(pos in x for pos in sel_pos)) 
+                          if sel_pos else pd.Series(True, index=df_pca.index))
                     df_f = df_pca[af & pf]
 
                     if not df_f.empty:
