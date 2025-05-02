@@ -1,5 +1,5 @@
-# Football Analytics App - Complete Version
-# Todos os componentes incluídos - v3.0
+# Football Analytics App - Versão Completa Corrigida
+# Código integral sem abreviações e com correção de percentis
 
 import streamlit as st
 import pandas as pd
@@ -21,9 +21,9 @@ st.set_page_config(
 )
 
 # Cabeçalho com logo
-col1, col2, col3 = st.columns([1, 3, 1])
-with col2:
-    st.image('vif_logo.png.jpg', width=400)
+column_left, column_center, column_right = st.columns([1, 3, 1])
+with column_center:
+    st.image('vif_logo.png', width=400)
 
 st.title('Technical Scouting Department')
 st.subheader('Football Analytics Dashboard')
@@ -50,37 +50,37 @@ with st.expander("📘 User Guide & Instructions", expanded=False):
 if 'file_metadata' not in st.session_state:
     st.session_state.file_metadata = {}
 
-def load_and_clean(files):
-    dfs = []
-    for file in files[:15]:
-        df = pd.read_excel(file)
-        df.dropna(how="all", inplace=True)
-        df = df.loc[:, df.columns.notnull()]
-        df.columns = [str(c).strip() for c in df.columns]
+def load_and_clean_data(uploaded_files):
+    dataframes_list = []
+    for file in uploaded_files[:15]:
+        dataframe = pd.read_excel(file)
+        dataframe.dropna(how="all", inplace=True)
+        dataframe = dataframe.loc[:, dataframe.columns.notnull()]
+        dataframe.columns = [str(column).strip() for column in dataframe.columns]
         
         metadata = st.session_state.file_metadata[file.name]
-        df['Data Origin'] = metadata['label']
-        df['Season'] = metadata['season']
+        dataframe['Data Origin'] = metadata['label']
+        dataframe['Season'] = metadata['season']
         
-        dfs.append(df)
-    return pd.concat(dfs, ignore_index=True)
+        dataframes_list.append(dataframe)
+    return pd.concat(dataframes_list, ignore_index=True)
 
 @st.cache_data
-def calc_percentile(series, value):
-    return (series <= value).sum() / len(series)
+def calculate_percentile(data_series, value):
+    return (data_series <= value).sum() / len(data_series)
 
-def get_context_info(df, minutes_range, mpg_range, age_range, sel_pos):
+def get_context_information(dataframe, minutes_range, minutes_per_game_range, age_range, selected_positions):
     return {
-        'leagues': ', '.join(df['Data Origin'].unique()),
-        'seasons': ', '.join(df['Season'].unique()),
-        'total_players': len(df),
-        'min_min': minutes_range[0],
-        'max_min': minutes_range[1],
-        'min_mpg': mpg_range[0],
-        'max_mpg': mpg_range[1],
+        'leagues': ', '.join(dataframe['Data Origin'].unique()),
+        'seasons': ', '.join(dataframe['Season'].unique()),
+        'total_players': len(dataframe),
+        'min_minutes': minutes_range[0],
+        'max_minutes': minutes_range[1],
+        'min_minutes_per_game': minutes_per_game_range[0],
+        'max_minutes_per_game': minutes_per_game_range[1],
         'min_age': age_range[0],
         'max_age': age_range[1],
-        'positions': ', '.join(sel_pos) if sel_pos else 'All'
+        'positions': ', '.join(selected_positions) if selected_positions else 'All'
     }
 
 # =============================================
@@ -96,133 +96,153 @@ with st.sidebar.expander("⚙️ Advanced Filters", expanded=True):
 
 if uploaded_files:
     # Coleta de Metadados
-    new_files = [f for f in uploaded_files if f.name not in st.session_state.file_metadata]
+    new_files = [file for file in uploaded_files if file.name not in st.session_state.file_metadata]
     
     for file in new_files:
         with st.form(key=f'metadata_{file.name}'):
             st.subheader(f"Metadata for: {file.name}")
             label = st.text_input("Data origin label (e.g., Bundesliga 2)", key=f"label_{file.name}")
             
-            seasons = [f"{y}/{y+1}" for y in range(2020, 2026)] + [str(y) for y in range(2020, 2026)]
+            seasons = [f"{year}/{year+1}" for year in range(2020, 2026)] + [str(year) for year in range(2020, 2026)]
             season = st.selectbox("Season", seasons, key=f"season_{file.name}")
             
             if st.form_submit_button("Confirm"):
                 st.session_state.file_metadata[file.name] = {'label': label, 'season': season}
                 st.rerun()
 
-    if missing_metadata := [f.name for f in uploaded_files if f.name not in st.session_state.file_metadata]:
+    if missing_metadata := [file.name for file in uploaded_files if file.name not in st.session_state.file_metadata]:
         st.warning("Please provide metadata for all uploaded files")
         st.stop()
 
     try:
-        df = load_and_clean(uploaded_files)
+        full_dataframe = load_and_clean_data(uploaded_files)
 
         # Filtros Principais
-        min_min, max_min = int(df['Minutes played'].min()), int(df['Minutes played'].max())
-        minutes_range = st.sidebar.slider('Minutes Played', min_min, max_min, (min_min, max_min))
-        df_minutes = df[df['Minutes played'].between(*minutes_range)].copy()
+        min_minutes, max_minutes = int(full_dataframe['Minutes played'].min()), int(full_dataframe['Minutes played'].max())
+        minutes_range = st.sidebar.slider('Minutes Played', min_minutes, max_minutes, (min_minutes, max_minutes))
+        filtered_minutes_dataframe = full_dataframe[full_dataframe['Minutes played'].between(*minutes_range)].copy()
 
-        df_minutes['Minutes per game'] = df_minutes['Minutes played'] / df_minutes['Matches played'].replace(0, np.nan)
-        df_minutes['Minutes per game'] = df_minutes['Minutes per game'].fillna(0).clip(0, 120)
+        filtered_minutes_dataframe['Minutes per game'] = (
+            filtered_minutes_dataframe['Minutes played'] / 
+            filtered_minutes_dataframe['Matches played'].replace(0, np.nan)
+        )
+        filtered_minutes_dataframe['Minutes per game'] = filtered_minutes_dataframe['Minutes per game'].fillna(0).clip(0, 120)
         
-        min_mpg, max_mpg = int(df_minutes['Minutes per game'].min()), int(df_minutes['Minutes per game'].max())
-        mpg_range = st.sidebar.slider('Minutes per Game', min_mpg, max_mpg, (min_mpg, max_mpg))
-        df_minutes = df_minutes[df_minutes['Minutes per game'].between(*mpg_range)]
+        min_mpg, max_mpg = int(filtered_minutes_dataframe['Minutes per game'].min()), int(filtered_minutes_dataframe['Minutes per game'].max())
+        minutes_per_game_range = st.sidebar.slider('Minutes per Game', min_mpg, max_mpg, (min_mpg, max_mpg))
+        filtered_minutes_dataframe = filtered_minutes_dataframe[filtered_minutes_dataframe['Minutes per game'].between(*minutes_per_game_range)]
 
-        min_age, max_age = int(df_minutes['Age'].min()), int(df_minutes['Age'].max())
+        min_age, max_age = int(filtered_minutes_dataframe['Age'].min()), int(filtered_minutes_dataframe['Age'].max())
         age_range = st.sidebar.slider('Age Range', min_age, max_age, (min_age, max_age))
 
-        if 'Position' in df_minutes.columns:
-            df_minutes['Position_split'] = df_minutes['Position'].astype(str).apply(lambda x: [p.strip() for p in x.split(',')])
-            all_pos = sorted({p for lst in df_minutes['Position_split'] for p in lst})
-            sel_pos = st.sidebar.multiselect('Positions', all_pos, default=all_pos)
+        if 'Position' in filtered_minutes_dataframe.columns:
+            filtered_minutes_dataframe['Position_split'] = (
+                filtered_minutes_dataframe['Position']
+                .astype(str)
+                .apply(lambda positions: [position.strip() for position in positions.split(',')])
+            )
+            all_positions = sorted({position for position_list in filtered_minutes_dataframe['Position_split'] for position in position_list})
+            selected_positions = st.sidebar.multiselect('Positions', all_positions, default=all_positions)
         else:
-            sel_pos = []
+            selected_positions = []
 
-        context = get_context_info(df_minutes, minutes_range, mpg_range, age_range, sel_pos)
-        players = sorted(df_minutes['Player'].unique())
-        p1 = st.sidebar.selectbox('Select Player 1', players)
-        p2 = st.sidebar.selectbox('Select Player 2', [p for p in players if p != p1])
+        context = get_context_information(filtered_minutes_dataframe, minutes_range, minutes_per_game_range, age_range, selected_positions)
+        players = sorted(filtered_minutes_dataframe['Player'].unique())
+        selected_player_1 = st.sidebar.selectbox('Select Player 1', players)
+        selected_player_2 = st.sidebar.selectbox('Select Player 2', [player for player in players if player != selected_player_1])
 
-        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-        tabs = st.tabs(['Radar', 'Bars', 'Scatter', 'Profiler', 'Correlation', 'Composite Index (PCA)'])
+        numeric_columns = filtered_minutes_dataframe.select_dtypes(include=[np.number]).columns.tolist()
+        analysis_tabs = st.tabs(['Radar', 'Bars', 'Scatter', 'Profiler', 'Correlation', 'Composite Index (PCA)'])
 
         # =============================================
-        # Radar Chart (Aba 1) - Versão Corrigida
+        # Radar Chart Corrigido (Aba 1)
         # =============================================
-        with tabs[0]:
+        with analysis_tabs[0]:
             st.header('Radar Chart')
-            sel = st.multiselect('Metrics for Radar (6–12)', numeric_cols, default=numeric_cols[:6])
+            selected_metrics = st.multiselect('Metrics for Radar (6–12)', numeric_columns, default=numeric_columns[:6])
             
-            if 6 <= len(sel) <= 12:
-                # Obter dados dos jogadores
-                d1 = df_minutes[df_minutes['Player']==p1].iloc[0]
-                d2 = df_minutes[df_minutes['Player']==p2].iloc[0]
+            if 6 <= len(selected_metrics) <= 12:
+                player_1_data = filtered_minutes_dataframe[filtered_minutes_dataframe['Player'] == selected_player_1].iloc[0]
+                player_2_data = filtered_minutes_dataframe[filtered_minutes_dataframe['Player'] == selected_player_2].iloc[0]
                 
-                # Definir grupo de referência
-                if sel_pos:
-                    filtered_group = df_minutes[df_minutes['Position_split'].apply(lambda x: any(pos in x for pos in sel_pos))]
+                # Percentis calculados contra dataset completo
+                player_1_percentiles = {
+                    metric: calculate_percentile(filtered_minutes_dataframe[metric], player_1_data[metric]) 
+                    for metric in selected_metrics
+                }
+                player_2_percentiles = {
+                    metric: calculate_percentile(filtered_minutes_dataframe[metric], player_2_data[metric]) 
+                    for metric in selected_metrics
+                }
+
+                # Grupo de referência para média
+                if selected_positions:
+                    position_filtered_group = filtered_minutes_dataframe[
+                        filtered_minutes_dataframe['Position_split'].apply(
+                            lambda positions: any(position in positions for position in selected_positions)
+                        )
+                    ]
                 else:
-                    filtered_group = df_minutes
-                
-                # Calcular percentis relativos ao grupo filtrado
-                p1pct = {m: calc_percentile(filtered_group[m], d1[m]) for m in sel}
-                p2pct = {m: calc_percentile(filtered_group[m], d2[m]) for m in sel}
-                gm = {m: filtered_group[m].mean() for m in sel}
-                gmpct = {m: calc_percentile(filtered_group[m], gm[m]) for m in sel}
-                
-                # Criar tabela de valores
-                comparison_df = pd.DataFrame({
-                    'Metric': sel,
-                    p1: [d1[m] for m in sel],
-                    p2: [d2[m] for m in sel],
-                    'Group Avg': [gm[m] for m in sel]
+                    position_filtered_group = filtered_minutes_dataframe
+
+                group_means = {metric: position_filtered_group[metric].mean() for metric in selected_metrics}
+                group_mean_percentiles = {
+                    metric: calculate_percentile(filtered_minutes_dataframe[metric], group_means[metric]) 
+                    for metric in selected_metrics
+                }
+
+                comparison_dataframe = pd.DataFrame({
+                    'Metric': selected_metrics,
+                    selected_player_1: [player_1_data[metric] for metric in selected_metrics],
+                    selected_player_2: [player_2_data[metric] for metric in selected_metrics],
+                    'Group Average': [group_means[metric] for metric in selected_metrics]
                 }).set_index('Metric').round(2)
 
-                show_avg = st.checkbox('Show Group Average', True)
-                fig = go.Figure()
+                show_group_average = st.checkbox('Show Group Average', True)
+                radar_figure = go.Figure()
                 
-                fig.add_trace(go.Scatterpolar(
-                    r=[p1pct[m]*100 for m in sel],
-                    theta=sel,
+                radar_figure.add_trace(go.Scatterpolar(
+                    r=[player_1_percentiles[metric] * 100 for metric in selected_metrics],
+                    theta=selected_metrics,
                     fill='toself',
-                    name=p1
+                    name=selected_player_1
                 ))
                 
-                fig.add_trace(go.Scatterpolar(
-                    r=[p2pct[m]*100 for m in sel],
-                    theta=sel,
+                radar_figure.add_trace(go.Scatterpolar(
+                    r=[player_2_percentiles[metric] * 100 for metric in selected_metrics],
+                    theta=selected_metrics,
                     fill='toself',
-                    name=p2
+                    name=selected_player_2
                 ))
                 
-                if show_avg:
-                    fig.add_trace(go.Scatterpolar(
-                        r=[gmpct[m]*100 for m in sel],
-                        theta=sel,
+                if show_group_average:
+                    radar_figure.add_trace(go.Scatterpolar(
+                        r=[group_mean_percentiles[metric] * 100 for metric in selected_metrics],
+                        theta=selected_metrics,
                         fill='toself',
-                        name='Group Avg'
+                        name='Group Average'
                     ))
                 
-                title_text = (f"<b>{p1} vs {p2}</b><br>"
-                             f"<sup>Leagues: {context['leagues']} | Seasons: {context['seasons']}<br>"
-                             f"Filters: {context['min_min']}-{context['max_min']} mins | "
-                             f"{context['min_mpg']}-{context['max_mpg']} min/game | "
-                             f"Age {context['min_age']}-{context['max_age']} | Positions: {context['positions']}</sup>")
+                chart_title = (
+                    f"<b>{selected_player_1} vs {selected_player_2}</b><br>"
+                    f"<sup>Leagues: {context['leagues']} | Seasons: {context['seasons']}<br>"
+                    f"Filters: {context['min_minutes']}-{context['max_minutes']} mins | "
+                    f"{context['min_minutes_per_game']}-{context['max_minutes_per_game']} min/game | "
+                    f"Age {context['min_age']}-{context['max_age']} | Positions: {context['positions']}</sup>"
+                )
                 
-                fig.update_layout(
-                    title=dict(text=title_text, x=0.03, xanchor='left', font=dict(size=18)),
-                    polar=dict(radialaxis=dict(range=[0,100])),
+                radar_figure.update_layout(
+                    title=dict(text=chart_title, x=0.03, xanchor='left', font=dict(size=18)),
+                    polar=dict(radialaxis=dict(range=[0, 100])),
                     template='plotly_white',
                     margin=dict(t=200, b=100, l=100, r=100),
                     height=700
                 )
-                st.plotly_chart(fig)
+                st.plotly_chart(radar_figure)
                 
-                # Exibir tabela de valores nominais
                 st.subheader('Nominal Values Comparison')
                 st.dataframe(
-                    comparison_df.style
+                    comparison_dataframe.style
                     .set_table_styles([{
                         'selector': 'th',
                         'props': [('background-color', '#f0f2f6'), ('font-weight', 'bold')]
@@ -231,92 +251,98 @@ if uploaded_files:
                 )
                 
                 if st.button('Export Radar Chart (300 DPI)', key='export_radar'):
-                    fig.update_layout(margin=dict(t=250))
-                    img_bytes = fig.to_image(format="png", width=1600, height=900, scale=3)
+                    radar_figure.update_layout(margin=dict(t=250))
+                    image_bytes = radar_figure.to_image(format="png", width=1600, height=900, scale=3)
                     st.download_button(
                         "⬇️ Download Radar Chart", 
-                        data=img_bytes, 
-                        file_name=f"radar_{p1}_vs_{p2}.png", 
+                        data=image_bytes, 
+                        file_name=f"radar_{selected_player_1}_vs_{selected_player_2}.png", 
                         mime="image/png"
                     )
 
         # =============================================
-        # Bar Charts (Aba 2)
+        # Gráficos de Barras (Aba 2)
         # =============================================
-        with tabs[1]:
+        with analysis_tabs[1]:
             st.header('Bar Chart Comparison')
-            selected_metrics = st.multiselect('Select metrics (max 5)', numeric_cols, default=numeric_cols[:1])
+            selected_metrics = st.multiselect('Select metrics (max 5)', numeric_columns, default=numeric_columns[:1])
             
             if len(selected_metrics) > 5:
                 st.error("Maximum 5 metrics allowed!")
                 st.stop()
             
             if len(selected_metrics) >= 1:
-                fig = make_subplots(
+                figure = make_subplots(
                     rows=len(selected_metrics),
                     cols=1,
                     subplot_titles=selected_metrics,
                     vertical_spacing=0.15
                 )
                 
-                for idx, metric in enumerate(selected_metrics, 1):
-                    p1_val = df_minutes[df_minutes['Player'] == p1][metric].iloc[0]
-                    p2_val = df_minutes[df_minutes['Player'] == p2][metric].iloc[0]
+                for index, metric in enumerate(selected_metrics, 1):
+                    player_1_value = filtered_minutes_dataframe[filtered_minutes_dataframe['Player'] == selected_player_1][metric].iloc[0]
+                    player_2_value = filtered_minutes_dataframe[filtered_minutes_dataframe['Player'] == selected_player_2][metric].iloc[0]
                     
-                    if sel_pos:
-                        filtered_group = df_minutes[df_minutes['Position_split'].apply(lambda x: any(pos in x for pos in sel_pos))]
+                    if selected_positions:
+                        position_filtered_group = filtered_minutes_dataframe[
+                            filtered_minutes_dataframe['Position_split'].apply(
+                                lambda positions: any(position in positions for position in selected_positions)
+                            )
+                        ]
                     else:
-                        filtered_group = df_minutes
+                        position_filtered_group = filtered_minutes_dataframe
                     
-                    avg_val = filtered_group[metric].mean()
+                    average_value = position_filtered_group[metric].mean()
                     
-                    fig.add_trace(go.Bar(
-                        y=[p1], 
-                        x=[p1_val], 
+                    figure.add_trace(go.Bar(
+                        y=[selected_player_1], 
+                        x=[player_1_value], 
                         orientation='h',
-                        name=p1, 
+                        name=selected_player_1, 
                         marker_color='#1f77b4', 
-                        showlegend=(idx == 1)
-                    ), row=idx, col=1)
+                        showlegend=(index == 1)
+                    ), row=index, col=1)
                     
-                    fig.add_trace(go.Bar(
-                        y=[p2], 
-                        x=[p2_val], 
+                    figure.add_trace(go.Bar(
+                        y=[selected_player_2], 
+                        x=[player_2_value], 
                         orientation='h',
-                        name=p2, 
+                        name=selected_player_2, 
                         marker_color='#ff7f0e', 
-                        showlegend=(idx == 1)
-                    ), row=idx, col=1)
+                        showlegend=(index == 1)
+                    ), row=index, col=1)
                     
-                    fig.add_vline(
-                        x=avg_val, 
+                    figure.add_vline(
+                        x=average_value, 
                         line_dash="dash", 
                         line_color="green",
                         annotation_text="Group Avg", 
-                        row=idx, 
+                        row=index, 
                         col=1
                     )
                 
-                title_text = (f"<b>Metric Comparison</b><br>"
-                             f"<sup>Context: {context['leagues']} ({context['seasons']}) | "
-                             f"Players: {context['total_players']} | Filters: {context['min_age']}-{context['max_age']} years</sup>")
+                chart_title = (
+                    f"<b>Metric Comparison</b><br>"
+                    f"<sup>Context: {context['leagues']} ({context['seasons']}) | "
+                    f"Players: {context['total_players']} | Filters: {context['min_age']}-{context['max_age']} years</sup>"
+                )
                 
-                fig.update_layout(
-                    title=dict(text=title_text, x=0.03, xanchor='left', font=dict(size=18)),
-                    height=300*len(selected_metrics),
+                figure.update_layout(
+                    title=dict(text=chart_title, x=0.03, xanchor='left', font=dict(size=18)),
+                    height=300*len(selected_metrics)),
                     width=800,
                     template='plotly_white',
                     barmode='group',
                     margin=dict(t=200, b=100, l=100, r=100)
                 )
-                st.plotly_chart(fig)
+                st.plotly_chart(figure)
                 
                 if st.button('Export Bar Charts (300 DPI)', key='export_bar'):
-                    fig.update_layout(margin=dict(t=250))
-                    img_bytes = fig.to_image(format="png", width=1600, height=300*len(selected_metrics)+300, scale=3)
+                    figure.update_layout(margin=dict(t=250))
+                    image_bytes = figure.to_image(format="png", width=1600, height=300*len(selected_metrics)+300, scale=3)
                     st.download_button(
                         "⬇️ Download Charts", 
-                        data=img_bytes, 
+                        data=image_bytes, 
                         file_name="bar_charts.png", 
                         mime="image/png"
                     )
@@ -324,278 +350,284 @@ if uploaded_files:
         # =============================================
         # Scatter Plot (Aba 3)
         # =============================================
-        with tabs[2]:
+        with analysis_tabs[2]:
             st.header('Scatter Plot')
-            x = st.selectbox('X metric', numeric_cols)
-            y = st.selectbox('Y metric', numeric_cols)
-            highlight_players = st.multiselect('Highlight up to 5 players', players, default=[p1, p2])[:5]
+            x_metric = st.selectbox('X metric', numeric_columns)
+            y_metric = st.selectbox('Y metric', numeric_columns)
+            highlighted_players = st.multiselect('Highlight up to 5 players', players, default=[selected_player_1, selected_player_2])[:5]
             
-            df_filtered = df_minutes[df_minutes['Age'].between(*age_range)]
-            if sel_pos:
-                df_filtered = df_filtered[df_filtered['Position_split'].apply(lambda x: any(pos in x for pos in sel_pos))]
+            filtered_data = filtered_minutes_dataframe[filtered_minutes_dataframe['Age'].between(*age_range)]
+            if selected_positions:
+                filtered_data = filtered_data[filtered_data['Position_split'].apply(lambda x: any(pos in x for pos in selected_positions))]
             
-            fig = go.Figure()
-            fig.add_trace(go.Scatter(
-                x=df_filtered[x], 
-                y=df_filtered[y], 
+            figure = go.Figure()
+            figure.add_trace(go.Scatter(
+                x=filtered_data[x_metric], 
+                y=filtered_data[y_metric], 
                 mode='markers', 
                 marker=dict(color='cornflowerblue', opacity=0.5, size=8), 
-                text=df_filtered['Player'], 
+                text=filtered_data['Player'], 
                 hoverinfo='text', 
                 name='All'
             ))
             
             colors = ['red','blue','green','orange','purple']
-            for i,p in enumerate(highlight_players):
-                pdata = df_filtered[df_filtered['Player']==p]
-                if not pdata.empty:
-                    fig.add_trace(go.Scatter(
-                        x=pdata[x], 
-                        y=pdata[y], 
-                        text=pdata['Player'], 
+            for index, player in enumerate(highlighted_players):
+                player_data = filtered_data[filtered_data['Player']==player]
+                if not player_data.empty:
+                    figure.add_trace(go.Scatter(
+                        x=player_data[x_metric], 
+                        y=player_data[y_metric], 
+                        text=player_data['Player'], 
                         mode='markers+text', 
-                        marker=dict(size=12, color=colors[i]), 
-                        name=p
+                        marker=dict(size=12, color=colors[index]), 
+                        name=player
                     ))
             
-            title_text = (f"<b>{x} vs {y}</b><br>"
-                         f"<sup>Data Source: {context['leagues']} ({context['seasons']})<br>"
-                         f"Filters: {context['total_players']} players | "
-                         f"{context['min_mpg']}+ min/game | {context['positions']}</sup>")
+            chart_title = (
+                f"<b>{x_metric} vs {y_metric}</b><br>"
+                f"<sup>Data Source: {context['leagues']} ({context['seasons']})<br>"
+                f"Filters: {context['total_players']} players | "
+                f"{context['min_minutes_per_game']}+ min/game | {context['positions']}</sup>"
+            )
             
-            fig.update_layout(
-                title=dict(text=title_text, x=0.03, xanchor='left', font=dict(size=18)),
+            figure.update_layout(
+                title=dict(text=chart_title, x=0.03, xanchor='left', font=dict(size=18)),
                 width=1000, 
                 height=700,
                 template='plotly_dark',
                 margin=dict(t=200, b=100, l=100, r=100)
             )
-            st.plotly_chart(fig)
+            st.plotly_chart(figure)
             
             if st.button('Export Scatter Plot (300 DPI)', key='export_scatter'):
-                fig.update_layout(margin=dict(t=250))
-                img_bytes = fig.to_image(format="png", width=1800, height=1200, scale=3)
+                figure.update_layout(margin=dict(t=250))
+                image_bytes = figure.to_image(format="png", width=1800, height=1200, scale=3)
                 st.download_button(
                     "⬇️ Download Scatter Plot", 
-                    data=img_bytes, 
-                    file_name=f"scatter_{x}_vs_{y}.png", 
+                    data=image_bytes, 
+                    file_name=f"scatter_{x_metric}_vs_{y_metric}.png", 
                     mime="image/png"
                 )
 
         # =============================================
         # Profiler (Aba 4)
         # =============================================
-        with tabs[3]:
+        with analysis_tabs[3]:
             st.header('Profiler')
-            sel = st.multiselect('Select 4–12 metrics', numeric_cols)
+            selected_metrics = st.multiselect('Select 4–12 metrics', numeric_columns)
             
-            if 4 <= len(sel) <= 12:
-                pct = {m: df_minutes[m].rank(pct=True) for m in sel}
-                mins = {m: st.slider(f'Min % for {m}', 0,100,50) for m in sel}
-                mask = np.logical_and.reduce([pct[m]*100 >= mins[m] for m in sel])
-                st.dataframe(df_minutes.loc[mask,['Player', 'Team']+sel].reset_index(drop=True))
+            if 4 <= len(selected_metrics) <= 12:
+                percentiles = {metric: filtered_minutes_dataframe[metric].rank(pct=True) for metric in selected_metrics}
+                min_percentiles = {metric: st.slider(f'Min % for {metric}', 0,100,50) for metric in selected_metrics}
+                filter_mask = np.logical_and.reduce([percentiles[metric]*100 >= min_percentiles[metric] for metric in selected_metrics])
+                st.dataframe(filtered_minutes_dataframe.loc[filter_mask, ['Player', 'Team'] + selected_metrics].reset_index(drop=True))
             else:
                 st.warning('Select between 4 and 12 metrics.')
 
         # =============================================
         # Correlation Matrix (Aba 5)
         # =============================================
-        with tabs[4]:
+        with analysis_tabs[4]:
             st.header('Correlation Matrix')
-            sel = st.multiselect('Metrics to correlate', numeric_cols, default=numeric_cols)
+            selected_metrics = st.multiselect('Metrics to correlate', numeric_columns, default=numeric_columns)
             
-            if len(sel) >= 2:
-                corr = df_minutes[sel].corr()
-                fig = go.Figure(data=go.Heatmap(
-                    z=corr.values, 
-                    x=sel, 
-                    y=sel, 
+            if len(selected_metrics) >= 2:
+                correlation_matrix = filtered_minutes_dataframe[selected_metrics].corr()
+                figure = go.Figure(data=go.Heatmap(
+                    z=correlation_matrix.values, 
+                    x=selected_metrics, 
+                    y=selected_metrics, 
                     zmin=-1, 
                     zmax=1, 
                     colorscale='Viridis'
                 ))
                 
-                title_text = (f"<b>Metric Relationships</b><br>"
-                             f"<sup>Dataset: {context['leagues']} ({context['seasons']})<br>"
-                             f"Players: {context['total_players']} | Min. Minutes: {context['min_min']}+</sup>")
+                chart_title = (
+                    f"<b>Metric Relationships</b><br>"
+                    f"<sup>Dataset: {context['leagues']} ({context['seasons']})<br>"
+                    f"Players: {context['total_players']} | Min. Minutes: {context['min_minutes']}+</sup>"
+                )
                 
-                fig.update_layout(
-                    title=dict(text=title_text, x=0.03, xanchor='left', font=dict(size=18)),
+                figure.update_layout(
+                    title=dict(text=chart_title, x=0.03, xanchor='left', font=dict(size=18)),
                     template='plotly_dark',
                     margin=dict(t=200, b=100, l=100, r=100)
                 )
-                st.plotly_chart(fig)
+                st.plotly_chart(figure)
                 
                 if st.button('Export Correlation Matrix (300 DPI)', key='export_corr'):
-                    fig.update_layout(margin=dict(t=250))
-                    img_bytes = fig.to_image(format="png", width=1400, height=1400, scale=3)
+                    figure.update_layout(margin=dict(t=250))
+                    image_bytes = figure.to_image(format="png", width=1400, height=1400, scale=3)
                     st.download_button(
                         "⬇️ Download Correlation Matrix", 
-                        data=img_bytes, 
+                        data=image_bytes, 
                         file_name="correlation_matrix.png", 
                         mime="image/png"
                     )
 
         # =============================================
-        # Composite PCA Index (Aba 6) - Correção Aplicada
+        # Composite PCA Index (Aba 6)
         # =============================================
-        with tabs[5]:
+        with analysis_tabs[5]:
             st.header('Composite PCA Index + Excel Export')
-            performance_cols = [col for col in numeric_cols if col not in ['Age','Height','Country','Minutes played','Position']]
+            performance_metrics = [col for col in numeric_columns if col not in ['Age','Height','Country','Minutes played','Position']]
             
-            col1, col2, col3, col4 = st.columns(4)
-            with col1:
+            column_1, column_2, column_3, column_4 = st.columns(4)
+            with column_1:
                 kernel_type = st.selectbox('Kernel Type',['linear','rbf'], index=1)
-            with col2:
-                gamma = st.number_input('Gamma', value=0.1, min_value=0.0, step=0.1, disabled=(kernel_type=='linear'))
-            with col3:
-                corr_threshold = st.slider(
+            with column_2:
+                gamma_value = st.number_input('Gamma', value=0.1, min_value=0.0, step=0.1, disabled=(kernel_type=='linear'))
+            with column_3:
+                correlation_threshold = st.slider(
                     'Correlation Threshold', 
                     0.0, 1.0, 0.5, 0.05,
                     help='Minimum average correlation for feature inclusion',
                     disabled=st.session_state.get('manual_weights', False)
                 )
-            with col4:
+            with column_4:
                 manual_weights = st.checkbox('Manual Weights', key='manual_weights')
 
-            sel = st.multiselect('Select performance metrics', performance_cols)
+            selected_metrics = st.multiselect('Select performance metrics', performance_metrics)
             
-            if len(sel)<2:
+            if len(selected_metrics)<2:
                 st.warning('Select at least two performance metrics.')
                 st.stop()
 
             if manual_weights:
                 st.subheader('Manual Weight Adjustment')
                 weight_sliders = {}
-                cols2 = st.columns(3)
-                for idx, m in enumerate(sel):
-                    with cols2[idx%3]:
-                        weight_sliders[m] = st.slider(f'Weight for {m}', 0.0, 1.0, 0.5, key=f'weight_{m}')
+                columns = st.columns(3)
+                for index, metric in enumerate(selected_metrics):
+                    with columns[index%3]:
+                        weight_sliders[metric] = st.slider(f'Weight for {metric}', 0.0, 1.0, 0.5, key=f'weight_{metric}')
                 weights = pd.Series(weight_sliders)
-                excluded = []
+                excluded_metrics = []
             else:
                 @st.cache_data
-                def calculate_weights(_df, features, threshold):
-                    cm = _df[features].corr().abs()
-                    ac = cm.mean(axis=1)
-                    return ac.where(ac>threshold, 0)
-                weights = calculate_weights(df_minutes, sel, corr_threshold)
-                excluded = weights[weights==0].index.tolist()
+                def calculate_weights(dataframe, features, threshold):
+                    correlation_matrix = dataframe[features].corr().abs()
+                    average_correlations = correlation_matrix.mean(axis=1)
+                    return average_correlations.where(average_correlations>threshold, 0)
+                weights = calculate_weights(filtered_minutes_dataframe, selected_metrics, correlation_threshold)
+                excluded_metrics = weights[weights==0].index.tolist()
 
-            if excluded and not manual_weights:
-                st.warning(f'Excluded metrics (low correlation): {", ".join(excluded)}')
-                sel = [m for m in sel if m not in excluded]
+            if excluded_metrics and not manual_weights:
+                st.warning(f'Excluded metrics (low correlation): {", ".join(excluded_metrics)}')
+                selected_metrics = [metric for metric in selected_metrics if metric not in excluded_metrics]
 
             class WeightedKPCA:
-                def __init__(self, kern='rbf', gamma=None):
-                    self.kernel = kern
+                def __init__(self, kernel='rbf', gamma=None):
+                    self.kernel = kernel
                     self.gamma = gamma
                     self.scaler = StandardScaler()
                 
                 def fit_transform(self, X, weights):
-                    Xs = self.scaler.fit_transform(X)
-                    Xw = Xs * weights.values
+                    X_scaled = self.scaler.fit_transform(X)
+                    X_weighted = X_scaled * weights.values
                     self.kpca = KernelPCA(
                         n_components=1,
                         kernel=self.kernel,
                         gamma=self.gamma,
                         random_state=42
                     )
-                    return self.kpca.fit_transform(Xw).flatten()
+                    return self.kpca.fit_transform(X_weighted).flatten()
 
-            if len(sel)>=2:
+            if len(selected_metrics)>=2:
                 try:
-                    kp = WeightedKPCA(kern=kernel_type, gamma=(None if kernel_type=='linear' else gamma))
-                    df_sel = df_minutes[sel].dropna()
-                    scores = kp.fit_transform(df_sel, weights)
-                    idx = df_sel.index
+                    kpca = WeightedKPCA(kernel=kernel_type, gamma=(None if kernel_type=='linear' else gamma_value))
+                    selected_data = filtered_minutes_dataframe[selected_metrics].dropna()
+                    pca_scores = kpca.fit_transform(selected_data, weights)
+                    data_index = selected_data.index
                     
-                    df_pca = pd.DataFrame({
-                        'Player': df_minutes.loc[idx, 'Player'],
-                        'Team': df_minutes.loc[idx, 'Team'],
-                        'PCA Score': scores,
-                        'Age': df_minutes.loc[idx, 'Age'],
-                        'Position': df_minutes.loc[idx, 'Position'],
-                        'Data Origin': df_minutes.loc[idx, 'Data Origin'],
-                        'Season': df_minutes.loc[idx, 'Season']
+                    pca_dataframe = pd.DataFrame({
+                        'Player': filtered_minutes_dataframe.loc[data_index, 'Player'],
+                        'Team': filtered_minutes_dataframe.loc[data_index, 'Team'],
+                        'PCA Score': pca_scores,
+                        'Age': filtered_minutes_dataframe.loc[data_index, 'Age'],
+                        'Position': filtered_minutes_dataframe.loc[data_index, 'Position'],
+                        'Data Origin': filtered_minutes_dataframe.loc[data_index, 'Data Origin'],
+                        'Season': filtered_minutes_dataframe.loc[data_index, 'Season']
                     })
 
                     st.write('**Feature Weights**')
-                    wdf = pd.DataFrame({
+                    weights_dataframe = pd.DataFrame({
                         'Metric': weights.index,
                         'Weight': weights.values
                     }).sort_values('Weight', ascending=False)
-                    st.dataframe(wdf.style.format({'Weight':'{:.2f}'}))
+                    st.dataframe(weights_dataframe.style.format({'Weight':'{:.2f}'}))
 
-                    af = df_pca['Age'].between(*age_range)
-                    pf = (
-                        df_pca['Position'].astype(str).apply(lambda x: any(pos in x for pos in sel_pos)) 
-                        if sel_pos 
-                        else pd.Series(True, index=df_pca.index)
+                    age_filter = pca_dataframe['Age'].between(*age_range)
+                    position_filter = (
+                        pca_dataframe['Position'].astype(str).apply(lambda x: any(pos in x for pos in selected_positions)) 
+                        if selected_positions 
+                        else pd.Series(True, index=pca_dataframe.index)
                     )
-                    df_f = df_pca[af & pf]
+                    filtered_pca_data = pca_dataframe[age_filter & position_filter]
 
-                    if not df_f.empty:
-                        mn, mx = df_f['PCA Score'].min(), df_f['PCA Score'].max()
-                        sr = st.slider(
+                    if not filtered_pca_data.empty:
+                        min_score, max_score = filtered_pca_data['PCA Score'].min(), filtered_pca_data['PCA Score'].max()
+                        score_range = st.slider(
                             'Filter PCA Score range',
-                            min_value=float(mn),
-                            max_value=float(mx),
-                            value=(float(mn), float(mx))
+                            min_value=float(min_score),
+                            max_value=float(max_score),
+                            value=(float(min_score), float(max_score))
                         )
                         
-                        df_final = df_f[df_f['PCA Score'].between(*sr)]
-                        if df_final.empty:
+                        final_data = filtered_pca_data[filtered_pca_data['PCA Score'].between(*score_range)]
+                        if final_data.empty:
                             st.warning('No players in the selected PCA score range.')
                         else:
-                            st.write(f'**Matching Players ({len(df_final)})**')
-                            st.dataframe(df_final.sort_values('PCA Score', ascending=False).reset_index(drop=True))
+                            st.write(f'**Matching Players ({len(final_data)})**')
+                            st.dataframe(final_data.sort_values('PCA Score', ascending=False).reset_index(drop=True))
                             
                             st.write('**Score Distribution**')
-                            fig_pca = go.Figure(data=[go.Bar(x=df_final['Player'], y=df_final['PCA Score'])])
+                            pca_figure = go.Figure(data=[go.Bar(x=final_data['Player'], y=final_data['PCA Score'])])
                             
-                            title_text = (f"<b>PCA Scores</b><br>"
-                                         f"<sup>Context: {context['leagues']} ({context['seasons']})<br>"
-                                         f"Filters: Age {context['min_age']}-{context['max_age']} | "
-                                         f"{context['positions']} | Metrics: {len(sel)} selected</sup>")
+                            chart_title = (
+                                f"<b>PCA Scores</b><br>"
+                                f"<sup>Context: {context['leagues']} ({context['seasons']})<br>"
+                                f"Filters: Age {context['min_age']}-{context['max_age']} | "
+                                f"{context['positions']} | Metrics: {len(selected_metrics)} selected</sup>"
+                            )
                             
-                            fig_pca.update_layout(
-                                title=dict(text=title_text, x=0.03, xanchor='left', font=dict(size=18)),
+                            pca_figure.update_layout(
+                                title=dict(text=chart_title, x=0.03, xanchor='left', font=dict(size=18)),
                                 template='plotly_dark',
                                 margin=dict(t=200, b=100, l=100, r=100)
                             )
-                            st.plotly_chart(fig_pca)
+                            st.plotly_chart(pca_figure)
                             
                             if st.button('Export PCA Scores (300 DPI)', key='export_pca'):
-                                fig_pca.update_layout(margin=dict(t=250))
-                                img_bytes = fig_pca.to_image(format="png", width=1600, height=900, scale=3)
+                                pca_figure.update_layout(margin=dict(t=250))
+                                image_bytes = pca_figure.to_image(format="png", width=1600, height=900, scale=3)
                                 st.download_button(
                                     "⬇️ Download PCA Chart", 
-                                    data=img_bytes, 
+                                    data=image_bytes, 
                                     file_name="pca_scores.png", 
                                     mime="image/png"
                                 )
                             
-                            # Export Excel
-                            bio = BytesIO()
-                            with pd.ExcelWriter(bio, engine='xlsxwriter') as writer:
-                                df_final.to_excel(writer, sheet_name='PCA Results', index=False)
-                            bio.seek(0)
+                            # Exportar Excel
+                            buffer = BytesIO()
+                            with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+                                final_data.to_excel(writer, sheet_name='PCA Results', index=False)
+                            buffer.seek(0)
                             st.download_button(
                                 '📥 Download Results as Excel',
-                                data=bio,
+                                data=buffer,
                                 file_name='pca_results.xlsx',
                                 mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
                             )
                     else:
                         st.warning('No players match the current filters.')
-                except Exception as e:
-                    st.error(f'PCA calculation error: {str(e)}')
+                except Exception as error:
+                    st.error(f'PCA calculation error: {str(error)}')
             else:
                 st.error('Insufficient valid metrics after filtering.')
 
-    except Exception as e:
-        st.error(f'Error: {e}')
+    except Exception as error:
+        st.error(f'Error: {error}')
 else:
     st.info('Please upload up to 15 Wyscout Excel files to start the analysis')
     st.warning("⚠️ Required: `pip install kaleido==0.2.1.post1`")
