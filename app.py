@@ -437,7 +437,7 @@ if uploaded_files:
                     )
 
         # =============================================
-        # Composite PCA Index (Aba 6)
+        # Composite PCA Index (Aba 6) - Correção Aplicada
         # =============================================
         with tabs[5]:
             st.header('Composite PCA Index + Excel Export')
@@ -528,8 +528,11 @@ if uploaded_files:
                     st.dataframe(wdf.style.format({'Weight':'{:.2f}'}))
 
                     af = df_pca['Age'].between(*age_range)
-                    pf = (df_pca['Position'].astype(str).apply(lambda x: any(pos in x for pos in sel_pos)) \
-                          if sel_pos else pd.Series(True, index=df_pca.index)
+                    pf = (
+                        df_pca['Position'].astype(str).apply(lambda x: any(pos in x for pos in sel_pos)) 
+                        if sel_pos 
+                        else pd.Series(True, index=df_pca.index)
+                    )
                     df_f = df_pca[af & pf]
 
                     if not df_f.empty:
