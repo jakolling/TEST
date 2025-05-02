@@ -31,28 +31,20 @@ with st.expander("📘 User Guide & Instructions", expanded=False):
     st.markdown("""
     **Football Analytics Dashboard - Comprehensive User Guide**  
     ### **1. Initial Setup**  
-    - Upload up to 15 Wyscout Excel files through the sidebar  # Modificado para 15
-    - Files must contain consistent columns (Player, Age, Position, Metrics, Team)  # Adicionado Team
+    - Upload up to 15 Wyscout Excel files through the sidebar  
+    - Files must contain consistent columns (Player, Age, Position, Metrics, Team)  
 
-    ### **2. Analysis Views**  
+    ### **2. New Features**  
+    - **Minutes per Game Filter**: Analyze players by their average playing time per match  
+    - **Enhanced Filter Sequence**: Total Minutes → Minutes per Game → Age → Position  
+
+    ### **3. Analysis Views**  
     - **Radar Chart**: Compare players across 6–12 metrics  
     - **Bars**: Direct comparison in single metric  
     - **Scatter Plot**: Explore relationships between two metrics  
     - **Profiler**: Filter players by percentile thresholds  
     - **Correlation Matrix**: Explore metric relationships  
-    - **Composite Index (PCA)**: Create composite scores with smart/manual weighting
-
-    ### **3. Key Features**  
-    - Automatic data cleaning and merging  
-    - Correlation-based or manual feature weighting  
-    - Kernel PCA with linear or non-linear dimensionality reduction  
-    - Filters for age, minutes played, position (persistent across tabs)
-    - Team information in all player listings  # Nova feature
-
-    ### **4. Tips**  
-    - Start with Correlation Matrix to discover metric patterns  
-    - Use Radar for quick scouting comparisons  
-    - Combine PCA with Scatter to reveal player clusters
+    - **Composite Index (PCA)**: Create composite scores with smart/manual weighting  
 
     *Contact: jakolling@gmail.com for support.*
     """)
@@ -60,7 +52,7 @@ with st.expander("📘 User Guide & Instructions", expanded=False):
 # Data loading and cleaning
 def load_and_clean(files):
     dfs = []
-    for file in files[:15]:  # Alterado de 8 para 15
+    for file in files[:15]:
         df = pd.read_excel(file)
         df.dropna(how="all", inplace=True)
         df = df.loc[:, df.columns.notnull()]
@@ -75,7 +67,7 @@ def calc_percentile(series, value):
 # Sidebar filters
 st.sidebar.header('Filters')
 with st.sidebar.expander("⚙️ Advanced Filters", expanded=True):
-    uploaded_files = st.file_uploader("Upload up to 15 Wyscout Excel files", type=["xlsx"], accept_multiple_files=True)  # Alterado para 15
+    uploaded_files = st.file_uploader("Upload up to 15 Wyscout Excel files", type=["xlsx"], accept_multiple_files=True)
 
 if uploaded_files:
     try:
@@ -85,6 +77,15 @@ if uploaded_files:
         min_min, max_min = int(df['Minutes played'].min()), int(df['Minutes played'].max())
         minutes_range = st.sidebar.slider('Minutes Played', min_min, max_min, (min_min, max_min))
         df_minutes = df[df['Minutes played'].between(*minutes_range)].copy()
+
+        # Calculate Minutes per Game with error handling
+        df_minutes['Minutes per game'] = df_minutes['Minutes played'] / df_minutes['Matches played'].replace(0, np.nan)
+        df_minutes['Minutes per game'] = df_minutes['Minutes per game'].fillna(0).clip(0, 120)  # Handle NaN and limit to 120
+        
+        # Minutes per Game filter
+        min_mpg, max_mpg = int(df_minutes['Minutes per game'].min()), int(df_minutes['Minutes per game'].max())
+        mpg_range = st.sidebar.slider('Minutes per Game', min_mpg, max_mpg, (min_mpg, max_mpg))
+        df_minutes = df_minutes[df_minutes['Minutes per game'].between(*mpg_range)]
 
         # Age filter
         min_age, max_age = int(df_minutes['Age'].min()), int(df_minutes['Age'].max())
@@ -103,6 +104,8 @@ if uploaded_files:
         p1 = st.sidebar.selectbox('Select Player 1', players)
         p2 = st.sidebar.selectbox('Select Player 2', [p for p in players if p != p1])
 
+        # Rest of the code remains the same...
+        # [Keep all existing tab implementations unchanged]
         # Tabs for views
         tabs = st.tabs(['Radar', 'Bars', 'Scatter', 'Profiler', 'Correlation', 'Composite Index (PCA)'])
         numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
@@ -352,5 +355,5 @@ if uploaded_files:
     except Exception as e:
         st.error(f'Error: {e}')
 else:
-    st.info('Please upload up to 15 Wyscout Excel files to start the analysis')  # Alterado para 15
+    st.info('Please upload up to 15 Wyscout Excel files to start the analysis')
     st.warning("⚠️ For high-resolution exports, install: `pip install kaleido`")
