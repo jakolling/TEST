@@ -148,28 +148,30 @@ if uploaded_files:
         tabs = st.tabs(['Radar', 'Bars', 'Scatter', 'Profiler', 'Correlation', 'Composite Index (PCA)'])
 
         # =============================================
-        # Radar Chart (Aba 1) com Tabela de Valores
+        # Radar Chart (Aba 1) - Versão Corrigida
         # =============================================
         with tabs[0]:
             st.header('Radar Chart')
             sel = st.multiselect('Metrics for Radar (6–12)', numeric_cols, default=numeric_cols[:6])
             
             if 6 <= len(sel) <= 12:
+                # Obter dados dos jogadores
                 d1 = df_minutes[df_minutes['Player']==p1].iloc[0]
                 d2 = df_minutes[df_minutes['Player']==p2].iloc[0]
                 
-                # Filtro para Group Avg baseado nas posições
+                # Definir grupo de referência
                 if sel_pos:
                     filtered_group = df_minutes[df_minutes['Position_split'].apply(lambda x: any(pos in x for pos in sel_pos))]
                 else:
                     filtered_group = df_minutes
                 
-                p1pct = {m: calc_percentile(df_minutes[m], d1[m]) for m in sel}
-                p2pct = {m: calc_percentile(df_minutes[m], d2[m]) for m in sel}
+                # Calcular percentis relativos ao grupo filtrado
+                p1pct = {m: calc_percentile(filtered_group[m], d1[m]) for m in sel}
+                p2pct = {m: calc_percentile(filtered_group[m], d2[m]) for m in sel}
                 gm = {m: filtered_group[m].mean() for m in sel}
                 gmpct = {m: calc_percentile(filtered_group[m], gm[m]) for m in sel}
                 
-                # Criar DataFrame para tabela
+                # Criar tabela de valores
                 comparison_df = pd.DataFrame({
                     'Metric': sel,
                     p1: [d1[m] for m in sel],
@@ -320,7 +322,7 @@ if uploaded_files:
                     )
 
         # =============================================
-        # Scatter Plot (Aba 3) - Correção Aplicada
+        # Scatter Plot (Aba 3)
         # =============================================
         with tabs[2]:
             st.header('Scatter Plot')
@@ -435,7 +437,7 @@ if uploaded_files:
                     )
 
         # =============================================
-        # Composite PCA Index (Aba 6) - Correção Aplicada
+        # Composite PCA Index (Aba 6)
         # =============================================
         with tabs[5]:
             st.header('Composite PCA Index + Excel Export')
@@ -526,8 +528,8 @@ if uploaded_files:
                     st.dataframe(wdf.style.format({'Weight':'{:.2f}'}))
 
                     af = df_pca['Age'].between(*age_range)
-                    pf = (df_pca['Position'].astype(str).apply(lambda x: any(pos in x for pos in sel_pos)) 
-                          if sel_pos else pd.Series(True, index=df_pca.index))
+                    pf = (df_pca['Position'].astype(str).apply(lambda x: any(pos in x for pos in sel_pos)) \
+                          if sel_pos else pd.Series(True, index=df_pca.index)
                     df_f = df_pca[af & pf]
 
                     if not df_f.empty:
