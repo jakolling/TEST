@@ -417,7 +417,7 @@ if uploaded_files:
                     )
 
         # =============================================
-        # Composite PCA Index (Aba 6)
+        # Composite PCA Index (Aba 6) - CORREÇÃO APLICADA
         # =============================================
         with tabs[5]:
             st.header('Composite PCA Index + Excel Export')
@@ -433,7 +433,8 @@ if uploaded_files:
                     'Correlation Threshold', 
                     0.0, 1.0, 0.5, 0.05,
                     help='Minimum average correlation for feature inclusion',
-                    disabled=st.session_state.get('manual_weights', False)
+                    disabled=st.session_state.get('manual_weights', False)  # CORREÇÃO DO PARÊNTESE
+                )
             with col4:
                 manual_weights = st.checkbox('Manual Weights', key='manual_weights')
 
@@ -507,7 +508,7 @@ if uploaded_files:
                     st.dataframe(wdf.style.format({'Weight':'{:.2f}'}))
 
                     af = df_pca['Age'].between(*age_range)
-                    pf = (df_pca['Position'].astype(str).apply(lambda x: any(pos in x for pos in sel_pos)) 
+                    pf = (df_pca['Position'].astos.listr().apply(lambda x: any(pos in x for pos in sel_pos)) 
                           if sel_pos else pd.Series(True, index=df_pca.index))
                     df_f = df_pca[af & pf]
 
