@@ -329,7 +329,7 @@ if uploaded_files:
                 
                 figure.update_layout(
                     title=dict(text=chart_title, x=0.03, xanchor='left', font=dict(size=18)),
-                    height=300*len(selected_metrics)),
+                    height=300*len(selected_metrics),
                     width=800,
                     template='plotly_white',
                     barmode='group',
