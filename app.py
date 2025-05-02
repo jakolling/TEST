@@ -327,15 +327,14 @@ if arquivos_enviados:
                 )
                 
                 figura_barras.update_layout(
-    title=dict(text=titulo_barras, x=0.03, xanchor='left', font=dict(size=18)),
-    height=300*len(metricas_selecionadas),
-    width=800,
-    template='plotly_white',
-    barmode='group',
-    margin=dict(t=200, b=100, l=100, r=100)
-)  # <-- Added closing parenthesis here
-
-st.plotly_chart(figura_barras)
+                    title=dict(text=titulo_barras, x=0.03, xanchor='left', font=dict(size=18)),
+                    height=300*len(metricas_selecionadas),
+                    width=800,
+                    template='plotly_white',
+                    barmode='group',
+                    margin=dict(t=200, b=100, l=100, r=100)
+                
+                st.plotly_chart(figura_barras)
                 
                 if st.button('Exportar Gráficos de Barras (300 DPI)', key='exportar_barras'):
                     figura_barras.update_layout(margin=dict(t=250))
