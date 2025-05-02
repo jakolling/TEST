@@ -17,19 +17,6 @@ st.set_page_config(
     page_icon="⚽"
 )
 
-# Custom CSS for checkboxes
-st.markdown("""
-<style>
-div[role="checkbox"] label {
-    font-size: 14px !important;
-    margin-bottom: 8px;
-}
-[data-testid="stExpander"] details summary p {
-    font-weight: 600 !important;
-}
-</style>
-""", unsafe_allow_html=True)
-
 # Header with logo
 col1, col2, col3 = st.columns([1,3,1])
 with col2:
@@ -44,9 +31,8 @@ with st.expander("📘 User Guide & Instructions", expanded=False):
     st.markdown("""
     **Football Analytics Dashboard - Comprehensive User Guide**  
     ### **1. Initial Setup**  
-    - Upload up to 15 Wyscout Excel files through the sidebar  
-    - Select which databases to include using the checkbox system
-    - Files must contain consistent columns (Player, Age, Position, Metrics, Team)
+    - Upload up to 15 Wyscout Excel files through the sidebar  # Modificado para 15
+    - Files must contain consistent columns (Player, Age, Position, Metrics, Team)  # Adicionado Team
 
     ### **2. Analysis Views**  
     - **Radar Chart**: Compare players across 6–12 metrics  
@@ -57,13 +43,30 @@ with st.expander("📘 User Guide & Instructions", expanded=False):
     - **Composite Index (PCA)**: Create composite scores with smart/manual weighting
 
     ### **3. Key Features**  
-    - Database selection system  
-    - Team information in all listings  
-    - Advanced filtering options  
-    - High-resolution exports
+    - Automatic data cleaning and merging  
+    - Correlation-based or manual feature weighting  
+    - Kernel PCA with linear or non-linear dimensionality reduction  
+    - Filters for age, minutes played, position (persistent across tabs)
+    - Team information in all player listings  # Nova feature
+
+    ### **4. Tips**  
+    - Start with Correlation Matrix to discover metric patterns  
+    - Use Radar for quick scouting comparisons  
+    - Combine PCA with Scatter to reveal player clusters
 
     *Contact: jakolling@gmail.com for support.*
     """)
+
+# Data loading and cleaning
+def load_and_clean(files):
+    dfs = []
+    for file in files[:15]:  # Alterado de 8 para 15
+        df = pd.read_excel(file)
+        df.dropna(how="all", inplace=True)
+        df = df.loc[:, df.columns.notnull()]
+        df.columns = [str(c).strip() for c in df.columns]
+        dfs.append(df)
+    return pd.concat(dfs, ignore_index=True)
 
 @st.cache_data
 def calc_percentile(series, value):
@@ -72,28 +75,11 @@ def calc_percentile(series, value):
 # Sidebar filters
 st.sidebar.header('Filters')
 with st.sidebar.expander("⚙️ Advanced Filters", expanded=True):
-    uploaded_files = st.file_uploader("Upload up to 15 Wyscout Excel files", type=["xlsx"], accept_multiple_files=True)
+    uploaded_files = st.file_uploader("Upload up to 15 Wyscout Excel files", type=["xlsx"], accept_multiple_files=True)  # Alterado para 15
 
 if uploaded_files:
     try:
-        # Novosistema de seleção de databases
-        all_dfs = {file.name: pd.read_excel(file) for file in uploaded_files[:15]}
-        
-        with st.sidebar.expander("🗃️ Select Databases", expanded=True):
-            selected_dbs = [
-                db_name for db_name in all_dfs.keys() 
-                if st.checkbox(db_name, True, key=f"db_{db_name}")
-            ]
-
-        # Combine selected databases
-        if not selected_dbs:
-            st.error("Please select at least one database!")
-            st.stop()
-            
-        df = pd.concat([all_dfs[name] for name in selected_dbs], ignore_index=True)
-        df = df.loc[:, df.columns.notnull()]
-        df.columns = [str(c).strip() for c in df.columns]
-        df.dropna(how="all", inplace=True)
+        df = load_and_clean(uploaded_files)
 
         # Minutes filter
         min_min, max_min = int(df['Minutes played'].min()), int(df['Minutes played'].max())
@@ -167,6 +153,7 @@ if uploaded_files:
                     p2_val = df_minutes[df_minutes['Player'] == p2][metric].iloc[0]
                     avg_val = df_minutes[metric].mean()
                     
+                    # Add bars
                     fig.add_trace(go.Bar(y=[p1], x=[p1_val], orientation='h',
                         name=p1,
                         marker_color='#1f77b4',
@@ -179,6 +166,7 @@ if uploaded_files:
                         showlegend=(idx == 1)
                     ), row=idx, col=1)
                     
+                    # Add average line
                     fig.add_vline(x=avg_val,
                         line_dash="dash",
                         line_color="green",
@@ -236,6 +224,7 @@ if uploaded_files:
                 pct = {m: df_minutes[m].rank(pct=True) for m in sel}
                 mins = {m: st.slider(f'Min % for {m}', 0,100,50) for m in sel}
                 mask = np.logical_and.reduce([pct[m]*100 >= mins[m] for m in sel])
+                # Adicionado coluna Team
                 st.dataframe(df_minutes.loc[mask,['Player', 'Team']+sel].reset_index(drop=True))
             else:
                 st.warning('Select between 4 and 12 metrics.')
@@ -311,9 +300,10 @@ if uploaded_files:
                     df_sel = df_minutes[sel].dropna()
                     scores = kp.fit_transform(df_sel,weights)
                     idx = df_sel.index
+                    # Adicionado coluna Team
                     df_pca = pd.DataFrame({
                         'Player': df_minutes.loc[idx,'Player'],
-                        'Team': df_minutes.loc[idx,'Team'],
+                        'Team': df_minutes.loc[idx,'Team'],  # Nova coluna
                         'PCA Score': scores,
                         'Age': df_minutes.loc[idx,'Age'],
                         'Position': df_minutes.loc[idx,'Position']
@@ -346,6 +336,7 @@ if uploaded_files:
                                 st.download_button("⬇️ Download PCA Chart", data=img_bytes, 
                                                 file_name="pca_scores.png", mime="image/png")
                             
+                            # Excel export com Team
                             bio = BytesIO()
                             with pd.ExcelWriter(bio,engine='xlsxwriter') as writer:
                                 df_final.to_excel(writer,sheet_name='PCA Results',index=False)
@@ -361,5 +352,5 @@ if uploaded_files:
     except Exception as e:
         st.error(f'Error: {e}')
 else:
-    st.info('Please upload up to 15 Wyscout Excel files to start the analysis')
+    st.info('Please upload up to 15 Wyscout Excel files to start the analysis')  # Alterado para 15
     st.warning("⚠️ For high-resolution exports, install: `pip install kaleido`")
