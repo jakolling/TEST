@@ -563,8 +563,7 @@ def enhance_export(fig, metadata):
                 yref="paper",
                 showarrow=False,
                 font=dict(size=10)
-        ]
-    )
+        ])
     return fig
 
 # [Implementações completas de todas as funções de exportação]
