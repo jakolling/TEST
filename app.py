@@ -320,7 +320,7 @@ if uploaded_files:
                     )
 
         # =============================================
-        # Scatter Plot (Aba 3)
+        # Scatter Plot (Aba 3) - Correção Aplicada
         # =============================================
         with tabs[2]:
             st.header('Scatter Plot')
@@ -367,6 +367,7 @@ if uploaded_files:
                 height=700,
                 template='plotly_dark',
                 margin=dict(t=200, b=100, l=100, r=100)
+            )
             st.plotly_chart(fig)
             
             if st.button('Export Scatter Plot (300 DPI)', key='export_scatter'):
@@ -434,7 +435,7 @@ if uploaded_files:
                     )
 
         # =============================================
-        # Composite PCA Index (Aba 6)
+        # Composite PCA Index (Aba 6) - Correção Aplicada
         # =============================================
         with tabs[5]:
             st.header('Composite PCA Index + Excel Export')
@@ -526,6 +527,7 @@ if uploaded_files:
 
                     af = df_pca['Age'].between(*age_range)
                     pf = (df_pca['Position'].astype(str).apply(lambda x: any(pos in x for pos in sel_pos)) 
+                    if sel_pos else pd.Series(True, index=df_pca.index)
                     df_f = df_pca[af & pf]
 
                     if not df_f.empty:
