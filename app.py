@@ -326,7 +326,7 @@ if arquivos_enviados:
                     f"Jogadores: {contexto['total_jogadores']} | Filtros: {contexto['min_idade']}-{contexto['max_idade']} anos</sup>"
                 )
                 
-                    figura_barras.update_layout(
+                                 figura_barras.update_layout(
                     title=dict(text=titulo_barras, x=0.03, xanchor='left', font=dict(size=18)),
                     height=300*len(metricas_selecionadas),
                     width=800,
