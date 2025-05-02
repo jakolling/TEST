@@ -148,7 +148,7 @@ if uploaded_files:
         tabs = st.tabs(['Radar', 'Bars', 'Scatter', 'Profiler', 'Correlation', 'Composite Index (PCA)'])
 
         # =============================================
-        # Radar Chart (Aba 1)
+        # Radar Chart (Aba 1) com Tabela de Valores
         # =============================================
         with tabs[0]:
             st.header('Radar Chart')
@@ -166,9 +166,17 @@ if uploaded_files:
                 
                 p1pct = {m: calc_percentile(df_minutes[m], d1[m]) for m in sel}
                 p2pct = {m: calc_percentile(df_minutes[m], d2[m]) for m in sel}
-                gm = {m: filtered_group[m].mean() for m in sel}  # Média ajustada
+                gm = {m: filtered_group[m].mean() for m in sel}
                 gmpct = {m: calc_percentile(filtered_group[m], gm[m]) for m in sel}
                 
+                # Criar DataFrame para tabela
+                comparison_df = pd.DataFrame({
+                    'Metric': sel,
+                    p1: [d1[m] for m in sel],
+                    p2: [d2[m] for m in sel],
+                    'Group Avg': [gm[m] for m in sel]
+                }).set_index('Metric').round(2)
+
                 show_avg = st.checkbox('Show Group Average', True)
                 fig = go.Figure()
                 
@@ -209,6 +217,17 @@ if uploaded_files:
                 )
                 st.plotly_chart(fig)
                 
+                # Exibir tabela de valores nominais
+                st.subheader('Nominal Values Comparison')
+                st.dataframe(
+                    comparison_df.style
+                    .set_table_styles([{
+                        'selector': 'th',
+                        'props': [('background-color', '#f0f2f6'), ('font-weight', 'bold')]
+                    }])
+                    .format(precision=2)
+                )
+                
                 if st.button('Export Radar Chart (300 DPI)', key='export_radar'):
                     fig.update_layout(margin=dict(t=250))
                     img_bytes = fig.to_image(format="png", width=1600, height=900, scale=3)
@@ -242,13 +261,12 @@ if uploaded_files:
                     p1_val = df_minutes[df_minutes['Player'] == p1][metric].iloc[0]
                     p2_val = df_minutes[df_minutes['Player'] == p2][metric].iloc[0]
                     
-                    # Filtro para Group Avg baseado nas posições
                     if sel_pos:
                         filtered_group = df_minutes[df_minutes['Position_split'].apply(lambda x: any(pos in x for pos in sel_pos))]
                     else:
                         filtered_group = df_minutes
                     
-                    avg_val = filtered_group[metric].mean()  # Média ajustada
+                    avg_val = filtered_group[metric].mean()
                     
                     fig.add_trace(go.Bar(
                         y=[p1], 
@@ -349,7 +367,6 @@ if uploaded_files:
                 height=700,
                 template='plotly_dark',
                 margin=dict(t=200, b=100, l=100, r=100)
-            )
             st.plotly_chart(fig)
             
             if st.button('Export Scatter Plot (300 DPI)', key='export_scatter'):
@@ -417,7 +434,7 @@ if uploaded_files:
                     )
 
         # =============================================
-        # Composite PCA Index (Aba 6) - CORREÇÃO APLICADA
+        # Composite PCA Index (Aba 6)
         # =============================================
         with tabs[5]:
             st.header('Composite PCA Index + Excel Export')
@@ -433,7 +450,7 @@ if uploaded_files:
                     'Correlation Threshold', 
                     0.0, 1.0, 0.5, 0.05,
                     help='Minimum average correlation for feature inclusion',
-                    disabled=st.session_state.get('manual_weights', False)  # CORREÇÃO DO PARÊNTESE
+                    disabled=st.session_state.get('manual_weights', False)
                 )
             with col4:
                 manual_weights = st.checkbox('Manual Weights', key='manual_weights')
@@ -508,8 +525,7 @@ if uploaded_files:
                     st.dataframe(wdf.style.format({'Weight':'{:.2f}'}))
 
                     af = df_pca['Age'].between(*age_range)
-                    pf = (df_pca['Position'].astos.listr().apply(lambda x: any(pos in x for pos in sel_pos)) 
-                          if sel_pos else pd.Series(True, index=df_pca.index))
+                    pf = (df_pca['Position'].astype(str).apply(lambda x: any(pos in x for pos in sel_pos)) 
                     df_f = df_pca[af & pf]
 
                     if not df_f.empty:
