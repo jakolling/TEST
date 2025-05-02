@@ -31,8 +31,8 @@ with st.expander("📘 User Guide & Instructions", expanded=False):
     st.markdown("""
     **Football Analytics Dashboard - Comprehensive User Guide**  
     ### **1. Initial Setup**  
-    - Upload up to 8 Wyscout Excel files through the sidebar  
-    - Files must contain consistent columns (Player, Age, Position, Metrics)
+    - Upload up to 15 Wyscout Excel files through the sidebar  # Modificado para 15
+    - Files must contain consistent columns (Player, Age, Position, Metrics, Team)  # Adicionado Team
 
     ### **2. Analysis Views**  
     - **Radar Chart**: Compare players across 6–12 metrics  
@@ -47,6 +47,7 @@ with st.expander("📘 User Guide & Instructions", expanded=False):
     - Correlation-based or manual feature weighting  
     - Kernel PCA with linear or non-linear dimensionality reduction  
     - Filters for age, minutes played, position (persistent across tabs)
+    - Team information in all player listings  # Nova feature
 
     ### **4. Tips**  
     - Start with Correlation Matrix to discover metric patterns  
@@ -59,7 +60,7 @@ with st.expander("📘 User Guide & Instructions", expanded=False):
 # Data loading and cleaning
 def load_and_clean(files):
     dfs = []
-    for file in files[:8]:
+    for file in files[:15]:  # Alterado de 8 para 15
         df = pd.read_excel(file)
         df.dropna(how="all", inplace=True)
         df = df.loc[:, df.columns.notnull()]
@@ -74,7 +75,7 @@ def calc_percentile(series, value):
 # Sidebar filters
 st.sidebar.header('Filters')
 with st.sidebar.expander("⚙️ Advanced Filters", expanded=True):
-    uploaded_files = st.file_uploader("Upload up to 8 Wyscout Excel files", type=["xlsx"], accept_multiple_files=True)
+    uploaded_files = st.file_uploader("Upload up to 15 Wyscout Excel files", type=["xlsx"], accept_multiple_files=True)  # Alterado para 15
 
 if uploaded_files:
     try:
@@ -106,7 +107,7 @@ if uploaded_files:
         tabs = st.tabs(['Radar', 'Bars', 'Scatter', 'Profiler', 'Correlation', 'Composite Index (PCA)'])
         numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
 
-        # Radar view (unchanged)
+        # Radar view
         with tabs[0]:
             st.header('Radar Chart')
             sel = st.multiselect('Metrics for Radar (6–12)', numeric_cols, default=numeric_cols[:6])
@@ -130,7 +131,7 @@ if uploaded_files:
                     st.download_button("⬇️ Download Radar Chart", data=img_bytes, 
                                     file_name="radar_chart.png", mime="image/png")
 
-        # Bars view (corrected and improved)
+        # Bars view
         with tabs[1]:
             st.header('Bar Chart Comparison')
             selected_metrics = st.multiselect('Select metrics (max 5)', numeric_cols, default=numeric_cols[:1])
@@ -187,7 +188,7 @@ if uploaded_files:
                     st.download_button("⬇️ Download Charts", data=img_bytes, 
                                     file_name="bar_charts.png", mime="image/png")
 
-        # Scatter view (corrected position filter)
+        # Scatter view
         with tabs[2]:
             st.header('Scatter Plot')
             x = st.selectbox('X metric', numeric_cols)
@@ -215,7 +216,7 @@ if uploaded_files:
                 st.download_button("⬇️ Download Scatter Plot", data=img_bytes, 
                                 file_name="scatter_plot.png", mime="image/png")
 
-        # Profiler view (unchanged)
+        # Profiler view
         with tabs[3]:
             st.header('Profiler')
             sel = st.multiselect('Select 4–12 metrics', numeric_cols)
@@ -223,11 +224,12 @@ if uploaded_files:
                 pct = {m: df_minutes[m].rank(pct=True) for m in sel}
                 mins = {m: st.slider(f'Min % for {m}', 0,100,50) for m in sel}
                 mask = np.logical_and.reduce([pct[m]*100 >= mins[m] for m in sel])
-                st.dataframe(df_minutes.loc[mask,['Player']+sel].reset_index(drop=True))
+                # Adicionado coluna Team
+                st.dataframe(df_minutes.loc[mask,['Player', 'Team']+sel].reset_index(drop=True))
             else:
                 st.warning('Select between 4 and 12 metrics.')
 
-        # Correlation view (unchanged)
+        # Correlation view
         with tabs[4]:
             st.header('Correlation Matrix')
             sel = st.multiselect('Metrics to correlate', numeric_cols, default=numeric_cols)
@@ -242,7 +244,7 @@ if uploaded_files:
                     st.download_button("⬇️ Download Correlation Matrix", data=img_bytes, 
                                     file_name="correlation_matrix.png", mime="image/png")
 
-        # Composite PCA Index view (unchanged)
+        # Composite PCA Index view
         with tabs[5]:
             st.header('Composite PCA Index + Excel Export')
             performance_cols = [col for col in numeric_cols if col not in ['Age','Height','Country','Minutes played','Position']]
@@ -298,8 +300,10 @@ if uploaded_files:
                     df_sel = df_minutes[sel].dropna()
                     scores = kp.fit_transform(df_sel,weights)
                     idx = df_sel.index
+                    # Adicionado coluna Team
                     df_pca = pd.DataFrame({
                         'Player': df_minutes.loc[idx,'Player'],
+                        'Team': df_minutes.loc[idx,'Team'],  # Nova coluna
                         'PCA Score': scores,
                         'Age': df_minutes.loc[idx,'Age'],
                         'Position': df_minutes.loc[idx,'Position']
@@ -332,7 +336,7 @@ if uploaded_files:
                                 st.download_button("⬇️ Download PCA Chart", data=img_bytes, 
                                                 file_name="pca_scores.png", mime="image/png")
                             
-                            # Excel export
+                            # Excel export com Team
                             bio = BytesIO()
                             with pd.ExcelWriter(bio,engine='xlsxwriter') as writer:
                                 df_final.to_excel(writer,sheet_name='PCA Results',index=False)
@@ -348,5 +352,5 @@ if uploaded_files:
     except Exception as e:
         st.error(f'Error: {e}')
 else:
-    st.info('Please upload up to 8 Wyscout Excel files to start the analysis')
+    st.info('Please upload up to 15 Wyscout Excel files to start the analysis')  # Alterado para 15
     st.warning("⚠️ For high-resolution exports, install: `pip install kaleido`")
