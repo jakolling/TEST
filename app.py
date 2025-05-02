@@ -1,4 +1,4 @@
-# Football Analytics App - Versão Completa 5.0
+# Football Analytics App - Versão Completa Definitiva
 # Autor: João Alberto Kolling
 
 import streamlit as st
@@ -21,14 +21,14 @@ st.set_page_config(
     page_icon="⚽"
 )
 
-# Cabeçalho com logo
+# Header com logo
 col1, col2, col3 = st.columns([1, 3, 1])
 with col2:
     st.image('vif_logo.png.jpg', width=400)
 
 st.title('Technical Scouting Department')
 st.subheader('Football Analytics Dashboard')
-st.caption("Created by João Alberto Kolling | Player Analysis System v5.0")
+st.caption("Created by João Alberto Kolling | Player Analysis System v7.0")
 
 # =============================================
 # Funções Principais
@@ -51,7 +51,7 @@ def load_and_clean(files):
             
             dfs.append(df)
         except Exception as e:
-            st.error(f"Erro ao processar {file.name}: {str(e)}")
+            st.error(f"Error processing {file.name}: {str(e)}")
             return pd.DataFrame()
     
     return pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
@@ -73,6 +73,23 @@ def get_context_info(df, minutes_range, mpg_range, age_range, sel_pos):
         'max_age': age_range[1],
         'positions': ', '.join(sel_pos) if sel_pos else 'All'
     }
+
+class WeightedKPCA:
+    def __init__(self, kern='rbf', gamma=None):
+        self.kernel = kern
+        self.gamma = gamma
+        self.scaler = StandardScaler()
+    
+    def fit_transform(self, X, weights):
+        Xs = self.scaler.fit_transform(X)
+        Xw = Xs * weights.values
+        self.kpca = KernelPCA(
+            n_components=1,
+            kernel=self.kernel,
+            gamma=self.gamma,
+            random_state=42
+        )
+        return self.kpca.fit_transform(Xw).flatten()
 
 # =============================================
 # Interface Principal
@@ -142,7 +159,7 @@ if uploaded_files:
         tabs = st.tabs(['Radar', 'Bars', 'Scatter', 'Profiler', 'Correlation', 'Composite Index (PCA)'])
 
         # =============================================
-        # Radar Chart (Aba 1)
+        # Radar Chart (Implementação Completa)
         # =============================================
         with tabs[0]:
             st.header('Radar Chart')
@@ -153,8 +170,14 @@ if uploaded_files:
                 d2 = df_minutes[df_minutes['Player']==p2].iloc[0]
                 
                 # Cálculo do Grupo de Referência
-                group_df = df_minutes.copy()
+                if sel_pos:
+                    group_df = df_minutes.copy()
+                else:
+                    p1_pos = [p.strip() for p in d1['Position'].split(',')]
+                    p2_pos = [p.strip() for p in d2['Position'].split(',')]
+                    group_df = df_minutes[df_minutes['Position_split'].apply(lambda x: any(pos in x for pos in p1_pos + p2_pos))]
                 
+                # Cálculos Estatísticos
                 p1pct = {m: calc_percentile(group_df[m], d1[m]) for m in sel}
                 p2pct = {m: calc_percentile(group_df[m], d2[m]) for m in sel}
                 group_avg = group_df[sel].mean()
@@ -162,13 +185,30 @@ if uploaded_files:
                 
                 show_avg = st.checkbox('Show Group Average', True)
                 
+                # Construção do Gráfico
                 fig = go.Figure()
-                fig.add_trace(go.Scatterpolar(r=[p1pct[m]*100 for m in sel], theta=sel, fill='toself', name=p1))
-                fig.add_trace(go.Scatterpolar(r=[p2pct[m]*100 for m in sel], theta=sel, fill='toself', name=p2))
+                fig.add_trace(go.Scatterpolar(
+                    r=[p1pct[m]*100 for m in sel],
+                    theta=sel,
+                    fill='toself',
+                    name=p1
+                ))
+                fig.add_trace(go.Scatterpolar(
+                    r=[p2pct[m]*100 for m in sel],
+                    theta=sel,
+                    fill='toself',
+                    name=p2
+                ))
                 
                 if show_avg:
-                    fig.add_trace(go.Scatterpolar(r=[gmpct[m]*100 for m in sel], theta=sel, fill='toself', name='Group Avg'))
+                    fig.add_trace(go.Scatterpolar(
+                        r=[gmpct[m]*100 for m in sel],
+                        theta=sel,
+                        fill='toself',
+                        name='Group Avg'
+                    ))
                 
+                # Texto Descritivo
                 caption_text = f"""
                 **Metodologia:**  
                 • Percentis calculados sobre {len(group_df)} jogadores  
@@ -181,6 +221,7 @@ if uploaded_files:
                 • Gerado em: {datetime.now().strftime('%d/%m/%Y %H:%M')}  
                 """
                 
+                # Layout Final
                 fig.update_layout(
                     polar=dict(radialaxis=dict(range=[0,100])),
                     template='plotly_white',
@@ -192,6 +233,7 @@ if uploaded_files:
                 st.plotly_chart(fig)
                 st.caption(caption_text)
                 
+                # Exportação
                 if st.button('Export Radar Chart (300 DPI)', key='export_radar'):
                     fig.add_annotation(
                         x=0.5,
@@ -202,11 +244,12 @@ if uploaded_files:
                         yref="paper",
                         align="left",
                         font=dict(size=10)
+                    )
                     img_bytes = fig.to_image(format="png", width=1400, height=900, scale=3)
                     st.download_button("Download Radar Chart", data=img_bytes, file_name="radar_chart.png", mime="image/png")
 
         # =============================================
-        # Bar Charts (Aba 2)
+        # Bar Charts (Implementação Completa)
         # =============================================
         with tabs[1]:
             st.header('Bar Chart Comparison')
@@ -250,12 +293,13 @@ if uploaded_files:
                     template='plotly_white',
                     barmode='group',
                     margin=dict(t=50, b=150)
+                )
                 
                 st.plotly_chart(fig)
                 st.caption(caption_text)
 
         # =============================================
-        # Scatter Plot (Aba 3)
+        # Scatter Plot (Implementação Completa)
         # =============================================
         with tabs[2]:
             st.header('Scatter Plot')
@@ -302,12 +346,13 @@ if uploaded_files:
                 title=f"{x_metric} vs {y_metric}",
                 template='plotly_white',
                 margin=dict(t=50, b=150)
+            )
             
             st.plotly_chart(fig)
             st.caption(caption_text)
 
         # =============================================
-        # Profiler (Aba 4)
+        # Profiler (Implementação Completa)
         # =============================================
         with tabs[3]:
             st.header('Player Profiler')
@@ -325,7 +370,7 @@ if uploaded_files:
                 st.warning('Select between 4 and 12 metrics.')
 
         # =============================================
-        # Correlation Matrix (Aba 5)
+        # Correlation Matrix (Implementação Completa)
         # =============================================
         with tabs[4]:
             st.header('Correlation Matrix')
@@ -361,29 +406,75 @@ if uploaded_files:
                 st.caption(caption_text)
 
         # =============================================
-        # Composite PCA Index (Aba 6)
+        # Composite PCA Index (Implementação Completa)
         # =============================================
         with tabs[5]:
-            st.header('PCA Analysis')
-            performance_metrics = [col for col in numeric_cols if col not in ['Age', 'Height', 'Matches played', 'Minutes played']]
-            selected_pca_metrics = st.multiselect('Select performance metrics', performance_metrics)
+            st.header('Composite PCA Index + Excel Export')
+            performance_cols = [col for col in numeric_cols if col not in ['Age','Height','Country','Minutes played','Position']]
             
-            if len(selected_pca_metrics) >= 2:
-                scaler = StandardScaler()
-                scaled_data = scaler.fit_transform(df_minutes[selected_pca_metrics])
-                
-                pca = PCA(n_components=1)
-                pca_scores = pca.fit_transform(scaled_data)
-                
-                df_pca = df_minutes[['Player', 'Team', 'Age', 'Position']].copy()
-                df_pca['PCA Score'] = pca_scores
-                
-                st.write('Variance Explained:', pca.explained_variance_ratio_[0])
-                st.dataframe(df_pca.sort_values('PCA Score', ascending=False))
-                
-                if st.button('Export PCA Results'):
-                    csv = df_pca.to_csv(index=False).encode('utf-8')
-                    st.download_button("Download PCA Data", data=csv, file_name="pca_results.csv")
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                kernel_type = st.selectbox('Kernel Type', ['linear', 'rbf'], index=1)
+            with col2:
+                gamma = st.number_input('Gamma', value=0.1, min_value=0.0, step=0.1, disabled=(kernel_type == 'linear'))
+            with col3:
+                corr_threshold = st.slider('Correlation Threshold', 0.0, 1.0, 0.5, 0.05)
+            with col4:
+                manual_weights = st.checkbox('Manual Weights', key='manual_weights')
+
+            sel = st.multiselect('Select performance metrics', performance_cols)
+            
+            if len(sel) >= 2:
+                try:
+                    if manual_weights:
+                        st.subheader('Manual Weight Adjustment')
+                        weight_sliders = {}
+                        cols = st.columns(3)
+                        for idx, m in enumerate(sel):
+                            with cols[idx % 3]:
+                                weight_sliders[m] = st.slider(f'Weight for {m}', 0.0, 1.0, 0.5, key=f'weight_{m}')
+                        weights = pd.Series(weight_sliders)
+                    else:
+                        @st.cache_data
+                        def calculate_weights(_df, features, threshold):
+                            cm = _df[features].corr().abs()
+                            ac = cm.mean(axis=1)
+                            return ac.where(ac > threshold, 0)
+                        weights = calculate_weights(df_minutes, sel, corr_threshold)
+
+                    kp = WeightedKPCA(kern=kernel_type, gamma=(None if kernel_type == 'linear' else gamma))
+                    df_sel = df_minutes[sel].dropna()
+                    scores = kp.fit_transform(df_sel, weights)
+                    
+                    df_pca = pd.DataFrame({
+                        'Player': df_minutes.loc[df_sel.index, 'Player'],
+                        'Team': df_minutes.loc[df_sel.index, 'Team'],
+                        'Age': df_minutes.loc[df_sel.index, 'Age'],
+                        'Position': df_minutes.loc[df_sel.index, 'Position'],
+                        'PCA Score': scores
+                    })
+
+                    st.write('**Feature Weights**')
+                    wdf = pd.DataFrame({'Metric': weights.index, 'Weight': weights.values}).sort_values('Weight', ascending=False)
+                    st.dataframe(wdf.style.format({'Weight':'{:.2f}'}))
+
+                    st.write('**PCA Results**')
+                    st.dataframe(df_pca.sort_values('PCA Score', ascending=False))
+                    
+                    bio = BytesIO()
+                    with pd.ExcelWriter(bio, engine='xlsxwriter') as writer:
+                        df_pca.to_excel(writer, index=False)
+                    bio.seek(0)
+                    
+                    st.download_button(
+                        '📥 Download PCA Results',
+                        data=bio,
+                        file_name='pca_results.xlsx',
+                        mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                    )
+
+                except Exception as e:
+                    st.error(f'PCA calculation error: {str(e)}')
 
     except Exception as e:
         st.error(f'Application Error: {str(e)}')
