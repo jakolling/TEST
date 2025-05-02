@@ -1,4 +1,4 @@
-# Football Analytics App – Full Feature Version with Improved UI, PCA Explanation, Excel Export and Metadata Handling
+# Football Analytics App – Full Feature Version with Metadata Context
 
 import streamlit as st
 import pandas as pd
@@ -24,7 +24,7 @@ with col2:
 
 st.title('Technical Scouting Department')
 st.subheader('Football Analytics Dashboard')
-st.caption("Created by João Alberto Kolling | Player Analysis System v2.3")
+st.caption("Created by João Alberto Kolling | Player Analysis System v2.4")
 
 # User Guide & Instructions
 with st.expander("📘 User Guide & Instructions", expanded=False):
@@ -35,17 +35,9 @@ with st.expander("📘 User Guide & Instructions", expanded=False):
     - Files must contain consistent columns (Player, Age, Position, Metrics, Team)  
 
     ### **2. New Features**  
-    - **Metadata Collection**: Label your data sources and select seasons
-    - **Minutes per Game Filter**: Analyze players by their average playing time per match  
-    - **Enhanced Filter Sequence**: Total Minutes → Minutes per Game → Age → Position  
-
-    ### **3. Analysis Views**  
-    - **Radar Chart**: Compare players across 6–12 metrics  
-    - **Bars**: Direct comparison in single metric  
-    - **Scatter Plot**: Explore relationships between two metrics  
-    - **Profiler**: Filter players by percentile thresholds  
-    - **Correlation Matrix**: Explore metric relationships  
-    - **Composite Index (PCA)**: Create composite scores with smart/manual weighting  
+    - **Context-Aware Visualizations**: All charts show applied filters and data sources
+    - **Smart Metadata Handling**: Automatic league/season tracking
+    - **Enhanced Filter System**: Full audit trail in exports
 
     *Contact: jakolling@gmail.com for support.*
     """)
@@ -74,6 +66,20 @@ def load_and_clean(files):
 @st.cache_data
 def calc_percentile(series, value):
     return (series <= value).sum() / len(series)
+
+def get_context_info(df, minutes_range, mpg_range, age_range, sel_pos):
+    return {
+        'leagues': ', '.join(df['Data Origin'].unique()),
+        'seasons': ', '.join(df['Season'].unique()),
+        'total_players': len(df),
+        'min_min': minutes_range[0],
+        'max_min': minutes_range[1],
+        'min_mpg': mpg_range[0],
+        'max_mpg': mpg_range[1],
+        'min_age': age_range[0],
+        'max_age': age_range[1],
+        'positions': ', '.join(sel_pos) if sel_pos else 'All'
+    }
 
 # Sidebar filters
 st.sidebar.header('Filters')
@@ -115,7 +121,7 @@ if uploaded_files:
         minutes_range = st.sidebar.slider('Minutes Played', min_min, max_min, (min_min, max_min))
         df_minutes = df[df['Minutes played'].between(*minutes_range)].copy()
 
-        # Calculate Minutes per Game with error handling
+        # Calculate Minutes per Game
         df_minutes['Minutes per game'] = df_minutes['Minutes played'] / df_minutes['Matches played'].replace(0, np.nan)
         df_minutes['Minutes per game'] = df_minutes['Minutes per game'].fillna(0).clip(0, 120)
         
@@ -135,6 +141,9 @@ if uploaded_files:
             sel_pos = st.sidebar.multiselect('Positions', all_pos, default=all_pos)
         else:
             sel_pos = []
+
+        # Context information
+        context = get_context_info(df_minutes, minutes_range, mpg_range, age_range, sel_pos)
 
         # Player selection
         players = sorted(df_minutes['Player'].unique())
@@ -161,7 +170,14 @@ if uploaded_files:
                 fig.add_trace(go.Scatterpolar(r=[p2pct[m]*100 for m in sel], theta=sel, fill='toself', name=p2))
                 if show_avg:
                     fig.add_trace(go.Scatterpolar(r=[gmpct[m]*100 for m in sel], theta=sel, fill='toself', name='Group Avg'))
-                fig.update_layout(polar=dict(radialaxis=dict(range=[0,100])), template='plotly_white')
+                fig.update_layout(
+                    title=f"<b>{p1} vs {p2}</b><br><sup>Leagues: {context['leagues']} | Seasons: {context['seasons']}<br>"
+                          f"Filters: {context['min_min']}-{context['max_min']} mins | {context['min_mpg']}-{context['max_mpg']} min/game | "
+                          f"Age {context['min_age']}-{context['max_age']} | Positions: {context['positions']}</sup>",
+                    polar=dict(radialaxis=dict(range=[0,100])), 
+                    template='plotly_white',
+                    margin=dict(t=150)
+                )
                 st.plotly_chart(fig)
                 
                 if st.button('Export Radar Chart (300 DPI)', key='export_radar'):
@@ -212,11 +228,13 @@ if uploaded_files:
                     )
                 
                 fig.update_layout(
+                    title=f"<b>Metric Comparison</b><br><sup>Context: {context['leagues']} ({context['seasons']}) | "
+                          f"Players: {context['total_players']} | Filters: {context['min_age']}-{context['max_age']} years</sup>",
                     height=300*len(selected_metrics),
                     width=800,
                     template='plotly_white',
-                    barmode='group'
-                )
+                    barmode='group',
+                    margin=dict(t=120)
                 st.plotly_chart(fig)
                 
                 if st.button('Export Bar Charts (300 DPI)', key='export_bar'):
@@ -243,8 +261,13 @@ if uploaded_files:
                 if not pdata.empty:
                     fig.add_trace(go.Scatter(x=pdata[x], y=pdata[y], text=pdata['Player'], 
                                            mode='markers+text', marker=dict(size=12, color=colors[i]), name=p))
-            fig.update_layout(width=1000, height=700, title=f'{x} vs {y}', xaxis_title=x, yaxis_title=y, 
-                            template='plotly_dark')
+            fig.update_layout(
+                title=f"<b>{x} vs {y}</b><br><sup>Data Source: {context['leagues']} ({context['seasons']})<br>"
+                      f"Filters: {context['total_players']} players | {context['min_mpg']}+ min/game | {context['positions']}</sup>",
+                width=1000, 
+                height=700,
+                template='plotly_dark',
+                margin=dict(t=150))
             st.plotly_chart(fig)
             
             if st.button('Export Scatter Plot (300 DPI)', key='export_scatter'):
@@ -271,7 +294,12 @@ if uploaded_files:
             if len(sel) >= 2:
                 corr = df_minutes[sel].corr()
                 fig = go.Figure(data=go.Heatmap(z=corr.values, x=sel, y=sel, zmin=-1, zmax=1, colorscale='Viridis'))
-                fig.update_layout(template='plotly_dark')
+                fig.update_layout(
+                    title=f"<b>Metric Relationships</b><br><sup>Dataset: {context['leagues']} ({context['seasons']})<br>"
+                          f"Players: {context['total_players']} | Min. Minutes: {context['min_min']}+</sup>",
+                    template='plotly_dark',
+                    margin=dict(t=150)
+                )
                 st.plotly_chart(fig)
                 
                 if st.button('Export Correlation Matrix (300 DPI)', key='export_corr'):
@@ -363,11 +391,16 @@ if uploaded_files:
                             st.write(f'**Matching Players ({len(df_final)})**')
                             st.dataframe(df_final.sort_values('PCA Score',ascending=False).reset_index(drop=True))
                             st.write('**Score Distribution**')
-                            st.bar_chart(df_final.set_index('Player')['PCA Score'])
+                            fig_pca = go.Figure(data=[go.Bar(x=df_final['Player'], y=df_final['PCA Score'])])
+                            fig_pca.update_layout(
+                                title=f"<b>PCA Scores</b><br><sup>Context: {context['leagues']} ({context['seasons']})<br>"
+                                      f"Filters: Age {context['min_age']}-{context['max_age']} | {context['positions']} | Metrics: {len(sel)} selected</sup>",
+                                template='plotly_dark',
+                                margin=dict(t=150)
+                            )
+                            st.plotly_chart(fig_pca)
                             
                             if st.button('Export PCA Scores (300 DPI)', key='export_pca'):
-                                fig_pca = go.Figure(data=[go.Bar(x=df_final['Player'], y=df_final['PCA Score'])])
-                                fig_pca.update_layout(title='PCA Scores', template='plotly_dark')
                                 img_bytes = fig_pca.to_image(format="png", width=1600, height=900, scale=3)
                                 st.download_button("⬇️ Download PCA Chart", data=img_bytes, 
                                                 file_name="pca_scores.png", mime="image/png")
