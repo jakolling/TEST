@@ -326,13 +326,15 @@ if arquivos_enviados:
                     f"Jogadores: {contexto['total_jogadores']} | Filtros: {contexto['min_idade']}-{contexto['max_idade']} anos</sup>"
                 )
                 
-                figura_barras.update_layout(
+                    figura_barras.update_layout(
                     title=dict(text=titulo_barras, x=0.03, xanchor='left', font=dict(size=18)),
                     height=300*len(metricas_selecionadas),
                     width=800,
                     template='plotly_white',
                     barmode='group',
                     margin=dict(t=200, b=100, l=100, r=100)
+                )  # Parêntese de fechamento adicionado
+                
                 st.plotly_chart(figura_barras)
                 
                 if st.button('Exportar Gráficos de Barras (300 DPI)', key='exportar_barras'):
