@@ -131,13 +131,21 @@ if uploaded_files:
 
         min_age, max_age = int(df_minutes['Age'].min()), int(df_minutes['Age'].max())
         age_range = st.sidebar.slider('Age Range', min_age, max_age, (min_age, max_age))
+        df_minutes = df_minutes[df_minutes['Age'].between(*age_range)]
 
+        # Coleta posições sem filtrar o dataframe principal
         if 'Position' in df_minutes.columns:
             df_minutes['Position_split'] = df_minutes['Position'].astype(str).apply(lambda x: [p.strip() for p in x.split(',')])
             all_pos = sorted({p for lst in df_minutes['Position_split'] for p in lst})
             sel_pos = st.sidebar.multiselect('Positions', all_pos, default=all_pos)
         else:
             sel_pos = []
+
+        # Cria dataframe separado para cálculos de grupo
+        if 'Position_split' in df_minutes.columns and sel_pos:
+            df_group = df_minutes[df_minutes['Position_split'].apply(lambda x: any(pos in x for pos in sel_pos))]
+        else:
+            df_group = df_minutes.copy()
 
         context = get_context_info(df_minutes, minutes_range, mpg_range, age_range, sel_pos)
         players = sorted(df_minutes['Player'].unique())
@@ -158,9 +166,12 @@ if uploaded_files:
                 d1 = df_minutes[df_minutes['Player']==p1].iloc[0]
                 d2 = df_minutes[df_minutes['Player']==p2].iloc[0]
                 
+                # Percentis calculados contra o dataframe completo
                 p1pct = {m: calc_percentile(df_minutes[m], d1[m]) for m in sel}
                 p2pct = {m: calc_percentile(df_minutes[m], d2[m]) for m in sel}
-                gm = {m: df_minutes[m].mean() for m in sel}
+                
+                # Média do grupo baseado nas posições selecionadas
+                gm = {m: df_group[m].mean() for m in sel}
                 gmpct = {m: calc_percentile(df_minutes[m], gm[m]) for m in sel}
                 
                 show_avg = st.checkbox('Show Group Average', True)
@@ -235,7 +246,7 @@ if uploaded_files:
                 for idx, metric in enumerate(selected_metrics, 1):
                     p1_val = df_minutes[df_minutes['Player'] == p1][metric].iloc[0]
                     p2_val = df_minutes[df_minutes['Player'] == p2][metric].iloc[0]
-                    avg_val = df_minutes[metric].mean()
+                    avg_val = df_group[metric].mean()  # Média baseada no grupo filtrado
                     
                     fig.add_trace(go.Bar(
                         y=[p1], 
