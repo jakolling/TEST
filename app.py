@@ -1,5 +1,5 @@
 # Football Analytics App - Versão Completa Corrigida
-# Código integral sem abreviações e com correção de percentis
+# Código integral sem abreviações e com todas as correções
 
 import streamlit as st
 import pandas as pd
@@ -21,8 +21,8 @@ st.set_page_config(
 )
 
 # Cabeçalho com logo
-column_left, column_center, column_right = st.columns([1, 3, 1])
-with column_center:
+left_column, center_column, right_column = st.columns([1, 3, 1])
+with center_column:
     st.image('vif_logo.png', width=400)
 
 st.title('Technical Scouting Department')
@@ -32,16 +32,16 @@ st.caption("Created by João Alberto Kolling | Player Analysis System v3.0")
 # Guia do Usuário
 with st.expander("📘 User Guide & Instructions", expanded=False):
     st.markdown("""
-    **⚠️ Pré-requisitos:**  
-    1. Instale as dependências:  
+    **⚠️ Requirements:**  
+    1. Install dependencies:  
     `pip install kaleido==0.2.1.post1 xlsxwriter`  
-    2. Dados devem conter colunas: Player, Age, Position, Metrics, Team  
+    2. Data must contain columns: Player, Age, Position, Metrics, Team  
     
-    **Funcionalidades Principais:**  
-    - Comparação entre jogadores com radar e gráficos de barras  
-    - Análise de correlação entre métricas  
-    - Sistema de filtros avançados  
-    - Exportação profissional de gráficos (300 DPI)  
+    **Main Features:**  
+    - Player comparison with radar and bar charts  
+    - Metric correlation analysis  
+    - Advanced filtering system  
+    - Professional chart exports (300 DPI)  
     """)
 
 # =============================================
@@ -165,7 +165,6 @@ if uploaded_files:
                 player_1_data = filtered_minutes_dataframe[filtered_minutes_dataframe['Player'] == selected_player_1].iloc[0]
                 player_2_data = filtered_minutes_dataframe[filtered_minutes_dataframe['Player'] == selected_player_2].iloc[0]
                 
-                # Percentis calculados contra dataset completo
                 player_1_percentiles = {
                     metric: calculate_percentile(filtered_minutes_dataframe[metric], player_1_data[metric]) 
                     for metric in selected_metrics
@@ -175,7 +174,6 @@ if uploaded_files:
                     for metric in selected_metrics
                 }
 
-                # Grupo de referência para média
                 if selected_positions:
                     position_filtered_group = filtered_minutes_dataframe[
                         filtered_minutes_dataframe['Position_split'].apply(
@@ -261,7 +259,7 @@ if uploaded_files:
                     )
 
         # =============================================
-        # Gráficos de Barras (Aba 2)
+        # Gráficos de Barras (Aba 2) - Correção Aplicada
         # =============================================
         with analysis_tabs[1]:
             st.header('Bar Chart Comparison')
@@ -358,7 +356,7 @@ if uploaded_files:
             
             filtered_data = filtered_minutes_dataframe[filtered_minutes_dataframe['Age'].between(*age_range)]
             if selected_positions:
-                filtered_data = filtered_data[filtered_data['Position_split'].apply(lambda x: any(pos in x for pos in selected_positions))]
+                filtered_data = filtered_data[filtered_data['Position_split'].apply(lambda x: any(pos in x for pos in selected_positions)]
             
             figure = go.Figure()
             figure.add_trace(go.Scatter(
@@ -473,19 +471,19 @@ if uploaded_files:
             st.header('Composite PCA Index + Excel Export')
             performance_metrics = [col for col in numeric_columns if col not in ['Age','Height','Country','Minutes played','Position']]
             
-            column_1, column_2, column_3, column_4 = st.columns(4)
-            with column_1:
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
                 kernel_type = st.selectbox('Kernel Type',['linear','rbf'], index=1)
-            with column_2:
+            with col2:
                 gamma_value = st.number_input('Gamma', value=0.1, min_value=0.0, step=0.1, disabled=(kernel_type=='linear'))
-            with column_3:
+            with col3:
                 correlation_threshold = st.slider(
                     'Correlation Threshold', 
                     0.0, 1.0, 0.5, 0.05,
                     help='Minimum average correlation for feature inclusion',
                     disabled=st.session_state.get('manual_weights', False)
                 )
-            with column_4:
+            with col4:
                 manual_weights = st.checkbox('Manual Weights', key='manual_weights')
 
             selected_metrics = st.multiselect('Select performance metrics', performance_metrics)
@@ -497,18 +495,18 @@ if uploaded_files:
             if manual_weights:
                 st.subheader('Manual Weight Adjustment')
                 weight_sliders = {}
-                columns = st.columns(3)
-                for index, metric in enumerate(selected_metrics):
-                    with columns[index%3]:
+                cols = st.columns(3)
+                for idx, metric in enumerate(selected_metrics):
+                    with cols[idx%3]:
                         weight_sliders[metric] = st.slider(f'Weight for {metric}', 0.0, 1.0, 0.5, key=f'weight_{metric}')
                 weights = pd.Series(weight_sliders)
                 excluded_metrics = []
             else:
                 @st.cache_data
                 def calculate_weights(dataframe, features, threshold):
-                    correlation_matrix = dataframe[features].corr().abs()
-                    average_correlations = correlation_matrix.mean(axis=1)
-                    return average_correlations.where(average_correlations>threshold, 0)
+                    cm = dataframe[features].corr().abs()
+                    ac = cm.mean(axis=1)
+                    return ac.where(ac>threshold, 0)
                 weights = calculate_weights(filtered_minutes_dataframe, selected_metrics, correlation_threshold)
                 excluded_metrics = weights[weights==0].index.tolist()
 
@@ -536,37 +534,37 @@ if uploaded_files:
             if len(selected_metrics)>=2:
                 try:
                     kpca = WeightedKPCA(kernel=kernel_type, gamma=(None if kernel_type=='linear' else gamma_value))
-                    selected_data = filtered_minutes_dataframe[selected_metrics].dropna()
-                    pca_scores = kpca.fit_transform(selected_data, weights)
-                    data_index = selected_data.index
+                    df_sel = filtered_minutes_dataframe[selected_metrics].dropna()
+                    scores = kpca.fit_transform(df_sel, weights)
+                    idx = df_sel.index
                     
-                    pca_dataframe = pd.DataFrame({
-                        'Player': filtered_minutes_dataframe.loc[data_index, 'Player'],
-                        'Team': filtered_minutes_dataframe.loc[data_index, 'Team'],
-                        'PCA Score': pca_scores,
-                        'Age': filtered_minutes_dataframe.loc[data_index, 'Age'],
-                        'Position': filtered_minutes_dataframe.loc[data_index, 'Position'],
-                        'Data Origin': filtered_minutes_dataframe.loc[data_index, 'Data Origin'],
-                        'Season': filtered_minutes_dataframe.loc[data_index, 'Season']
+                    df_pca = pd.DataFrame({
+                        'Player': filtered_minutes_dataframe.loc[idx, 'Player'],
+                        'Team': filtered_minutes_dataframe.loc[idx, 'Team'],
+                        'PCA Score': scores,
+                        'Age': filtered_minutes_dataframe.loc[idx, 'Age'],
+                        'Position': filtered_minutes_dataframe.loc[idx, 'Position'],
+                        'Data Origin': filtered_minutes_dataframe.loc[idx, 'Data Origin'],
+                        'Season': filtered_minutes_dataframe.loc[idx, 'Season']
                     })
 
                     st.write('**Feature Weights**')
-                    weights_dataframe = pd.DataFrame({
+                    wdf = pd.DataFrame({
                         'Metric': weights.index,
                         'Weight': weights.values
                     }).sort_values('Weight', ascending=False)
-                    st.dataframe(weights_dataframe.style.format({'Weight':'{:.2f}'}))
+                    st.dataframe(wdf.style.format({'Weight':'{:.2f}'}))
 
-                    age_filter = pca_dataframe['Age'].between(*age_range)
+                    age_filter = df_pca['Age'].between(*age_range)
                     position_filter = (
-                        pca_dataframe['Position'].astype(str).apply(lambda x: any(pos in x for pos in selected_positions)) 
+                        df_pca['Position'].astype(str).apply(lambda x: any(pos in x for pos in selected_positions)) 
                         if selected_positions 
-                        else pd.Series(True, index=pca_dataframe.index)
+                        else pd.Series(True, index=df_pca.index)
                     )
-                    filtered_pca_data = pca_dataframe[age_filter & position_filter]
+                    df_filtered = df_pca[age_filter & position_filter]
 
-                    if not filtered_pca_data.empty:
-                        min_score, max_score = filtered_pca_data['PCA Score'].min(), filtered_pca_data['PCA Score'].max()
+                    if not df_filtered.empty:
+                        min_score, max_score = df_filtered['PCA Score'].min(), df_filtered['PCA Score'].max()
                         score_range = st.slider(
                             'Filter PCA Score range',
                             min_value=float(min_score),
@@ -574,15 +572,15 @@ if uploaded_files:
                             value=(float(min_score), float(max_score))
                         )
                         
-                        final_data = filtered_pca_data[filtered_pca_data['PCA Score'].between(*score_range)]
-                        if final_data.empty:
+                        final_df = df_filtered[df_filtered['PCA Score'].between(*score_range)]
+                        if final_df.empty:
                             st.warning('No players in the selected PCA score range.')
                         else:
-                            st.write(f'**Matching Players ({len(final_data)})**')
-                            st.dataframe(final_data.sort_values('PCA Score', ascending=False).reset_index(drop=True))
+                            st.write(f'**Matching Players ({len(final_df)})**')
+                            st.dataframe(final_df.sort_values('PCA Score', ascending=False).reset_index(drop=True))
                             
                             st.write('**Score Distribution**')
-                            pca_figure = go.Figure(data=[go.Bar(x=final_data['Player'], y=final_data['PCA Score'])])
+                            fig_pca = go.Figure(data=[go.Bar(x=final_df['Player'], y=final_df['PCA Score'])])
                             
                             chart_title = (
                                 f"<b>PCA Scores</b><br>"
@@ -591,16 +589,16 @@ if uploaded_files:
                                 f"{context['positions']} | Metrics: {len(selected_metrics)} selected</sup>"
                             )
                             
-                            pca_figure.update_layout(
+                            fig_pca.update_layout(
                                 title=dict(text=chart_title, x=0.03, xanchor='left', font=dict(size=18)),
                                 template='plotly_dark',
                                 margin=dict(t=200, b=100, l=100, r=100)
                             )
-                            st.plotly_chart(pca_figure)
+                            st.plotly_chart(fig_pca)
                             
                             if st.button('Export PCA Scores (300 DPI)', key='export_pca'):
-                                pca_figure.update_layout(margin=dict(t=250))
-                                image_bytes = pca_figure.to_image(format="png", width=1600, height=900, scale=3)
+                                fig_pca.update_layout(margin=dict(t=250))
+                                image_bytes = fig_pca.to_image(format="png", width=1600, height=900, scale=3)
                                 st.download_button(
                                     "⬇️ Download PCA Chart", 
                                     data=image_bytes, 
@@ -611,7 +609,7 @@ if uploaded_files:
                             # Exportar Excel
                             buffer = BytesIO()
                             with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-                                final_data.to_excel(writer, sheet_name='PCA Results', index=False)
+                                final_df.to_excel(writer, sheet_name='PCA Results', index=False)
                             buffer.seek(0)
                             st.download_button(
                                 '📥 Download Results as Excel',
