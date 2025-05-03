@@ -524,7 +524,7 @@ if uploaded_files:
                     }).sort_values('Weight', ascending=False)
                     st.dataframe(wdf.style.format({'Weight':'{:.2f}'}))
 
-                    af = df_pca['Age'].between(*age_range)
+                    af = pd.Series(True, index=df_pca.index)
                     pf = (df_pca['Position'].astype(str).apply(lambda x: any(pos in x for pos in sel_pos))
                          )                    if sel_pos else pd.Series(True, index=df_pca.index)
                     df_f = df_pca[af & pf]
