@@ -32,16 +32,16 @@ st.caption("Created by João Alberto Kolling | Player Analysis System v3.0")
 # Guia do Usuário
 with st.expander("📘 User Guide & Instructions", expanded=False):
     st.markdown("""
-    **⚠️ Pré-requisitos:**  
-    1. Instale as dependências:  
+    **⚠️ Requirements:**  
+    1. Install dependencies:  
     `pip install kaleido==0.2.1.post1 xlsxwriter`  
-    2. Dados devem conter colunas: Player, Age, Position, Metrics, Team  
+    2. Data must contain columns: Player, Age, Position, Metrics, Team  
     
-    **Funcionalidades Principais:**  
-    - Comparação entre jogadores com radar e gráficos de barras  
-    - Análise de correlação entre métricas  
-    - Sistema de filtros avançados  
-    - Exportação profissional de gráficos (300 DPI)  
+    **Key Features:**  
+    - Player comparison with radar/barcharts  
+    - Metric correlation analysis  
+    - Advanced filtering system  
+    - Professional 300 DPI exports  
     """)
 
 # =============================================
@@ -156,7 +156,7 @@ if uploaded_files:
         tabs = st.tabs(['Radar', 'Bars', 'Scatter', 'Profiler', 'Correlation', 'Composite Index (PCA)'])
 
         # =============================================
-        # Radar Chart (Aba 1) - Com Tabela Integrada
+        # Radar Chart (Aba 1) - Versão Original com Tabela
         # =============================================
         with tabs[0]:
             st.header('Radar Chart')
@@ -166,93 +166,116 @@ if uploaded_files:
                 d1 = df_minutes[df_minutes['Player']==p1].iloc[0]
                 d2 = df_minutes[df_minutes['Player']==p2].iloc[0]
                 
-                # Cálculos de percentil
+                # Cálculos originais mantidos
                 p1pct = {m: calc_percentile(df_minutes[m], d1[m]) for m in sel}
                 p2pct = {m: calc_percentile(df_minutes[m], d2[m]) for m in sel}
                 gm = {m: df_group[m].mean() for m in sel}
-                gmpct = {m: calc_percentile(df_group[m], gm[m]) for m in sel}
-
-                # Cria figura combinada
-                fig = make_subplots(
-                    rows=2, cols=1,
-                    specs=[[{'type': 'polar'}], [{'type': 'table'}]],
-                    vertical_spacing=0.1,
-                    row_heights=[0.7, 0.3]
-                )
-
-                # Radar Plot
-                fig.add_trace(go.Scatterpolar(
+                gmpct = {m: calc_percentile(df_minutes[m], gm[m]) for m in sel}
+                
+                show_avg = st.checkbox('Show Group Average', True)
+                fig_radar = go.Figure()
+                
+                # Plotagem original intacta
+                fig_radar.add_trace(go.Scatterpolar(
                     r=[p1pct[m]*100 for m in sel],
                     theta=sel,
                     fill='toself',
-                    name=p1
-                ), row=1, col=1)
-
-                fig.add_trace(go.Scatterpolar(
+                    name=p1,
+                    line_color='#1f77b4'
+                ))
+                
+                fig_radar.add_trace(go.Scatterpolar(
                     r=[p2pct[m]*100 for m in sel],
                     theta=sel,
                     fill='toself',
-                    name=p2
-                ), row=1, col=1)
-
-                if st.checkbox('Show Group Average', True):
-                    fig.add_trace(go.Scatterpolar(
+                    name=p2,
+                    line_color='#ff7f0e'
+                ))
+                
+                if show_avg:
+                    fig_radar.add_trace(go.Scatterpolar(
                         r=[gmpct[m]*100 for m in sel],
                         theta=sel,
                         fill='toself',
-                        name='Group Avg'
-                    ), row=1, col=1)
-
-                # Tabela de Dados
-                header = ['Metric', p1, p2, 'Group Avg']
-                cells = [
-                    sel,
-                    [round(d1[m], 2) for m in sel],
-                    [round(d2[m], 2) for m in sel],
-                    [round(gm[m], 2) for m in sel]
-                ]
-
-                fig.add_trace(go.Table(
-                    header=dict(
-                        values=header,
-                        fill_color='#1f77b4',
-                        font=dict(color='white', size=12)
-                    ),
-                    cells=dict(
-                        values=cells,
-                        fill_color='lavender',
-                        align='center'
-                    )
-                ), row=2, col=1)
-
-                # Layout Final
-                fig.update_layout(
-                    title=dict(
-                        text=f"<b>{p1} vs {p2}</b><br>"
+                        name='Group Avg',
+                        line_color='#2ca02c'
+                    ))
+                
+                # Layout original mantido
+                title_text = (f"<b>{p1} vs {p2}</b><br>"
                              f"<sup>Leagues: {context['leagues']} | Seasons: {context['seasons']}<br>"
                              f"Filters: {context['min_min']}-{context['max_min']} mins | "
                              f"{context['min_mpg']}-{context['max_mpg']} min/game | "
-                             f"Age {context['min_age']}-{context['max_age']} | Positions: {context['positions']}</sup>",
-                        x=0.03,
-                        xanchor='left',
-                        font=dict(size=18)
-                    ),
-                    polar=dict(
-                        radialaxis=dict(range=[0,100]),
-                        angularaxis=dict(showticklabels=True)
-                    ),
-                    height=900,
-                    margin=dict(t=200, b=20),
-                    showlegend=True
+                             f"Age {context['min_age']}-{context['max_age']} | Positions: {context['positions']}</sup>")
+                
+                fig_radar.update_layout(
+                    title=dict(text=title_text, x=0.03, xanchor='left', font=dict(size=18)),
+                    polar=dict(radialaxis=dict(range=[0,100])),
+                    template='plotly_white',
+                    margin=dict(t=200, b=100, l=100, r=100),
+                    height=700
                 )
-
-                # Exibição
-                st.plotly_chart(fig, use_container_width=True)
-
-                # Exportação
-                if st.button('Export Radar Chart with Table (300 DPI)', key='export_radar'):
-                    fig.update_layout(margin=dict(t=250))
-                    img_bytes = fig.to_image(format="png", width=1600, height=1200, scale=3)
+                
+                # Exibição do gráfico original
+                st.plotly_chart(fig_radar)
+                
+                # Tabela adicionada ABAIXO sem alterar o gráfico
+                st.markdown("**Nominal Values**")
+                df_table = pd.DataFrame({
+                    'Metric': sel,
+                    p1: [round(d1[m], 2) for m in sel],
+                    p2: [round(d2[m], 2) for m in sel],
+                    'Group Avg': [round(gm[m], 2) for m in sel]
+                }).set_index('Metric')
+                
+                st.dataframe(
+                    df_table.style
+                    .format(precision=2)
+                    .set_properties(**{'background-color': 'white', 'color': 'black'})
+                )
+                
+                # Exportação combinada
+                if st.button('Export Radar Chart + Table (300 DPI)', key='export_radar'):
+                    # Criar figura combinada apenas para exportação
+                    fig_combined = make_subplots(
+                        rows=2, cols=1,
+                        specs=[[{'type': 'polar'}], [{'type': 'table'}]],
+                        vertical_spacing=0.15
+                    )
+                    
+                    # Copiar traces originais
+                    for trace in fig_radar.data:
+                        fig_combined.add_trace(trace, row=1, col=1)
+                    
+                    # Adicionar tabela
+                    header = ['Metric', p1, p2, 'Group Avg']
+                    cells = [
+                        sel,
+                        [round(d1[m], 2) for m in sel],
+                        [round(d2[m], 2) for m in sel],
+                        [round(gm[m], 2) for m in sel]
+                    ]
+                    
+                    fig_combined.add_trace(
+                        go.Table(
+                            header=dict(values=header),
+                            cells=dict(values=cells)
+                        ), row=2, col=1
+                    )
+                    
+                    # Ajustar layout para exportação
+                    fig_combined.update_layout(
+                        height=1400,
+                        margin=dict(t=200, b=100),
+                        showlegend=True
+                    )
+                    
+                    img_bytes = fig_combined.to_image(
+                        format="png", 
+                        width=1600, 
+                        height=1400, 
+                        scale=3  # 300 DPI
+                    )
                     st.download_button(
                         "⬇️ Download Full Analysis", 
                         data=img_bytes, 
