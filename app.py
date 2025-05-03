@@ -193,11 +193,15 @@ if uploaded_files:
                              f"{context['positions']} | {len(df_minutes)} players</sup>")
                 
                 fig_radar.update_layout(
-                    title=dict(text=title_text, x=0.03, xanchor='left', font=dict(size=18)),
-                    polar=dict(radialaxis=dict(range=[0,100], angularaxis=dict(rotation=90)),
-                    template='plotly_white',
-                    height=700,
-                    margin=dict(t=150)
+    title=dict(text=title_text, x=0.03, xanchor='left', font=dict(size=18)),
+    polar=dict(
+        radialaxis=dict(range=[0,100]),
+        angularaxis=dict(rotation=90)
+    ),
+    template='plotly_white',
+    height=700,
+    margin=dict(t=150)
+)
                 
                 st.plotly_chart(fig_radar, use_container_width=True)
                 
