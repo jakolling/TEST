@@ -136,7 +136,7 @@ if uploaded_files:
         age_range = st.sidebar.slider('Age Range', min_age, max_age, (min_age, max_age))
         df_minutes = df_minutes[df_minutes['Age'].between(*age_range)]
 
-        # Coleta posições sem filtrar o dataframe principal
+        # Coleta posições
         if 'Position' in df_minutes.columns:
             df_minutes['Position_split'] = df_minutes['Position'].astype(str).apply(lambda x: [p.strip() for p in x.split(',')])
             all_pos = sorted({p for lst in df_minutes['Position_split'] for p in lst})
@@ -144,7 +144,7 @@ if uploaded_files:
         else:
             sel_pos = []
 
-        # Cria dataframe separado para cálculos de grupo
+        # Cria dataframe para cálculos de grupo
         if 'Position_split' in df_minutes.columns and sel_pos:
             df_group = df_minutes[df_minutes['Position_split'].apply(lambda x: any(pos in x for pos in sel_pos))]
         else:
@@ -237,7 +237,7 @@ if uploaded_files:
                         format="png", 
                         width=1600, 
                         height=1400, 
-                        scale=3  # 300 DPI
+                        scale=3
                     )
                     st.download_button(
                         "⬇️ Download Radar Chart", 
@@ -389,7 +389,6 @@ if uploaded_files:
             st.header('Profiler')
             sel = st.multiselect('Select 4–12 metrics', numeric_cols)
             
-            # Novo filtro de idade específico para Profiler
             age_min_profiler, age_max_profiler = st.slider(
                 'Age Range (Profiler)', 
                 min_value=int(df_minutes['Age'].min()), 
@@ -402,7 +401,6 @@ if uploaded_files:
                 mins = {m: st.slider(f'Min % for {m}', 0,100,50) for m in sel}
                 mask = np.logical_and.reduce([pct[m]*100 >= mins[m] for m in sel])
                 
-                # Aplicar filtro de idade
                 df_profiler_filtered = df_minutes.loc[mask].copy()
                 df_profiler_filtered = df_profiler_filtered[
                     df_profiler_filtered['Age'].between(age_min_profiler, age_max_profiler)
@@ -452,13 +450,12 @@ if uploaded_files:
                     )
 
         # =============================================
-        # Composite PCA Index (Aba 6)
+        # Composite PCA Index (Aba 6) - SEÇÃO CORRIGIDA
         # =============================================
         with tabs[5]:
             st.header('Composite PCA Index + Excel Export')
             performance_cols = [col for col in numeric_cols if col not in ['Age','Height','Country','Minutes played','Position']]
             
-            # Novo filtro de idade específico para PCA
             age_min_pca, age_max_pca = st.slider(
                 'Age Range (PCA)', 
                 min_value=int(df_minutes['Age'].min()), 
@@ -550,10 +547,9 @@ if uploaded_files:
                     }).sort_values('Weight', ascending=False)
                     st.dataframe(wdf.style.format({'Weight':'{:.2f}'}))
 
-                    # Aplicar novo filtro de idade do PCA
+                    # Linha corrigida com parêntese fechado
                     af = df_pca['Age'].between(age_min_pca, age_max_pca)
-                    pf = (df_pca['Position'].astype(str).apply(lambda x: any(pos in x for pos in sel_pos)
-                         ) if sel_pos else pd.Series(True, index=df_pca.index)
+                    pf = (df_pca['Position'].astype(str).apply(lambda x: any(pos in x for pos in sel_pos))) if sel_pos else pd.Series(True, index=df_pca.index)
                     df_f = df_pca[af & pf]
 
                     if not df_f.empty:
