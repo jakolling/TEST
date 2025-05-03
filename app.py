@@ -1,5 +1,5 @@
-# Football Analytics App - Professional Version
-# Complete Feature Set - v4.0
+# Football Analytics App - Complete Version
+# Todos os componentes incluídos - v3.0
 
 import streamlit as st
 import pandas as pd
@@ -12,7 +12,7 @@ from io import BytesIO
 import kaleido
 
 # =============================================
-# Initial Configuration
+# Configuração Inicial
 # =============================================
 st.set_page_config(
     page_title='Football Analytics',
@@ -20,32 +20,32 @@ st.set_page_config(
     page_icon="⚽"
 )
 
-# Header with Logo
+# Cabeçalho com logo
 col1, col2, col3 = st.columns([1, 3, 1])
 with col2:
     st.image('vif_logo.png.jpg', width=400)
 
 st.title('Technical Scouting Department')
 st.subheader('Football Analytics Dashboard')
-st.caption("Created by João Alberto Kolling | Player Analysis System v4.0")
+st.caption("Created by João Alberto Kolling | Player Analysis System v3.0")
 
-# User Guide
+# Guia do Usuário
 with st.expander("📘 User Guide & Instructions", expanded=False):
     st.markdown("""
-    **⚠️ Requirements:**  
-    1. Install dependencies:  
+    **⚠️ Pré-requisitos:**  
+    1. Instale as dependências:  
     `pip install kaleido==0.2.1.post1 xlsxwriter`  
-    2. Data must contain columns: Player, Age, Position, Metrics, Team  
+    2. Dados devem conter colunas: Player, Age, Position, Metrics, Team  
     
-    **Key Features:**  
-    - Player comparison with radar/barcharts  
-    - Metric correlation analysis  
-    - Advanced filtering system  
-    - Professional 300 DPI exports  
+    **Funcionalidades Principais:**  
+    - Comparação entre jogadores com radar e gráficos de barras  
+    - Análise de correlação entre métricas  
+    - Sistema de filtros avançados  
+    - Exportação profissional de gráficos (300 DPI)  
     """)
 
 # =============================================
-# Core Functions
+# Funções Principais
 # =============================================
 if 'file_metadata' not in st.session_state:
     st.session_state.file_metadata = {}
@@ -84,7 +84,7 @@ def get_context_info(df, minutes_range, mpg_range, age_range, sel_pos):
     }
 
 # =============================================
-# Sidebar Filters
+# Filtros da Barra Lateral
 # =============================================
 st.sidebar.header('Filters')
 with st.sidebar.expander("⚙️ Advanced Filters", expanded=True):
@@ -95,7 +95,7 @@ with st.sidebar.expander("⚙️ Advanced Filters", expanded=True):
     )
 
 if uploaded_files:
-    # Metadata Handling
+    # Coleta de Metadados
     new_files = [f for f in uploaded_files if f.name not in st.session_state.file_metadata]
     
     for file in new_files:
@@ -117,7 +117,7 @@ if uploaded_files:
     try:
         df = load_and_clean(uploaded_files)
 
-        # Core Filters
+        # Filtros Principais
         min_min, max_min = int(df['Minutes played'].min()), int(df['Minutes played'].max())
         minutes_range = st.sidebar.slider('Minutes Played', min_min, max_min, (min_min, max_min))
         df_minutes = df[df['Minutes played'].between(*minutes_range)].copy()
@@ -133,7 +133,7 @@ if uploaded_files:
         age_range = st.sidebar.slider('Age Range', min_age, max_age, (min_age, max_age))
         df_minutes = df_minutes[df_minutes['Age'].between(*age_range)]
 
-        # Position Handling
+        # Coleta posições sem filtrar o dataframe principal
         if 'Position' in df_minutes.columns:
             df_minutes['Position_split'] = df_minutes['Position'].astype(str).apply(lambda x: [p.strip() for p in x.split(',')])
             all_pos = sorted({p for lst in df_minutes['Position_split'] for p in lst})
@@ -141,7 +141,7 @@ if uploaded_files:
         else:
             sel_pos = []
 
-        # Group Data
+        # Cria dataframe separado para cálculos de grupo
         if 'Position_split' in df_minutes.columns and sel_pos:
             df_group = df_minutes[df_minutes['Position_split'].apply(lambda x: any(pos in x for pos in sel_pos))]
         else:
@@ -153,26 +153,26 @@ if uploaded_files:
         p2 = st.sidebar.selectbox('Select Player 2', [p for p in players if p != p1])
 
         numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-        tabs = st.tabs(['Radar Analysis', 'Bar Comparison', 'Scatter Plot', 'Metric Profiler', 'Correlation Matrix', 'PCA Index'])
+        tabs = st.tabs(['Radar', 'Bars', 'Scatter', 'Profiler', 'Correlation', 'Composite Index (PCA)'])
 
         # =============================================
-        # Radar Chart with Integrated Table (Tab 1)
+        # Radar Chart (Aba 1) - Com Tabela Integrada
         # =============================================
         with tabs[0]:
-            st.header('Radar Analysis')
-            sel = st.multiselect('Select Metrics (6-12)', numeric_cols, default=numeric_cols[:6])
+            st.header('Radar Chart')
+            sel = st.multiselect('Metrics for Radar (6–12)', numeric_cols, default=numeric_cols[:6])
             
             if 6 <= len(sel) <= 12:
                 d1 = df_minutes[df_minutes['Player']==p1].iloc[0]
                 d2 = df_minutes[df_minutes['Player']==p2].iloc[0]
                 
-                # Percentiles
+                # Cálculos de percentil
                 p1pct = {m: calc_percentile(df_minutes[m], d1[m]) for m in sel}
                 p2pct = {m: calc_percentile(df_minutes[m], d2[m]) for m in sel}
                 gm = {m: df_group[m].mean() for m in sel}
                 gmpct = {m: calc_percentile(df_group[m], gm[m]) for m in sel}
 
-                # Create Combined Figure
+                # Cria figura combinada
                 fig = make_subplots(
                     rows=2, cols=1,
                     specs=[[{'type': 'polar'}], [{'type': 'table'}]],
@@ -203,7 +203,7 @@ if uploaded_files:
                         name='Group Avg'
                     ), row=1, col=1)
 
-                # Data Table
+                # Tabela de Dados
                 header = ['Metric', p1, p2, 'Group Avg']
                 cells = [
                     sel,
@@ -216,53 +216,47 @@ if uploaded_files:
                     header=dict(
                         values=header,
                         fill_color='#1f77b4',
-                        font=dict(color='white', size=12),
+                        font=dict(color='white', size=12)
+                    ),
                     cells=dict(
                         values=cells,
                         fill_color='lavender',
-                        align='center'),
-                    ), row=2, col=1)
+                        align='center'
+                    )
+                ), row=2, col=1)
 
-                # Layout Configuration
+                # Layout Final
                 fig.update_layout(
                     title=dict(
-                        text=f"<b>{p1} vs {p2} - Comprehensive Analysis</b><br>"
-                             f"<sup>Context: {context['leagues']} ({context['seasons']}) | "
-                             f"Filters: {context['min_age']}-{context['max_age']} years</sup>",
+                        text=f"<b>{p1} vs {p2}</b><br>"
+                             f"<sup>Leagues: {context['leagues']} | Seasons: {context['seasons']}<br>"
+                             f"Filters: {context['min_min']}-{context['max_min']} mins | "
+                             f"{context['min_mpg']}-{context['max_mpg']} min/game | "
+                             f"Age {context['min_age']}-{context['max_age']} | Positions: {context['positions']}</sup>",
                         x=0.03,
                         xanchor='left',
-                        font=dict(size=20)
+                        font=dict(size=18)
                     ),
                     polar=dict(
-                        radialaxis=dict(range=[0,100], showticklabels=False),
-                        angularaxis=dict(showticklabels=True, tickfont=dict(size=12))
+                        radialaxis=dict(range=[0,100]),
+                        angularaxis=dict(showticklabels=True)
                     ),
-                    height=1200,
-                    margin=dict(t=180, b=20, l=20, r=20),
-                    showlegend=True,
-                    legend=dict(orientation="h", yanchor="bottom", y=1.02)
+                    height=900,
+                    margin=dict(t=200, b=20),
+                    showlegend=True
                 )
 
-                # Display
+                # Exibição
                 st.plotly_chart(fig, use_container_width=True)
 
-                # Export Logic
-                if st.button('Export Full Analysis (300 DPI)', key='export_radar'):
-                    fig.update_layout(
-                        margin=dict(t=220, b=80),
-                        title=dict(font=dict(size=24))
-                    
-                    img_bytes = fig.to_image(
-                        format="png", 
-                        width=1600, 
-                        height=1400, 
-                        scale=3  # 300 DPI
-                    )
-                    
+                # Exportação
+                if st.button('Export Radar Chart with Table (300 DPI)', key='export_radar'):
+                    fig.update_layout(margin=dict(t=250))
+                    img_bytes = fig.to_image(format="png", width=1600, height=1200, scale=3)
                     st.download_button(
-                        label="⬇️ Download Analysis",
-                        data=img_bytes,
-                        file_name=f"analysis_{p1}_vs_{p2}.png",
+                        "⬇️ Download Full Analysis", 
+                        data=img_bytes, 
+                        file_name=f"radar_table_{p1}_vs_{p2}.png", 
                         mime="image/png"
                     )
 
