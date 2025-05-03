@@ -1,5 +1,5 @@
-# Football Analytics App - Complete Version
-# Todos os componentes incluídos - v3.0
+# Football Analytics App - Professional Version
+# Complete Feature Set - v4.0
 
 import streamlit as st
 import pandas as pd
@@ -12,7 +12,7 @@ from io import BytesIO
 import kaleido
 
 # =============================================
-# Configuração Inicial
+# Initial Configuration
 # =============================================
 st.set_page_config(
     page_title='Football Analytics',
@@ -20,32 +20,32 @@ st.set_page_config(
     page_icon="⚽"
 )
 
-# Cabeçalho com logo
+# Header with Logo
 col1, col2, col3 = st.columns([1, 3, 1])
 with col2:
     st.image('vif_logo.png.jpg', width=400)
 
 st.title('Technical Scouting Department')
 st.subheader('Football Analytics Dashboard')
-st.caption("Created by João Alberto Kolling | Player Analysis System v3.0")
+st.caption("Created by João Alberto Kolling | Player Analysis System v4.0")
 
-# Guia do Usuário
+# User Guide
 with st.expander("📘 User Guide & Instructions", expanded=False):
     st.markdown("""
-    **⚠️ Pré-requisitos:**  
-    1. Instale as dependências:  
+    **⚠️ Requirements:**  
+    1. Install dependencies:  
     `pip install kaleido==0.2.1.post1 xlsxwriter`  
-    2. Dados devem conter colunas: Player, Age, Position, Metrics, Team  
+    2. Data must contain columns: Player, Age, Position, Metrics, Team  
     
-    **Funcionalidades Principais:**  
-    - Comparação entre jogadores com radar e gráficos de barras  
-    - Análise de correlação entre métricas  
-    - Sistema de filtros avançados  
-    - Exportação profissional de gráficos (300 DPI)  
+    **Key Features:**  
+    - Player comparison with radar/barcharts  
+    - Metric correlation analysis  
+    - Advanced filtering system  
+    - Professional 300 DPI exports  
     """)
 
 # =============================================
-# Funções Principais
+# Core Functions
 # =============================================
 if 'file_metadata' not in st.session_state:
     st.session_state.file_metadata = {}
@@ -84,7 +84,7 @@ def get_context_info(df, minutes_range, mpg_range, age_range, sel_pos):
     }
 
 # =============================================
-# Filtros da Barra Lateral
+# Sidebar Filters
 # =============================================
 st.sidebar.header('Filters')
 with st.sidebar.expander("⚙️ Advanced Filters", expanded=True):
@@ -95,7 +95,7 @@ with st.sidebar.expander("⚙️ Advanced Filters", expanded=True):
     )
 
 if uploaded_files:
-    # Coleta de Metadados
+    # Metadata Handling
     new_files = [f for f in uploaded_files if f.name not in st.session_state.file_metadata]
     
     for file in new_files:
@@ -117,7 +117,7 @@ if uploaded_files:
     try:
         df = load_and_clean(uploaded_files)
 
-        # Filtros Principais
+        # Core Filters
         min_min, max_min = int(df['Minutes played'].min()), int(df['Minutes played'].max())
         minutes_range = st.sidebar.slider('Minutes Played', min_min, max_min, (min_min, max_min))
         df_minutes = df[df['Minutes played'].between(*minutes_range)].copy()
@@ -133,7 +133,7 @@ if uploaded_files:
         age_range = st.sidebar.slider('Age Range', min_age, max_age, (min_age, max_age))
         df_minutes = df_minutes[df_minutes['Age'].between(*age_range)]
 
-        # Coleta posições sem filtrar o dataframe principal
+        # Position Handling
         if 'Position' in df_minutes.columns:
             df_minutes['Position_split'] = df_minutes['Position'].astype(str).apply(lambda x: [p.strip() for p in x.split(',')])
             all_pos = sorted({p for lst in df_minutes['Position_split'] for p in lst})
@@ -141,7 +141,7 @@ if uploaded_files:
         else:
             sel_pos = []
 
-        # Cria dataframe separado para cálculos de grupo
+        # Group Data
         if 'Position_split' in df_minutes.columns and sel_pos:
             df_group = df_minutes[df_minutes['Position_split'].apply(lambda x: any(pos in x for pos in sel_pos))]
         else:
@@ -153,109 +153,116 @@ if uploaded_files:
         p2 = st.sidebar.selectbox('Select Player 2', [p for p in players if p != p1])
 
         numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-        tabs = st.tabs(['Radar', 'Bars', 'Scatter', 'Profiler', 'Correlation', 'Composite Index (PCA)'])
+        tabs = st.tabs(['Radar Analysis', 'Bar Comparison', 'Scatter Plot', 'Metric Profiler', 'Correlation Matrix', 'PCA Index'])
 
         # =============================================
-        # Radar Chart (Aba 1) - Com Tabela de Valores
+        # Radar Chart with Integrated Table (Tab 1)
         # =============================================
         with tabs[0]:
-            st.header('Radar Chart')
-            sel = st.multiselect('Metrics for Radar (6–12)', numeric_cols, default=numeric_cols[:6])
+            st.header('Radar Analysis')
+            sel = st.multiselect('Select Metrics (6-12)', numeric_cols, default=numeric_cols[:6])
             
             if 6 <= len(sel) <= 12:
                 d1 = df_minutes[df_minutes['Player']==p1].iloc[0]
                 d2 = df_minutes[df_minutes['Player']==p2].iloc[0]
                 
-                # Cálculos de percentil
+                # Percentiles
                 p1pct = {m: calc_percentile(df_minutes[m], d1[m]) for m in sel}
                 p2pct = {m: calc_percentile(df_minutes[m], d2[m]) for m in sel}
                 gm = {m: df_group[m].mean() for m in sel}
                 gmpct = {m: calc_percentile(df_group[m], gm[m]) for m in sel}
-                
-                # Configuração do gráfico
-                show_avg = st.checkbox('Show Group Average', True)
-                fig = go.Figure()
-                
+
+                # Create Combined Figure
+                fig = make_subplots(
+                    rows=2, cols=1,
+                    specs=[[{'type': 'polar'}], [{'type': 'table'}]],
+                    vertical_spacing=0.1,
+                    row_heights=[0.7, 0.3]
+                )
+
+                # Radar Plot
                 fig.add_trace(go.Scatterpolar(
                     r=[p1pct[m]*100 for m in sel],
                     theta=sel,
                     fill='toself',
                     name=p1
-                ))
-                
+                ), row=1, col=1)
+
                 fig.add_trace(go.Scatterpolar(
                     r=[p2pct[m]*100 for m in sel],
                     theta=sel,
                     fill='toself',
                     name=p2
-                ))
-                
-                if show_avg:
+                ), row=1, col=1)
+
+                if st.checkbox('Show Group Average', True):
                     fig.add_trace(go.Scatterpolar(
                         r=[gmpct[m]*100 for m in sel],
                         theta=sel,
                         fill='toself',
                         name='Group Avg'
-                    ))
-                
-                # Layout do título
-                title_text = (f"<b>{p1} vs {p2}</b><br>"
-                             f"<sup>Leagues: {context['leagues']} | Seasons: {context['seasons']}<br>"
-                             f"Filters: {context['min_min']}-{context['max_min']} mins | "
-                             f"{context['min_mpg']}-{context['max_mpg']} min/game | "
-                             f"Age {context['min_age']}-{context['max_age']} | Positions: {context['positions']}</sup>")
-                
+                    ), row=1, col=1)
+
+                # Data Table
+                header = ['Metric', p1, p2, 'Group Avg']
+                cells = [
+                    sel,
+                    [round(d1[m], 2) for m in sel],
+                    [round(d2[m], 2) for m in sel],
+                    [round(gm[m], 2) for m in sel]
+                ]
+
+                fig.add_trace(go.Table(
+                    header=dict(
+                        values=header,
+                        fill_color='#1f77b4',
+                        font=dict(color='white', size=12),
+                    cells=dict(
+                        values=cells,
+                        fill_color='lavender',
+                        align='center'),
+                    ), row=2, col=1)
+
+                # Layout Configuration
                 fig.update_layout(
-                    title=dict(text=title_text, x=0.03, xanchor='left', font=dict(size=18)),
-                    polar=dict(radialaxis=dict(range=[0,100])),
-                    template='plotly_white',
-                    margin=dict(t=200, b=100, l=100, r=100),
-                    height=700
+                    title=dict(
+                        text=f"<b>{p1} vs {p2} - Comprehensive Analysis</b><br>"
+                             f"<sup>Context: {context['leagues']} ({context['seasons']}) | "
+                             f"Filters: {context['min_age']}-{context['max_age']} years</sup>",
+                        x=0.03,
+                        xanchor='left',
+                        font=dict(size=20)
+                    ),
+                    polar=dict(
+                        radialaxis=dict(range=[0,100], showticklabels=False),
+                        angularaxis=dict(showticklabels=True, tickfont=dict(size=12))
+                    ),
+                    height=1200,
+                    margin=dict(t=180, b=20, l=20, r=20),
+                    showlegend=True,
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02)
                 )
-                
-                # Layout com colunas para gráfico e tabela
-                graph_col, table_col = st.columns([3, 1])
-                
-                with graph_col:
-                    st.plotly_chart(fig, use_container_width=True)
-                
-                with table_col:
-                    st.markdown("**Valores Nominais**")
+
+                # Display
+                st.plotly_chart(fig, use_container_width=True)
+
+                # Export Logic
+                if st.button('Export Full Analysis (300 DPI)', key='export_radar'):
+                    fig.update_layout(
+                        margin=dict(t=220, b=80),
+                        title=dict(font=dict(size=24))
                     
-                    # Dados da tabela
-                    player1_values = [round(d1[m], 2) for m in sel]
-                    player2_values = [round(d2[m], 2) for m in sel]
-                    avg_values = [round(gm[m], 2) for m in sel]
-                    
-                    # Criação do DataFrame
-                    df_table = pd.DataFrame({
-                        'Metric': sel,
-                        p1: player1_values,
-                        p2: player2_values,
-                        'Média Grupo': avg_values
-                    }).set_index('Metric')
-                    
-                    # Estilização da tabela
-                    st.dataframe(
-                        df_table.style
-                        .set_properties(**{
-                            'font-size': '12px',
-                            'padding': '5px',
-                            'white-space': 'nowrap'
-                        })
-                        .format(precision=2),
-                        height=500,
-                        use_container_width=True
+                    img_bytes = fig.to_image(
+                        format="png", 
+                        width=1600, 
+                        height=1400, 
+                        scale=3  # 300 DPI
                     )
-                
-                # Botão de exportação
-                if st.button('Export Radar Chart (300 DPI)', key='export_radar'):
-                    fig.update_layout(margin=dict(t=250))
-                    img_bytes = fig.to_image(format="png", width=1600, height=900, scale=3)
+                    
                     st.download_button(
-                        "⬇️ Download Radar Chart", 
-                        data=img_bytes, 
-                        file_name=f"radar_{p1}_vs_{p2}.png", 
+                        label="⬇️ Download Analysis",
+                        data=img_bytes,
+                        file_name=f"analysis_{p1}_vs_{p2}.png",
                         mime="image/png"
                     )
 
