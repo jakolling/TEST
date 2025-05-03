@@ -156,7 +156,7 @@ if uploaded_files:
         tabs = st.tabs(['Radar', 'Bars', 'Scatter', 'Profiler', 'Correlation', 'Composite Index (PCA)'])
 
         # =============================================
-        # Radar Chart (Aba 1) - Versão Original com Tabela
+        # Radar Chart (Aba 1)
         # =============================================
         with tabs[0]:
             st.header('Radar Chart')
@@ -166,7 +166,6 @@ if uploaded_files:
                 d1 = df_minutes[df_minutes['Player']==p1].iloc[0]
                 d2 = df_minutes[df_minutes['Player']==p2].iloc[0]
                 
-                # Cálculos originais mantidos
                 p1pct = {m: calc_percentile(df_minutes[m], d1[m]) for m in sel}
                 p2pct = {m: calc_percentile(df_minutes[m], d2[m]) for m in sel}
                 gm = {m: df_group[m].mean() for m in sel}
@@ -175,7 +174,6 @@ if uploaded_files:
                 show_avg = st.checkbox('Show Group Average', True)
                 fig_radar = go.Figure()
                 
-                # Plotagem original intacta
                 fig_radar.add_trace(go.Scatterpolar(
                     r=[p1pct[m]*100 for m in sel],
                     theta=sel,
@@ -201,7 +199,6 @@ if uploaded_files:
                         line_color='#2ca02c'
                     ))
                 
-                # Layout original mantido
                 title_text = (f"<b>{p1} vs {p2}</b><br>"
                              f"<sup>Leagues: {context['leagues']} | Seasons: {context['seasons']}<br>"
                              f"Filters: {context['min_min']}-{context['max_min']} mins | "
@@ -216,10 +213,8 @@ if uploaded_files:
                     height=700
                 )
                 
-                # Exibição do gráfico original
                 st.plotly_chart(fig_radar)
                 
-                # Tabela adicionada ABAIXO sem alterar o gráfico
                 st.markdown("**Nominal Values**")
                 df_table = pd.DataFrame({
                     'Metric': sel,
@@ -234,52 +229,17 @@ if uploaded_files:
                     .set_properties(**{'background-color': 'white', 'color': 'black'})
                 )
                 
-                # Exportação combinada
-                if st.button('Export Radar Chart + Table (300 DPI)', key='export_radar'):
-                    # Criar figura combinada apenas para exportação
-                    fig_combined = make_subplots(
-                        rows=2, cols=1,
-                        specs=[[{'type': 'polar'}], [{'type': 'table'}]],
-                        vertical_spacing=0.15
-                    )
-                    
-                    # Copiar traces originais
-                    for trace in fig_radar.data:
-                        fig_combined.add_trace(trace, row=1, col=1)
-                    
-                    # Adicionar tabela
-                    header = ['Metric', p1, p2, 'Group Avg']
-                    cells = [
-                        sel,
-                        [round(d1[m], 2) for m in sel],
-                        [round(d2[m], 2) for m in sel],
-                        [round(gm[m], 2) for m in sel]
-                    ]
-                    
-                    fig_combined.add_trace(
-                        go.Table(
-                            header=dict(values=header),
-                            cells=dict(values=cells)
-                        ), row=2, col=1
-                    )
-                    
-                    # Ajustar layout para exportação
-                    fig_combined.update_layout(
-                        height=1400,
-                        margin=dict(t=200, b=100),
-                        showlegend=True
-                    )
-                    
-                    img_bytes = fig_combined.to_image(
+                if st.button('Export Radar Chart (300 DPI)', key='export_radar'):
+                    img_bytes = fig_radar.to_image(
                         format="png", 
                         width=1600, 
                         height=1400, 
                         scale=3  # 300 DPI
                     )
                     st.download_button(
-                        "⬇️ Download Full Analysis", 
+                        "⬇️ Download Radar Chart", 
                         data=img_bytes, 
-                        file_name=f"radar_table_{p1}_vs_{p2}.png", 
+                        file_name=f"radar_{p1}_vs_{p2}.png", 
                         mime="image/png"
                     )
 
@@ -566,7 +526,7 @@ if uploaded_files:
 
                     af = df_pca['Age'].between(*age_range)
                     pf = (df_pca['Position'].astype(str).apply(lambda x: any(pos in x for pos in sel_pos)) 
-                          if sel_pos else pd.Series(True, index=df_pca.index))
+                          if sel_pos else pd.Series(True, index=df_pca.index)
                     df_f = df_pca[af & pf]
 
                     if not df_f.empty:
