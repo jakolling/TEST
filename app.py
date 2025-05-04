@@ -154,7 +154,7 @@ if uploaded_files:
 
         # Cria dataframe para cálculos de grupo
         if 'Position_split' in df_minutes.columns and sel_pos:
-            df_group = df_minutes[df_minutes['Position_split'].apply(lambda x: any(pos in x for pos in sel_pos)]
+            df_group = df_minutes[df_minutes['Position_split'].apply(lambda x: any(pos in x for pos in sel_pos))]
         else:
             df_group = df_minutes.copy()
 
