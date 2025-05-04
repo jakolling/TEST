@@ -154,7 +154,7 @@ if uploaded_files:
 
         # Cria dataframe para cálculos de grupo
         if 'Position_split' in df_minutes.columns and sel_pos:
-            df_group = df_minutes[df_minutes['Position_split'].apply(lambda x: any(pos in x for pos in sel_pos))]
+            df_group = df_minutes[df_minutes['Position_split'].apply(lambda x: any(pos in x for pos in sel_pos)]
         else:
             df_group = df_minutes.copy()
 
@@ -451,7 +451,7 @@ if uploaded_files:
                 'Age Range (Profiler)', 
                 min_value=int(df_minutes['Age'].min()), 
                 max_value=int(df_minutes['Age'].max()), 
-                value=(age_min_profiler, age_max_profiler))
+                value=(age_min_profiler, age_max_profiler)
             
             if 4 <= len(sel) <= 12:
                 pct = {m: df_minutes[m].rank(pct=True) for m in sel}
@@ -547,10 +547,9 @@ if uploaded_files:
             
             age_min_pca, age_max_pca = st.slider(
                 'Age Range (PCA)', 
-            )
                 min_value=int(df_minutes['Age'].min()), 
                 max_value=int(df_minutes['Age'].max()), 
-                value=(age_min_pca, age_max_pca)
+                value=(age_min_pca, age_max_pca))
             
             col1, col2, col3, col4 = st.columns(4)
             with col1:
