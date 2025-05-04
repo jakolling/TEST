@@ -561,8 +561,7 @@ if uploaded_files:
                     'Correlation Threshold', 
                     0.0, 1.0, 0.5, 0.05,
                     help='Minimum average correlation for feature inclusion',
-                    disabled=st.session_state.get('manual_weights', False)
-                )
+                    disabled=st.session_state.get('manual_weights', False))
             with col4:
                 manual_weights = st.checkbox('Manual Weights', key='manual_weights')
 
