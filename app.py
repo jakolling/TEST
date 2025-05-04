@@ -547,6 +547,7 @@ if uploaded_files:
             
             age_min_pca, age_max_pca = st.slider(
                 'Age Range (PCA)', 
+            )
                 min_value=int(df_minutes['Age'].min()), 
                 max_value=int(df_minutes['Age'].max()), 
                 value=(age_min_pca, age_max_pca)
