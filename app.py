@@ -452,7 +452,6 @@ if uploaded_files:
                 min_value=int(df_minutes['Age'].min()), 
                 max_value=int(df_minutes['Age'].max()), 
                 value=(age_min_profiler, age_max_profiler)
-            )
             
             if 4 <= len(sel) <= 12:
                 pct = {m: df_minutes[m].rank(pct=True) for m in sel}
