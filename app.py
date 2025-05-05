@@ -2,8 +2,9 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
 
-import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 import matplotlib as mpl
