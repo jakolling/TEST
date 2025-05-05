@@ -219,12 +219,12 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
             ),
             kwargs_params=dict(
             color="#000000", 
-            fontsize=9,  # Reduzido de 11 para 9
+            fontsize=9,  
             fontweight="bold", 
             va="center", 
             zorder=3,
-            # Adicione ajuste de posição
-            bbox=dict(boxstyle="round,pad=0.2", facecolor="white", alpha=0.8)
+            # Remova o fundo e borda
+            bbox=dict(facecolor='none', edgecolor='none', linewidth=0)  # Modificado
         ),
             kwargs_values=dict(
                 color="#FF0000", fontsize=11, fontweight="bold", zorder=5,
@@ -416,15 +416,16 @@ def create_comparison_pizza_chart(params, values_p1, values_p2=None, values_avg=
                 facecolor=compare_color, edgecolor="#000000", 
                 zorder=3, linewidth=1, alpha=0.8
             ),
-            kwargs_params=dict(
-            color="#000000", 
-            fontsize=9,  # Reduzido de 11 para 9
+            kwargs_values=dict(
+            color="#FF0000", 
+            fontsize=9,  # Reduzido
             fontweight="bold", 
-            va="center", 
-            zorder=3,
-            # Ajuste de posição
-            bbox=dict(boxstyle="round,pad=0.1", facecolor="white", alpha=0.8)
-        ),
+            zorder=5,
+            bbox=dict(
+            edgecolor='none',  # Removido
+            facecolor='none',  # Removido
+            linewidth=0  # Removido
+    )),
             kwargs_values=dict(
                 color=player1_color, fontsize=11, fontweight="bold", zorder=5,
                 bbox=dict(
