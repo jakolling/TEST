@@ -199,7 +199,7 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
             background_color=background_color,
             straight_line_color="#999999",  # linhas mais visíveis
             straight_line_lw=1.2,           # linhas mais grossas
-            last_circle_lw=1.5,             # círculo externo mais visível
+            last_circle_lw=0.8,             # círculo externo mais visível
             other_circle_lw=1,              # outros círculos visíveis
             other_circle_ls="-",            # linhas sólidas para círculos
             inner_circle_size=15            # círculo interno menor
