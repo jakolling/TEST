@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import plotly.express as px
+
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
