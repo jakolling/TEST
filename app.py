@@ -1,70 +1,3 @@
-
-import requests
-from bs4 import BeautifulSoup
-
-def extract_transfermarkt_data(url):
-    headers = {
-        "User-Agent": "Mozilla/5.0"
-    }
-
-    res = requests.get(url, headers=headers)
-    soup = BeautifulSoup(res.content, "html.parser")
-
-    player = {}
-
-    try:
-        player['name'] = soup.find("h1", {"itemprop": "name"}).text.strip()
-    except:
-        player['name'] = "Not found"
-
-    try:
-        club_img = soup.select_one(".data-header__club img")
-        player['club'] = club_img['alt'] if club_img else "Not found"
-    except:
-        player['club'] = "Not found"
-
-    try:
-        rows = soup.select(".detail-position__position")
-        player['position'] = rows[0].text.strip() if rows else "Not found"
-    except:
-        player['position'] = "Not found"
-
-    try:
-        nationality_img = soup.select(".data-header__label .flaggenrahmen")
-        player['nationality'] = ', '.join([img['title'] for img in nationality_img])
-    except:
-        player['nationality'] = "Not found"
-
-    try:
-        labels = soup.select(".info-table__content")
-        for label in labels:
-            if "Height:" in label.text:
-                player['height'] = label.text.split(":")[-1].strip()
-                break
-        else:
-            player['height'] = "Not found"
-    except:
-        player['height'] = "Not found"
-
-    try:
-        for label in labels:
-            if "Foot:" in label.text:
-                player['foot'] = label.text.split(":")[-1].strip()
-                break
-        else:
-            player['foot'] = "Not found"
-    except:
-        player['foot'] = "Not found"
-
-    try:
-        val_box = soup.select_one(".tm-player-market-value-development__current-value")
-        player['market_value'] = val_box.text.strip() if val_box else "Not found"
-    except:
-        player['market_value'] = "Not found"
-
-    return player
-
-
 # Football Analytics App - Complete Version
 # Todos os componentes incluídos - v3.0
 
@@ -95,21 +28,6 @@ with col2:
 st.title('Technical Scouting Department')
 st.subheader('Football Analytics Dashboard')
 st.caption("Created by João Alberto Kolling | Player Analysis System v3.0")
-
-# =============================================
-# Transfermarkt Data Extraction
-# =============================================
-with st.expander("🔗 Import player data from Transfermarkt"):
-    tm_url = st.text_input("Paste Transfermarkt player URL:")
-
-    if tm_url:
-        try:
-            player_info = extract_transfermarkt_data(tm_url)
-            st.success("Player data loaded successfully!")
-            st.write("### Player Basic Information")
-            st.write(player_info)
-        except Exception as e:
-            st.error(f"Failed to fetch data: {e}")
 
 # Guia do Usuário
 with st.expander("📘 User Guide & Instructions", expanded=False):
@@ -156,6 +74,7 @@ def get_context_info(df, minutes_range, mpg_range, age_range, sel_pos):
         'leagues': ', '.join(df['Data Origin'].unique()),
         'seasons': ', '.join(df['Season'].unique()),
         'total_players': len(df),
+        'selected_dbs': len(df['Data Origin'].unique()),  # Novo campo
         'min_min': minutes_range[0],
         'max_min': minutes_range[1],
         'min_mpg': mpg_range[0],
@@ -199,8 +118,36 @@ if uploaded_files:
         st.warning("Please provide metadata for all uploaded files")
         st.stop()
 
+    # =============================================
+    # Novo: Seleção de Databases
+    # =============================================
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("Database Selection")
+    
+    available_dbs = [
+        f"{st.session_state.file_metadata[f.name]['label']} ({st.session_state.file_metadata[f.name]['season']})" 
+        for f in uploaded_files
+    ]
+    file_names = [f.name for f in uploaded_files]
+    
+    selected_dbs = st.sidebar.multiselect(
+        "Select databases to include",
+        options=available_dbs,
+        default=available_dbs,
+        format_func=lambda x: x
+    )
+    
+    selected_files = [
+        f for f, db in zip(uploaded_files, available_dbs) 
+        if db in selected_dbs
+    ]
+    
+    if not selected_files:
+        st.warning("Please select at least one database")
+        st.stop()
+
     try:
-        df = load_and_clean(uploaded_files)
+        df = load_and_clean(selected_files)  # Alterado para usar arquivos selecionados
 
         # Filtros Principais
         min_min, max_min = int(df['Minutes played'].min()), int(df['Minutes played'].max())
@@ -285,7 +232,7 @@ if uploaded_files:
                     ))
                 
                 title_text = (f"<b>{p1} vs {p2}</b><br>"
-                             f"<sup>Leagues: {context['leagues']} | Seasons: {context['seasons']}<br>"
+                             f"<sup>Databases: {context['selected_dbs']} selected | Leagues: {context['leagues']} | Seasons: {context['seasons']}<br>"  # Modificado
                              f"Filters: {context['min_min']}-{context['max_min']} mins | "
                              f"{context['min_mpg']}-{context['max_mpg']} min/game | "
                              f"Age {context['min_age']}-{context['max_age']} | Positions: {context['positions']}</sup>")
@@ -380,7 +327,7 @@ if uploaded_files:
                     )
                 
                 title_text = (f"<b>Metric Comparison</b><br>"
-                             f"<sup>Context: {context['leagues']} ({context['seasons']}) | "
+                             f"<sup>Context: {context['leagues']} ({context['seasons']}) | Databases: {context['selected_dbs']} selected | "  # Modificado
                              f"Players: {context['total_players']} | Filters: {context['min_age']}-{context['max_age']} years</sup>")
                 
                 fig.update_layout(
@@ -441,7 +388,7 @@ if uploaded_files:
                     ))
             
             title_text = (f"<b>{x} vs {y}</b><br>"
-                         f"<sup>Data Source: {context['leagues']} ({context['seasons']})<br>"
+                         f"<sup>Data Source: {context['leagues']} ({context['seasons']}) | Databases: {context['selected_dbs']} selected<br>"  # Modificado
                          f"Filters: {context['total_players']} players | "
                          f"{context['min_mpg']}+ min/game | {context['positions']}</sup>")
             
@@ -511,7 +458,7 @@ if uploaded_files:
                 ))
                 
                 title_text = (f"<b>Metric Relationships</b><br>"
-                             f"<sup>Dataset: {context['leagues']} ({context['seasons']})<br>"
+                             f"<sup>Dataset: {context['leagues']} ({context['seasons']}) | Databases: {context['selected_dbs']} selected<br>"  # Modificado
                              f"Players: {context['total_players']} | Min. Minutes: {context['min_min']}+</sup>")
                 
                 fig.update_layout(
@@ -654,7 +601,7 @@ if uploaded_files:
                             fig_pca = go.Figure(data=[go.Bar(x=df_final['Player'], y=df_final['PCA Score'])])
                             
                             title_text = (f"<b>PCA Scores</b><br>"
-                                         f"<sup>Context: {context['leagues']} ({context['seasons']})<br>"
+                                         f"<sup>Context: {context['leagues']} ({context['seasons']}) | Databases: {context['selected_dbs']} selected<br>"  # Modificado
                                          f"Filters: Age {context['min_age']}-{context['max_age']} | "
                                          f"{context['positions']} | Metrics: {len(sel)} selected</sup>")
                             
