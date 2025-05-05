@@ -1,6 +1,6 @@
 
 def create_scatter_plot(df, x_metric, y_metric, title=None, **kwargs):
-    plt.figure(figsize=(6, 4))
+    plt.figure(figsize=(12, 8))
     scatter = plt.scatter(df[x_metric], df[y_metric], alpha=0.5, s=100, color='blue')
     
     for idx, row in df.iterrows():
