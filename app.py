@@ -407,14 +407,18 @@ def create_comparison_pizza_chart(params, values_p1, values_p2=None, values_avg=
                 )
             ),
             kwargs_compare_values=dict(
-                fontsize=8,
-                color=#000000, fontsize=6, fontweight="bold", zorder=6,
-                bbox=dict(
-                    edgecolor="#000000", facecolor="#FFFFFF",
-                    boxstyle="round,pad=0.2", lw=1, alpha=0.9
-                )
+            color=compare_color,  # Removido a duplicação do parâmetro color
+            fontsize=6,          # Usado apenas o último valor de fontsize
+            fontweight="bold", 
+            zorder=6,
+            bbox=dict(
+            edgecolor="#000000", 
+            facecolor="#FFFFFF",
+            boxstyle="round,pad=0.2", 
+            lw=1, 
+            alpha=0.9
             )
-        )
+        ),
         
         # Ajustar os textos para evitar sobreposição (como no script de exemplo)
         params_offset = [True] * len(params)
