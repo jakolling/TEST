@@ -1,13 +1,13 @@
 
 def create_scatter_plot(df, x_metric, y_metric, title=None, **kwargs):
     plt.figure(figsize=(12, 8))
-    scatter = plt.scatter(df[x_metric], df[y_metric], alpha=0.2, s=100, color='blue')
+    scatter = plt.scatter(df[x_metric], df[y_metric], alpha=0., s=100, color='blue')
     
     for idx, row in df.iterrows():
         plt.annotate(
             row['Player'],
             (row[x_metric], row[y_metric]),
-            xytext=(10, 10),
+            xytext=(6, 6),
             textcoords='offset points',
             fontsize=5,
             bbox=dict(facecolor='white', edgecolor='none', alpha=0.7),
