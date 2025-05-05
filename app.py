@@ -1,9 +1,16 @@
+# Football Analytics App - Enhanced Version with mplsoccer
+# Player Comparison and Similarity Analysis System - v4.0
+
 import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
-from matplotlib.offsetbox import OffsetImage, AnnotationBbox
+import matplotlib as mpl
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
 import matplotlib as mpl
 from matplotlib.figure import Figure
 import io
@@ -16,12 +23,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from scipy.spatial.distance import euclidean, cdist
 import base64
 
-def add_logo_to_pizza(ax):
-    logo = mpimg.imread('valerenga_oslo_logo.svg.png')
-    imagebox = OffsetImage(logo, zoom=0.1)
-    ab = AnnotationBbox(imagebox, (0, 0), frameon=False)
-    ax.add_artist(ab)
-
+# =============================================
 # Configuration
 # =============================================
 st.set_page_config(
