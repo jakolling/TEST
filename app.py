@@ -16,25 +16,49 @@ from sklearn.metrics.pairwise import cosine_similarity
 from scipy.spatial.distance import euclidean, cdist
 import base64
 
-
-
-
-
-
 def add_logo_to_pizza(ax):
-    try:
-        logo = mpimg.imread('valerenga_oslo_logo.svg.png')
-        
-        # Create axes for logo in the center with exact positioning
-        logo_ax = ax.figure.add_axes([0.425, 0.425, 0.15, 0.15])
-        logo_ax.imshow(logo)
-        logo_ax.axis('off')
-        
-        # Ensure logo is on top
-        logo_ax.set_zorder(1000)
-        
-    except Exception as e:
-        print('Error adding logo:', e)
+    logo = mpimg.imread('valerenga_oslo_logo.svg.png')
+    imagebox = OffsetImage(logo, zoom=0.1)
+    ab = AnnotationBbox(imagebox, (0, 0), frameon=False)
+    ax.add_artist(ab)
+
+# Configuration
+# =============================================
+st.set_page_config(
+    page_title='Football Analytics',
+    layout='wide',
+    page_icon="⚽"
+)
+
+# Set up consistent fonts for mplsoccer
+plt.rcParams['font.family'] = 'sans-serif'
+
+# =============================================
+# Helper Functions
+# =============================================
+# Inicializar o session_state para manter os dados entre recargas
+if 'file_metadata' not in st.session_state:
+    st.session_state.file_metadata = {}
+
+# Session state para persistência de filtros e seleções
+if 'last_players' not in st.session_state:
+    st.session_state.last_players = []
+if 'last_metrics' not in st.session_state:
+    st.session_state.last_metrics = []
+if 'last_selected_p1' not in st.session_state:
+    st.session_state.last_selected_p1 = None
+if 'last_selected_p2' not in st.session_state:
+    st.session_state.last_selected_p2 = None
+if 'last_minutes_range' not in st.session_state:
+    st.session_state.last_minutes_range = [0, 5000]
+if 'last_mpg_range' not in st.session_state:
+    st.session_state.last_mpg_range = [0, 100]
+if 'last_age_range' not in st.session_state:
+    st.session_state.last_age_range = [15, 40]
+if 'last_positions' not in st.session_state:
+    st.session_state.last_positions = []
+    
+# Função para tratamento de erros/exceções de forma centralizada
 def safe_operation(func, error_msg, fallback=None, *args, **kwargs):
     """Execute uma função e capture exceções com uma mensagem amigável"""
     try:
@@ -198,13 +222,11 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
                 edgecolor="#F2F2F2", zorder=2, linewidth=1
             ),
             kwargs_params=dict(
-                color="#000000",
-                fontsize=11,
-                va="center"
+                color="#000000", fontsize=11, fontweight="bold", 
+                va="center", zorder=3
             ),
-            
             kwargs_values=dict(
-                color="#FF0000", fontsize=6, fontweight="bold", zorder=5,
+                color="#FF0000", fontsize=11, fontweight="bold", zorder=5,
                 bbox=dict(
                     edgecolor="#000000", facecolor="#FFFFFF",
                     boxstyle="round,pad=0.2", lw=1, alpha=0.9
@@ -227,7 +249,7 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
                 if value > 25:  # Mostrar apenas valores relevantes
                     radius = value / 100
                     ax.text(angle, radius + 0.05, f"{value}", color='#FF0000', 
-                            fontsize=6, ha='center', va='center', fontweight='bold',
+                            fontsize=9, ha='center', va='center', fontweight='bold',
                             bbox=dict(boxstyle="round,pad=0.2", facecolor='#FFFFFF', 
                                     alpha=0.9, edgecolor='#000000', linewidth=1))
         
@@ -315,7 +337,7 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
         fig = plt.figure(figsize=(10, 10), facecolor='white')
         ax = fig.add_subplot(111, facecolor='white')
         ax.text(0.5, 0.5, f"Erro ao criar pizza chart: {str(e)}", 
-                ha='center', va='center', fontsize=6, color='#333333')
+                ha='center', va='center', fontsize=12, color='#333333')
         ax.axis('off')
     
     return fig
@@ -388,37 +410,30 @@ def create_comparison_pizza_chart(params, values_p1, values_p2=None, values_avg=
             kwargs_slices=dict(
                 facecolor=player1_color, edgecolor="#F2F2F2",
                 zorder=2, linewidth=1
-            )),
+            ),
             kwargs_compare=dict(
                 facecolor=compare_color, edgecolor="#000000", 
                 zorder=3, linewidth=1, alpha=0.8
             ),
             kwargs_params=dict(
-                color="#000000",
-                fontsize=11,
-                va="center"
+                color="#000000", fontsize=11, fontweight="bold", 
+                va="center", zorder=3
             ),
-            
             kwargs_values=dict(
-                color=player1_color, fontsize=6, fontweight="bold", zorder=5,
+                color=player1_color, fontsize=11, fontweight="bold", zorder=5,
                 bbox=dict(
                     edgecolor="#000000", facecolor="#FFFFFF",
                     boxstyle="round,pad=0.2", lw=1, alpha=0.9
                 )
             ),
             kwargs_compare_values=dict(
-            color=compare_color,  # Removido a duplicação do parâmetro color
-            fontsize=6,          # Usado apenas o último valor de fontsize
-            fontweight="bold", 
-            zorder=6,
-            bbox=dict(
-            edgecolor="#000000", 
-            facecolor="#FFFFFF",
-            boxstyle="round,pad=0.2", 
-            lw=1, 
-            alpha=0.9
+                color=compare_color, fontsize=11, fontweight="bold", zorder=6,
+                bbox=dict(
+                    edgecolor="#000000", facecolor="#FFFFFF",
+                    boxstyle="round,pad=0.2", lw=1, alpha=0.9
+                )
             )
-        ),
+        )
         
         # Ajustar os textos para evitar sobreposição (como no script de exemplo)
         params_offset = [True] * len(params)
@@ -491,7 +506,7 @@ def create_comparison_pizza_chart(params, values_p1, values_p2=None, values_avg=
         fig = plt.figure(figsize=(10, 10), facecolor='white')
         ax = fig.add_subplot(111, facecolor='white')
         ax.text(0.5, 0.5, f"Erro ao criar pizza chart: {str(e)}", 
-                ha='center', va='center', fontsize=6, color='#333333')
+                ha='center', va='center', fontsize=12, color='#333333')
         ax.axis('off')
     
     return fig
@@ -524,7 +539,7 @@ def create_bar_chart(metrics, p1_name, p1_values, p2_name, p2_values, avg_values
                 backgroundcolor='white', alpha=0.8)
         
         # Add metric name as title
-        ax.set_title(metrics[i], fontsize=6, pad=10)
+        ax.set_title(metrics[i], fontsize=12, pad=10)
         
         # Add player labels
         ax.set_yticks(y_pos)
@@ -541,10 +556,10 @@ def create_bar_chart(metrics, p1_name, p1_values, p2_name, p2_values, avg_values
     
     # Add title and subtitle
     if title:
-        fig.suptitle(title, fontsize=6, fontweight='bold', y=1.02)
+        fig.suptitle(title, fontsize=10, fontweight='bold', y=1.02)
     
     if subtitle:
-        plt.figtext(0.5, 0.99, subtitle, ha='center', fontsize=6, wrap=True)
+        plt.figtext(0.5, 0.99, subtitle, ha='center', fontsize=10, wrap=True)
         
     plt.tight_layout()
     return fig
@@ -591,7 +606,7 @@ def create_scatter_plot(df, x_metric, y_metric, highlight_players=None, title=No
                 ax.annotate(player, 
                            (player_data[x_metric].iloc[0], player_data[y_metric].iloc[0]),
                            xytext=(10, 5), textcoords='offset points',
-                           fontsize=6, fontweight='bold', color=use_color)
+                           fontsize=10, fontweight='bold', color=use_color)
     
     # Usar mplcursors para adicionar interatividade (hover)
     import mpld3
@@ -609,11 +624,11 @@ def create_scatter_plot(df, x_metric, y_metric, highlight_players=None, title=No
     ax.axhline(df[y_metric].mean(), color='#333333', linestyle='--', alpha=0.5)
     
     # Add labels and title
-    ax.set_xlabel(x_metric, fontsize=6)
-    ax.set_ylabel(y_metric, fontsize=6)
+    ax.set_xlabel(x_metric, fontsize=12)
+    ax.set_ylabel(y_metric, fontsize=12)
     
     if title:
-        ax.set_title(title, fontsize=6, pad=20)
+        ax.set_title(title, fontsize=10, pad=20)
     
     # Add legend if there are highlighted players
     if highlight_players:
@@ -630,7 +645,7 @@ def create_similarity_viz(selected_player, similar_players, metrics, df):
         # Create a simple figure with just a message
         fig, ax = plt.subplots(figsize=(10, 6))
         ax.text(0.5, 0.5, f"No similar players found for {selected_player} based on the selected metrics.",
-               ha='center', va='center', fontsize=6)
+               ha='center', va='center', fontsize=10)
         ax.axis('off')
         return fig
     
@@ -652,9 +667,9 @@ def create_similarity_viz(selected_player, similar_players, metrics, df):
         fig = plt.figure(figsize=(12, num_players * 2.5))
         
         # Add title to the figure
-        fig.suptitle(f"Players Similar to {selected_player}", fontsize=6, y=0.98)
+        fig.suptitle(f"Players Similar to {selected_player}", fontsize=18, y=0.98)
         plt.figtext(0.5, 0.96, f"Based on metrics: {', '.join(metrics)}", 
-                   ha='center', fontsize=6, fontstyle='italic')
+                   ha='center', fontsize=12, fontstyle='italic')
         
         # Create subplot grid - 1 row per player, 2 columns (radar + info)
         gs = fig.add_gridspec(num_players, 2, height_ratios=[2.5]*num_players, 
@@ -722,14 +737,14 @@ def create_similarity_viz(selected_player, similar_players, metrics, df):
                     plt.Line2D([0], [0], marker='o', color='w', markerfacecolor=player2_color, 
                             markersize=10, label=sim_player)
                 ]
-                radar_ax.legend(handles=legend_elements, loc='upper right', bbox_to_anchor=(1.1, 1.05), fontsize=6)
+                radar_ax.legend(handles=legend_elements, loc='upper right', bbox_to_anchor=(1.1, 1.05), fontsize=9)
                 
             except Exception as radar_error:
                 # Em caso de erro no radar, mostrar mensagem amigável
                 radar_ax.clear()
                 radar_ax.text(0.5, 0.5, f"Não foi possível criar o radar: {str(radar_error)}", 
                             ha='center', va='center', transform=radar_ax.transAxes,
-                            fontsize=6, wrap=True)
+                            fontsize=10, wrap=True)
                 radar_ax.axis('off')
             
             # Add player info panel - second column (com formatação melhorada)
@@ -761,7 +776,7 @@ def create_similarity_viz(selected_player, similar_players, metrics, df):
                 info_text += "... and more metrics"
             
             # Mostrar a informação em um box com fundo claro
-            info_ax.text(0, 1, info_text, va='top', ha='left', fontsize=6, 
+            info_ax.text(0, 1, info_text, va='top', ha='left', fontsize=10, 
                        bbox=dict(facecolor='white', alpha=0.9, edgecolor='lightgray', 
                                boxstyle="round,pad=1", linewidth=1))
         
@@ -782,7 +797,7 @@ def create_similarity_viz(selected_player, similar_players, metrics, df):
         # Em caso de erro, criar uma figura simples com a mensagem de erro mais descritiva
         fig, ax = plt.subplots(figsize=(10, 6))
         ax.text(0.5, 0.5, f"Não foi possível gerar a visualização de similaridade:\n{str(e)}", 
-               ha='center', va='center', fontsize=6, wrap=True)
+               ha='center', va='center', fontsize=10, wrap=True)
         ax.axis('off')
     
     return fig
@@ -1109,8 +1124,6 @@ if uploaded_files:
                     )
                 
                 # Display pizza chart
-                add_logo_to_pizza(ax)
-
                 st.pyplot(fig)
                 
                 # Display nominal values table
@@ -1472,7 +1485,7 @@ if uploaded_files:
                         ax.annotate(p1, 
                                   (pca_result[p1_idx_in_group, 0], pca_result[p1_idx_in_group, 1]),
                                   xytext=(10, 5), textcoords='offset points',
-                                  fontsize=6, fontweight='bold')
+                                  fontsize=10, fontweight='bold')
                 
                 if len(p2_idx) > 0 and p2 != 'None':
                     p2_idx = p2_idx[0]
@@ -1483,7 +1496,7 @@ if uploaded_files:
                         ax.annotate(p2, 
                                   (pca_result[p2_idx_in_group, 0], pca_result[p2_idx_in_group, 1]),
                                   xytext=(10, 5), textcoords='offset points',
-                                  fontsize=6, fontweight='bold')
+                                  fontsize=10, fontweight='bold')
                 
                 # Plot feature vectors
                 coeff = pca.components_.T
@@ -1499,10 +1512,10 @@ if uploaded_files:
                 
                 # Add explanations
                 explained_var = pca.explained_variance_ratio_
-                ax.set_xlabel(f"PC1 ({explained_var[0]:.2%} variance)", fontsize=6)
-                ax.set_ylabel(f"PC2 ({explained_var[1]:.2%} variance)", fontsize=6)
+                ax.set_xlabel(f"PC1 ({explained_var[0]:.2%} variance)", fontsize=12)
+                ax.set_ylabel(f"PC2 ({explained_var[1]:.2%} variance)", fontsize=12)
                 
-                ax.set_title("Principal Component Analysis", fontsize=6)
+                ax.set_title("Principal Component Analysis", fontsize=10)
                 ax.grid(True, alpha=0.3)
                 ax.axhline(y=0, color='k', linestyle='-', alpha=0.3)
                 ax.axvline(x=0, color='k', linestyle='-', alpha=0.3)
