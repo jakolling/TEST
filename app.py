@@ -570,29 +570,79 @@ def create_bar_chart(metrics, p1_name, p1_values, p2_name, p2_values, avg_values
     return fig
 
 def create_scatter_plot(df, x_metric, y_metric, title=None):
-    fig = px.scatter(
-        df, 
-        x=x_metric,
-        y=y_metric,
-        hover_name='Player',
-        hover_data=['Team', 'Position'],
-        title=title if title else x_metric + ' vs ' + y_metric
-    )
-
-    fig.update_traces(
-        hovertemplate="<b>%{customdata[0]}</b><br>" +
-                      "Team: %{customdata[1]}<br>" +
-                      "Position: %{customdata[2]}<br>" +
-                      x_metric + ": %{x:.2f}<br>" +
-                      y_metric + ": %{y:.2f}"
-    )
-
-    fig.update_layout(
-        hovermode='closest',
-        hoverlabel=dict(bgcolor="white")
-    )
-
+    """Create scatter plot using matplotlib with player names and hover annotations"""
+    fig, ax = plt.subplots(figsize=(12, 8))
+    
+    # Definir cores consistentes
+    player1_color = "#1A78CF"      # Azul real para jogador 1
+    player2_color = "#E41A1C"      # Vermelho para jogador 2
+    
+    # Criar um dict para armazenar nomes de todos os jogadores
+    player_names = {}
+    
+    # Plot all players
+    all_players = df['Player'].values
+    sc = ax.scatter(df[x_metric], df[y_metric], alpha=0.5, s=50, c='gray')
+    
+    # Adicionar nomes para todos os jogadores
+    for i, player in enumerate(all_players):
+        if i < len(df[x_metric]) and i < len(df[y_metric]):
+            player_names[i] = player
+    
+    # Highlight specific players with diferentes cores
+    if highlight_players:
+        # Usar cores consistentes para os primeiros dois jogadores destacados
+        colors = [player1_color, player2_color]
+        
+        # Destacar jogadores com cores padronizadas
+        for idx, (player, color) in enumerate(highlight_players.items()):
+            player_data = df[df['Player'] == player]
+            if not player_data.empty:
+                # Usar as cores padronizadas para os dois primeiros jogadores
+                if idx < 2:
+                    use_color = colors[idx]
+                else:
+                    use_color = color
+                
+                ax.scatter(player_data[x_metric], player_data[y_metric], 
+                          s=100, c=use_color, edgecolor='black', label=player)
+                
+                # Adicionar rótulos para os jogadores destacados
+                ax.annotate(player, 
+                           (player_data[x_metric].iloc[0], player_data[y_metric].iloc[0]),
+                           xytext=(10, 5), textcoords='offset points',
+                           fontsize=10, fontweight='bold', color=use_color)
+    
+    # Usar mplcursors para adicionar interatividade (hover)
+    import mpld3
+    from mpld3 import plugins
+    
+    # Adicionar tooltip com os nomes dos jogadores ao passar o mouse
+    tooltip = plugins.PointHTMLTooltip(sc, 
+                                       labels=[f"<b>{p}</b><br>x: {df[x_metric].iloc[i]:.2f}<br>y: {df[y_metric].iloc[i]:.2f}" 
+                                               for i, p in player_names.items()],
+                                       voffset=10, hoffset=10)
+    mpld3.plugins.connect(fig, tooltip)
+    
+    # Add mean lines
+    ax.axvline(df[x_metric].mean(), color='#333333', linestyle='--', alpha=0.5)
+    ax.axhline(df[y_metric].mean(), color='#333333', linestyle='--', alpha=0.5)
+    
+    # Add labels and title
+    ax.set_xlabel(x_metric, fontsize=12)
+    ax.set_ylabel(y_metric, fontsize=12)
+    
+    if title:
+        ax.set_title(title, fontsize=10, pad=20)
+    
+    # Add legend if there are highlighted players
+    if highlight_players:
+        ax.legend(loc='best')
+    
+    ax.grid(True, alpha=0.3)
+    
     return fig
+
 def create_similarity_viz(selected_player, similar_players, metrics, df):
     """Create player similarity visualization using regular matplotlib subplots with consistent colors"""
     # Check if we have any similar players
@@ -1205,21 +1255,12 @@ if uploaded_files:
                     else:
                         p2 = st.selectbox('Highlight Player 2', remaining_players, key='scatter_p2')
             
-            # Create highlighted players dict
-            highlight_players = {}
-            if p1 != 'None':
-                highlight_players[p1] = '#1f77b4'
-            if p2 != 'None':
-                highlight_players[p2] = '#ff7f0e'
-            
-            title = f"Scatter Analysis: {x_metric} vs {y_metric}"
-            subtitle = f"League(s): {context['leagues']} | Season(s): {context['seasons']}"
+            # Create highlighted players dict): {context['leagues']} | Season(s): {context['seasons']}"
             
             fig = create_scatter_plot(
                 df=df_group,
                 x_metric=x_metric,
                 y_metric=y_metric,
-                highlight_players=highlight_players,
                 title=title
             )
             
