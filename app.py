@@ -514,7 +514,7 @@ def create_comparison_pizza_chart(params, values_p1, values_p2=None, values_avg=
 def create_bar_chart(metrics, p1_name, p1_values, p2_name, p2_values, avg_values,
                     title=None, subtitle=None):
     """Create horizontal bar chart using matplotlib"""
-    fig, axes = plt.subplots(len(metrics), 1, figsize=(10, 3*len(metrics)))
+    fig, axes = plt.subplots(len(metrics), 1, figsize=(7, 2*len(metrics)))
     
     # Handle single metric case
     if len(metrics) == 1:
