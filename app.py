@@ -218,8 +218,11 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
                 edgecolor="#F2F2F2", zorder=2, linewidth=1
             ),
             kwargs_params=dict(
-                color="#000000", fontsize=11, fontweight="bold", 
-                va="center", zorder=3
+            color="#000000", 
+                fontsize=9,          # Reduzido de 11 para 9
+            fontweight="normal", # Removido o negrito
+            va="center", 
+            zorder=3
             ),
             kwargs_values=dict(
                 color="#FF0000", fontsize=11, fontweight="bold", zorder=5,
@@ -412,8 +415,11 @@ def create_comparison_pizza_chart(params, values_p1, values_p2=None, values_avg=
                 zorder=3, linewidth=1, alpha=0.8
             ),
             kwargs_params=dict(
-                color="#000000", fontsize=11, fontweight="bold", 
-                va="center", zorder=3
+            color="#000000", 
+            fontsize=9,          # Reduzido de 11 para 9
+            fontweight="normal", # Removido o negrito
+            va="center", 
+            zorder=3
             ),
             kwargs_values=dict(
                 color=player1_color, fontsize=11, fontweight="bold", zorder=5,
@@ -433,7 +439,7 @@ def create_comparison_pizza_chart(params, values_p1, values_p2=None, values_avg=
         
         # Ajustar os textos para evitar sobreposição (como no script de exemplo)
         params_offset = [True] * len(params)
-        baker.adjust_texts(params_offset, offset=-0.15)
+        baker.adjust_texts(params_offset, offset=-0.25)
         
         # Centralizar e ajustar a figura com mais espaço para a legenda
         plt.subplots_adjust(left=0.05, right=0.95, top=0.85, bottom=0.15)
