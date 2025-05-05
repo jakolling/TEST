@@ -10,3 +10,4 @@ svg2rlg
 svglib 
 reportlab
 mplsoccer>=1.1.10
+matplotlib>=3.7.0
