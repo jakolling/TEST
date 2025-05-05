@@ -74,7 +74,6 @@ def get_context_info(df, minutes_range, mpg_range, age_range, sel_pos):
         'leagues': ', '.join(df['Data Origin'].unique()),
         'seasons': ', '.join(df['Season'].unique()),
         'total_players': len(df),
-        'selected_dbs': len(df['Data Origin'].unique()),  # Novo campo
         'min_min': minutes_range[0],
         'max_min': minutes_range[1],
         'min_mpg': mpg_range[0],
@@ -118,36 +117,8 @@ if uploaded_files:
         st.warning("Please provide metadata for all uploaded files")
         st.stop()
 
-    # =============================================
-    # Novo: Seleção de Databases
-    # =============================================
-    st.sidebar.markdown("---")
-    st.sidebar.subheader("Database Selection")
-    
-    available_dbs = [
-        f"{st.session_state.file_metadata[f.name]['label']} ({st.session_state.file_metadata[f.name]['season']})" 
-        for f in uploaded_files
-    ]
-    file_names = [f.name for f in uploaded_files]
-    
-    selected_dbs = st.sidebar.multiselect(
-        "Select databases to include",
-        options=available_dbs,
-        default=available_dbs,
-        format_func=lambda x: x
-    )
-    
-    selected_files = [
-        f for f, db in zip(uploaded_files, available_dbs) 
-        if db in selected_dbs
-    ]
-    
-    if not selected_files:
-        st.warning("Please select at least one database")
-        st.stop()
-
     try:
-        df = load_and_clean(selected_files)  # Alterado para usar arquivos selecionados
+        df = load_and_clean(uploaded_files)
 
         # Filtros Principais
         min_min, max_min = int(df['Minutes played'].min()), int(df['Minutes played'].max())
@@ -232,18 +203,42 @@ if uploaded_files:
                     ))
                 
                 title_text = (f"<b>{p1} vs {p2}</b><br>"
-                             f"<sup>Databases: {context['selected_dbs']} selected | Leagues: {context['leagues']} | Seasons: {context['seasons']}<br>"  # Modificado
+                             f"<sup>Leagues: {context['leagues']} | Seasons: {context['seasons']}<br>"
                              f"Filters: {context['min_min']}-{context['max_min']} mins | "
                              f"{context['min_mpg']}-{context['max_mpg']} min/game | "
                              f"Age {context['min_age']}-{context['max_age']} | Positions: {context['positions']}</sup>")
                 
-                fig_radar.update_layout(
-                    title=dict(text=title_text, x=0.03, xanchor='left', font=dict(size=18)),
-                    polar=dict(radialaxis=dict(range=[0,100])),
-                    template='plotly_white',
-                    margin=dict(t=200, b=100, l=100, r=100),
-                    height=700
-                )
+                
+fig_radar.update_layout(
+    template='plotly_dark',
+    polar=dict(
+        radialaxis=dict(
+            visible=True,
+            range=[0, 100],
+            showline=False,
+            gridcolor="white",
+            gridwidth=1,
+            tickfont=dict(size=10, color='white'),
+            ticks='outside',
+        ),
+        angularaxis=dict(
+            tickfont=dict(size=12, color='white'),
+            gridcolor="gray"
+        ),
+        bgcolor='rgba(0,0,0,0)'
+    ),
+    showlegend=True,
+    legend=dict(font=dict(color='white')),
+    margin=dict(t=80, b=80, l=80, r=80),
+    height=750,
+    title=dict(
+        text=title_text,
+        x=0.03,
+        xanchor='left',
+        font=dict(size=18, color='white')
+    )
+)
+
                 
                 st.plotly_chart(fig_radar)
                 
@@ -327,7 +322,7 @@ if uploaded_files:
                     )
                 
                 title_text = (f"<b>Metric Comparison</b><br>"
-                             f"<sup>Context: {context['leagues']} ({context['seasons']}) | Databases: {context['selected_dbs']} selected | "  # Modificado
+                             f"<sup>Context: {context['leagues']} ({context['seasons']}) | "
                              f"Players: {context['total_players']} | Filters: {context['min_age']}-{context['max_age']} years</sup>")
                 
                 fig.update_layout(
@@ -388,7 +383,7 @@ if uploaded_files:
                     ))
             
             title_text = (f"<b>{x} vs {y}</b><br>"
-                         f"<sup>Data Source: {context['leagues']} ({context['seasons']}) | Databases: {context['selected_dbs']} selected<br>"  # Modificado
+                         f"<sup>Data Source: {context['leagues']} ({context['seasons']})<br>"
                          f"Filters: {context['total_players']} players | "
                          f"{context['min_mpg']}+ min/game | {context['positions']}</sup>")
             
@@ -458,7 +453,7 @@ if uploaded_files:
                 ))
                 
                 title_text = (f"<b>Metric Relationships</b><br>"
-                             f"<sup>Dataset: {context['leagues']} ({context['seasons']}) | Databases: {context['selected_dbs']} selected<br>"  # Modificado
+                             f"<sup>Dataset: {context['leagues']} ({context['seasons']})<br>"
                              f"Players: {context['total_players']} | Min. Minutes: {context['min_min']}+</sup>")
                 
                 fig.update_layout(
@@ -601,7 +596,7 @@ if uploaded_files:
                             fig_pca = go.Figure(data=[go.Bar(x=df_final['Player'], y=df_final['PCA Score'])])
                             
                             title_text = (f"<b>PCA Scores</b><br>"
-                                         f"<sup>Context: {context['leagues']} ({context['seasons']}) | Databases: {context['selected_dbs']} selected<br>"  # Modificado
+                                         f"<sup>Context: {context['leagues']} ({context['seasons']})<br>"
                                          f"Filters: Age {context['min_age']}-{context['max_age']} | "
                                          f"{context['positions']} | Metrics: {len(sel)} selected</sup>")
                             
