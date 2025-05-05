@@ -638,7 +638,7 @@ if uploaded_files:
                     pf = (df_pca['Position'].astype(str).apply(lambda x: any(pos in x for pos in sel_pos))) if sel_pos else pd.Series(True, index=df_pca.index)
                     df_f = df_pca[af & pf]
 
-                  if not df_f.empty:
+                      if not df_f.empty:
                         mn, mx = df_f['PCA Score'].min(), df_f['PCA Score'].max()
                         sr = st.slider(
                             'Filter PCA Score range',
