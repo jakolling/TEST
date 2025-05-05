@@ -165,7 +165,7 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
             last_circle_lw=1,               # largura do último círculo
             other_circle_lw=1,              # largura dos outros círculos
             other_circle_ls="-",            # estilo dos outros círculos
-            inner_circle_size=20            # tamanho do círculo interior
+            inner_circle_size=15            # tamanho do círculo interior
         )
         
         # Criar figura e eixos com projeção polar (tamanho menor)
