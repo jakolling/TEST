@@ -169,7 +169,7 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
         )
         
         # Criar figura e eixos com projeção polar (tamanho menor)
-        fig, ax = plt.subplots(figsize=(10, 10), facecolor=background_color, subplot_kw={"projection": "polar"})
+        fig, ax = plt.subplots(figsize=(8, 8), facecolor=background_color, subplot_kw={"projection": "polar"})
         
         # Centralizar e ajustar a figura com mais espaço para a legenda
         plt.subplots_adjust(left=0.1, right=0.9, top=0.85, bottom=0.15)
