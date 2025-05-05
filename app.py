@@ -162,20 +162,20 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
             background_color=background_color,  # cor de fundo
             straight_line_color="#CCCCCC",  # cor das linhas retas (cinza claro)
             straight_line_lw=1,             # largura das linhas retas
-            last_circle_lw=0.8,               # largura do último círculo
+            last_circle_lw=1,               # largura do último círculo
             other_circle_lw=1,              # largura dos outros círculos
             other_circle_ls="-",            # estilo dos outros círculos
-            inner_circle_size=15            # tamanho do círculo interior
+            inner_circle_size=20            # tamanho do círculo interior
         )
         
         # Criar figura e eixos com projeção polar (tamanho menor)
-        fig, ax = plt.subplots(figsize=(8, 8), facecolor=background_color, subplot_kw={"projection": "polar"})
+        fig, ax = plt.subplots(figsize=(10, 10), facecolor=background_color, subplot_kw={"projection": "polar"})
         
         # Centralizar e ajustar a figura com mais espaço para a legenda
         plt.subplots_adjust(left=0.1, right=0.9, top=0.85, bottom=0.15)
         
         # Limitar o tamanho do gráfico (reduzir raio)
-        ax.set_ylim(0, 0.75)  # Reduzir o raio máximo para 0.9 (ao invés de 1.0)
+        ax.set_ylim(0, 0.9)  # Reduzir o raio máximo para 0.9 (ao invés de 1.0)
         
         # Criar pizza para jogador 1 (principal)
         values = values_p1
@@ -199,7 +199,7 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
             background_color=background_color,
             straight_line_color="#999999",  # linhas mais visíveis
             straight_line_lw=1.2,           # linhas mais grossas
-            last_circle_lw=0.8,             # círculo externo mais visível
+            last_circle_lw=1.5,             # círculo externo mais visível
             other_circle_lw=1,              # outros círculos visíveis
             other_circle_ls="-",            # linhas sólidas para círculos
             inner_circle_size=15            # círculo interno menor
@@ -218,14 +218,9 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
                 edgecolor="#F2F2F2", zorder=2, linewidth=1
             ),
             kwargs_params=dict(
-            color="#000000", 
-            fontsize=9,  
-            fontweight="bold", 
-            va="center", 
-            zorder=3,
-            # Remova o fundo e borda
-            bbox=dict(facecolor='none', edgecolor='none', linewidth=0)  # Modificado
-        ),
+                color="#000000", fontsize=11, fontweight="bold", 
+                va="center", zorder=3
+            ),
             kwargs_values=dict(
                 color="#FF0000", fontsize=11, fontweight="bold", zorder=5,
                 bbox=dict(
@@ -404,30 +399,22 @@ def create_comparison_pizza_chart(params, values_p1, values_p2=None, values_avg=
         fig, ax = baker.make_pizza(
             values_p1,                     # valores do jogador 1
             compare_values=compare_values, # valores do jogador 2 ou média
-            figsize=(8, 8),              # tamanho da figura
+            figsize=(10, 10),              # tamanho da figura
             color_blank_space="same",      # espaço em branco com mesma cor
             blank_alpha=0.4,               # transparência do espaço em branco
             param_location=110,            # localização dos parâmetros (um pouco afastados)
             kwargs_slices=dict(
                 facecolor=player1_color, edgecolor="#F2F2F2",
                 zorder=2, linewidth=1
-            )),
-           
+            ),
             kwargs_compare=dict(
                 facecolor=compare_color, edgecolor="#000000", 
                 zorder=3, linewidth=1, alpha=0.8
             ),
-        
-            kwargs_values=dict(
-            color="#FF0000", 
-            fontsize=9,  # Reduzido
-            fontweight="bold", 
-            zorder=5,
-            bbox=dict(
-            edgecolor='none',  # Removido
-            facecolor='none',  # Removido
-            linewidth=0  # Removido
-            )),
+            kwargs_params=dict(
+                color="#000000", fontsize=11, fontweight="bold", 
+                va="center", zorder=3
+            ),
             kwargs_values=dict(
                 color=player1_color, fontsize=11, fontweight="bold", zorder=5,
                 bbox=dict(
@@ -446,7 +433,7 @@ def create_comparison_pizza_chart(params, values_p1, values_p2=None, values_avg=
         
         # Ajustar os textos para evitar sobreposição (como no script de exemplo)
         params_offset = [True] * len(params)
-        baker.adjust_texts(params_offset, offset=-0.25)
+        baker.adjust_texts(params_offset, offset=-0.15)
         
         # Centralizar e ajustar a figura com mais espaço para a legenda
         plt.subplots_adjust(left=0.05, right=0.95, top=0.85, bottom=0.15)
