@@ -175,7 +175,7 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
         plt.subplots_adjust(left=0.1, right=0.9, top=0.85, bottom=0.15)
         
         # Limitar o tamanho do gráfico (reduzir raio)
-        ax.set_ylim(0, 0.9)  # Reduzir o raio máximo para 0.9 (ao invés de 1.0)
+        ax.set_ylim(0, 0.75)  # Reduzir o raio máximo para 0.9 (ao invés de 1.0)
         
         # Criar pizza para jogador 1 (principal)
         values = values_p1
