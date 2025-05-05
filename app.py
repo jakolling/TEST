@@ -1,3 +1,5 @@
+from matplotlib.offsetbox import OffsetImage, AnnotationBbox
+import matplotlib.image as mpimg
 # Football Analytics App - Enhanced Version with mplsoccer
 # Player Comparison and Similarity Analysis System - v4.0
 
@@ -55,6 +57,15 @@ if 'last_positions' not in st.session_state:
     st.session_state.last_positions = []
     
 # Função para tratamento de erros/exceções de forma centralizada
+
+def :
+    try:
+        logo = mpimg.imread('valerenga_oslo_logo.svg.png')
+        # Adjust extent to center the logo properly; tune these values as needed
+        ax.imshow(logo, extent=[-0.25, 0.25, -0.25, 0.25], zorder=10, aspect='auto')
+    except Exception as e:
+        print('Error adding logo:', e)
+
 def safe_operation(func, error_msg, fallback=None, *args, **kwargs):
     """Execute uma função e capture exceções com uma mensagem amigável"""
     try:
