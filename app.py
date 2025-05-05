@@ -1,3 +1,82 @@
+def create_scatter_plot(df, x_metric, y_metric, title=None):
+    plt.figure(figsize=(12, 8))
+    scatter = plt.scatter(df[x_metric], df[y_metric], alpha=0.6, s=100, color='blue')
+    
+    for idx, row in df.iterrows():
+        plt.annotate(
+            row['Player'],
+            (row[x_metric], row[y_metric]),
+            xytext=(10, 10),
+            textcoords='offset points',
+            fontsize=10,
+            bbox=dict(facecolor='white', edgecolor='none', alpha=0.7),
+            weight='bold'
+        )
+    
+    plt.title(title if title else f"{x_metric} vs {y_metric}", fontsize=14, pad=20)
+    plt.xlabel(x_metric, fontsize=12)
+    plt.ylabel(y_metric, fontsize=12)
+    plt.grid(True, alpha=0.3)
+    return plt.gcf()
+
+def create_pca_visualization(df, selected_metrics, title=None):
+    X = df[selected_metrics].values
+    X_scaled = StandardScaler().fit_transform(X)
+    
+    pca = PCA(n_components=2)
+    X_pca = pca.fit_transform(X_scaled)
+    
+    pca_df = pd.DataFrame(data=X_pca, columns=['PC1', 'PC2'])
+    pca_df['Player'] = df['Player']
+    pca_df['Team'] = df['Team']
+    pca_df['Position'] = df['Position']
+    
+    explained_var = pca.explained_variance_ratio_ * 100
+    
+    plt.figure(figsize=(12, 8))
+    plt.scatter(X_pca[:, 0], X_pca[:, 1], alpha=0.6, s=100, color='red')
+    
+    for idx, row in pca_df.iterrows():
+        plt.annotate(
+            row['Player'],
+            (X_pca[idx, 0], X_pca[idx, 1]),
+            xytext=(10, 10),
+            textcoords='offset points',
+            fontsize=10,
+            bbox=dict(facecolor='white', edgecolor='none', alpha=0.7),
+            weight='bold'
+        )
+    
+    feature_vectors = pca.components_.T
+    for i, feature in enumerate(selected_metrics):
+        plt.arrow(0, 0, 
+                 feature_vectors[i,0]*2, 
+                 feature_vectors[i,1]*2,
+                 color='g', alpha=0.5,
+                 head_width=0.1)
+        plt.text(feature_vectors[i,0]*2.2, 
+                feature_vectors[i,1]*2.2, 
+                feature,
+                color='g',
+                fontsize=10)
+    
+    plt.xlabel(f'PC1 ({explained_var[0]:.1f}%)', fontsize=12)
+    plt.ylabel(f'PC2 ({explained_var[1]:.1f}%)', fontsize=12)
+    plt.title(title if title else 'PCA Analysis', fontsize=14, pad=20)
+    plt.grid(True, alpha=0.3)
+    
+    circle = plt.Circle((0,0), 1, fill=False, linestyle='--', color='gray', alpha=0.3)
+    plt.gca().add_artist(circle)
+    plt.axis('equal')
+    
+    loadings = pd.DataFrame(
+        pca.components_.T,
+        columns=['PC1', 'PC2'],
+        index=selected_metrics
+    )
+    
+    return plt.gcf(), pca_df, loadings, explained_var
+
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -569,7 +648,7 @@ def create_bar_chart(metrics, p1_name, p1_values, p2_name, p2_values, avg_values
     plt.tight_layout()
     return fig
 
-def create_scatter_plot(df, x_metric, y_metric, highlight_players=None, title=None):
+def old_scatter_plot(df, x_metric, y_metric, highlight_players=None, title=None):
     """Create scatter plot using matplotlib with player names and hover annotations"""
     fig, ax = plt.subplots(figsize=(12, 8))
     
