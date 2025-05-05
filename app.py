@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
+
 import matplotlib.image as mpimg
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 import matplotlib as mpl
@@ -19,12 +20,6 @@ from sklearn.decomposition import PCA
 from sklearn.metrics.pairwise import cosine_similarity
 from scipy.spatial.distance import euclidean, cdist
 import base64
-        import traceback
-        import traceback
-    import mpld3
-    from mpld3 import plugins
-
-
 
 def add_logo_to_pizza(ax):
     logo = mpimg.imread('valerenga_oslo_logo.svg.png')
@@ -341,6 +336,7 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
     except Exception as e:
         # Em caso de erro, criar um gráfico com mensagem e imprimir o erro
         st.error(f"Erro detalhado: {str(e)}")
+        import traceback
         st.text(traceback.format_exc())
         
         fig = plt.figure(figsize=(10, 10), facecolor='white')
@@ -509,6 +505,7 @@ def create_comparison_pizza_chart(params, values_p1, values_p2=None, values_avg=
     except Exception as e:
         # Em caso de erro, criar um gráfico com mensagem
         st.error(f"Erro na criação do pizza chart comparativo: {str(e)}")
+        import traceback
         st.text(traceback.format_exc())
         
         fig = plt.figure(figsize=(10, 10), facecolor='white')
@@ -617,6 +614,8 @@ def create_scatter_plot(df, x_metric, y_metric, highlight_players=None, title=No
                            fontsize=10, fontweight='bold', color=use_color)
     
     # Usar mplcursors para adicionar interatividade (hover)
+    import mpld3
+    from mpld3 import plugins
     
     # Adicionar tooltip com os nomes dos jogadores ao passar o mouse
     tooltip = plugins.PointHTMLTooltip(sc, 
