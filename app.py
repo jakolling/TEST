@@ -1,10 +1,9 @@
-# Football Analytics App - Enhanced Version with mplsoccer
-# Player Comparison and Similarity Analysis System - v4.0
-
 import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
+from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 import matplotlib as mpl
 from matplotlib.figure import Figure
 import io
@@ -17,7 +16,12 @@ from sklearn.metrics.pairwise import cosine_similarity
 from scipy.spatial.distance import euclidean, cdist
 import base64
 
-# =============================================
+def add_logo_to_pizza(ax):
+    logo = mpimg.imread('valerenga_oslo_logo.svg.png')
+    imagebox = OffsetImage(logo, zoom=0.1)
+    ab = AnnotationBbox(imagebox, (0, 0), frameon=False)
+    ax.add_artist(ab)
+
 # Configuration
 # =============================================
 st.set_page_config(
@@ -218,7 +222,7 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
                 edgecolor="#F2F2F2", zorder=2, linewidth=1
             ),
             kwargs_params=dict(
-                color="#000000", fontsize=8, fontweight="bold", 
+                color="#000000", fontsize=11, fontweight="bold", 
                 va="center", zorder=3
             ),
             kwargs_values=dict(
@@ -412,7 +416,7 @@ def create_comparison_pizza_chart(params, values_p1, values_p2=None, values_avg=
                 zorder=3, linewidth=1, alpha=0.8
             ),
             kwargs_params=dict(
-                color="#000000", fontsize=8, fontweight="bold", 
+                color="#000000", fontsize=11, fontweight="bold", 
                 va="center", zorder=3
             ),
             kwargs_values=dict(
@@ -552,7 +556,7 @@ def create_bar_chart(metrics, p1_name, p1_values, p2_name, p2_values, avg_values
     
     # Add title and subtitle
     if title:
-        fig.suptitle(title, fontsize=14, fontweight='bold', y=1.02)
+        fig.suptitle(title, fontsize=10, fontweight='bold', y=1.02)
     
     if subtitle:
         plt.figtext(0.5, 0.99, subtitle, ha='center', fontsize=10, wrap=True)
@@ -624,7 +628,7 @@ def create_scatter_plot(df, x_metric, y_metric, highlight_players=None, title=No
     ax.set_ylabel(y_metric, fontsize=12)
     
     if title:
-        ax.set_title(title, fontsize=14, pad=20)
+        ax.set_title(title, fontsize=10, pad=20)
     
     # Add legend if there are highlighted players
     if highlight_players:
@@ -641,7 +645,7 @@ def create_similarity_viz(selected_player, similar_players, metrics, df):
         # Create a simple figure with just a message
         fig, ax = plt.subplots(figsize=(10, 6))
         ax.text(0.5, 0.5, f"No similar players found for {selected_player} based on the selected metrics.",
-               ha='center', va='center', fontsize=14)
+               ha='center', va='center', fontsize=10)
         ax.axis('off')
         return fig
     
@@ -703,7 +707,7 @@ def create_similarity_viz(selected_player, similar_players, metrics, df):
                 round_int=[True]*len(metrics),  # Arredondar para inteiros
                 num_rings=4,                   # Número de círculos concêntricos
                 ring_width=1,                  # Largura das linhas dos círculos
-                center_circle_radius=1        # Raio do círculo central
+                center_circle_radius=0.8        # Raio do círculo central
             )
             
             # Preparar o eixo e desenhar os círculos
@@ -793,7 +797,7 @@ def create_similarity_viz(selected_player, similar_players, metrics, df):
         # Em caso de erro, criar uma figura simples com a mensagem de erro mais descritiva
         fig, ax = plt.subplots(figsize=(10, 6))
         ax.text(0.5, 0.5, f"Não foi possível gerar a visualização de similaridade:\n{str(e)}", 
-               ha='center', va='center', fontsize=14, wrap=True)
+               ha='center', va='center', fontsize=10, wrap=True)
         ax.axis('off')
     
     return fig
@@ -1511,7 +1515,7 @@ if uploaded_files:
                 ax.set_xlabel(f"PC1 ({explained_var[0]:.2%} variance)", fontsize=12)
                 ax.set_ylabel(f"PC2 ({explained_var[1]:.2%} variance)", fontsize=12)
                 
-                ax.set_title("Principal Component Analysis", fontsize=14)
+                ax.set_title("Principal Component Analysis", fontsize=10)
                 ax.grid(True, alpha=0.3)
                 ax.axhline(y=0, color='k', linestyle='-', alpha=0.3)
                 ax.axvline(x=0, color='k', linestyle='-', alpha=0.3)
