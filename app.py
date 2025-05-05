@@ -647,7 +647,7 @@ if uploaded_files:
                             value=(float(mn), float(mx))
                         )
                         
-                        df_final = df_f[df_f['PCA Score'].between(*sr)
+                        df_final = df_f[df_f['PCA Score'].between(*sr)]
                         if df_final.empty:
                             st.warning('No players in the selected PCA score range.')
                         else:
