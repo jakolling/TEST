@@ -225,7 +225,7 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
             zorder=3,
             # Adicione ajuste de posição
             bbox=dict(boxstyle="round,pad=0.2", facecolor="white", alpha=0.8)
-        )
+        ),
             kwargs_values=dict(
                 color="#FF0000", fontsize=11, fontweight="bold", zorder=5,
                 bbox=dict(
@@ -424,7 +424,7 @@ def create_comparison_pizza_chart(params, values_p1, values_p2=None, values_avg=
             zorder=3,
             # Ajuste de posição
             bbox=dict(boxstyle="round,pad=0.1", facecolor="white", alpha=0.8)
-        )
+        ),
             kwargs_values=dict(
                 color=player1_color, fontsize=11, fontweight="bold", zorder=5,
                 bbox=dict(
