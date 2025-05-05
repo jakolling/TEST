@@ -425,7 +425,7 @@ def create_comparison_pizza_chart(params, values_p1, values_p2=None, values_avg=
             edgecolor='none',  # Removido
             facecolor='none',  # Removido
             linewidth=0  # Removido
-    )),
+            ),
             kwargs_values=dict(
                 color=player1_color, fontsize=11, fontweight="bold", zorder=5,
                 bbox=dict(
