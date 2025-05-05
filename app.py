@@ -18,55 +18,23 @@ import base64
 
 
 
+
+
+
 def add_logo_to_pizza(ax):
-    logo = mpimg.imread('valerenga_oslo_logo.svg.png')
-    # Set figure size and position
-    fig = ax.get_figure()
-    fig.set_size_inches(8, 8)
-    
-    # Create a smaller axes for the logo
-    logo_ax = fig.add_axes([0.385, 0.385, 0.23, 0.23])
-    logo_ax.imshow(logo)
-    logo_ax.axis('off')
-
-
-# Configuration
-# =============================================
-st.set_page_config(
-    page_title='Football Analytics',
-    layout='wide',
-    page_icon="⚽"
-)
-
-# Set up consistent fonts for mplsoccer
-plt.rcParams['font.family'] = 'sans-serif'
-
-# =============================================
-# Helper Functions
-# =============================================
-# Inicializar o session_state para manter os dados entre recargas
-if 'file_metadata' not in st.session_state:
-    st.session_state.file_metadata = {}
-
-# Session state para persistência de filtros e seleções
-if 'last_players' not in st.session_state:
-    st.session_state.last_players = []
-if 'last_metrics' not in st.session_state:
-    st.session_state.last_metrics = []
-if 'last_selected_p1' not in st.session_state:
-    st.session_state.last_selected_p1 = None
-if 'last_selected_p2' not in st.session_state:
-    st.session_state.last_selected_p2 = None
-if 'last_minutes_range' not in st.session_state:
-    st.session_state.last_minutes_range = [0, 5000]
-if 'last_mpg_range' not in st.session_state:
-    st.session_state.last_mpg_range = [0, 100]
-if 'last_age_range' not in st.session_state:
-    st.session_state.last_age_range = [15, 40]
-if 'last_positions' not in st.session_state:
-    st.session_state.last_positions = []
-    
-# Função para tratamento de erros/exceções de forma centralizada
+    try:
+        logo = mpimg.imread('valerenga_oslo_logo.svg.png')
+        
+        # Create axes for logo in the center with exact positioning
+        logo_ax = ax.figure.add_axes([0.425, 0.425, 0.15, 0.15])
+        logo_ax.imshow(logo)
+        logo_ax.axis('off')
+        
+        # Ensure logo is on top
+        logo_ax.set_zorder(1000)
+        
+    except Exception as e:
+        print('Error adding logo:', e)
 def safe_operation(func, error_msg, fallback=None, *args, **kwargs):
     """Execute uma função e capture exceções com uma mensagem amigável"""
     try:
@@ -1148,6 +1116,8 @@ if uploaded_files:
                     )
                 
                 # Display pizza chart
+                add_logo_to_pizza(ax)
+
                 st.pyplot(fig)
                 
                 # Display nominal values table
