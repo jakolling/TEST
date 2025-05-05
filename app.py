@@ -1,3 +1,70 @@
+
+import requests
+from bs4 import BeautifulSoup
+
+def extract_transfermarkt_data(url):
+    headers = {
+        "User-Agent": "Mozilla/5.0"
+    }
+
+    res = requests.get(url, headers=headers)
+    soup = BeautifulSoup(res.content, "html.parser")
+
+    player = {}
+
+    try:
+        player['name'] = soup.find("h1", {"itemprop": "name"}).text.strip()
+    except:
+        player['name'] = "Not found"
+
+    try:
+        club_img = soup.select_one(".data-header__club img")
+        player['club'] = club_img['alt'] if club_img else "Not found"
+    except:
+        player['club'] = "Not found"
+
+    try:
+        rows = soup.select(".detail-position__position")
+        player['position'] = rows[0].text.strip() if rows else "Not found"
+    except:
+        player['position'] = "Not found"
+
+    try:
+        nationality_img = soup.select(".data-header__label .flaggenrahmen")
+        player['nationality'] = ', '.join([img['title'] for img in nationality_img])
+    except:
+        player['nationality'] = "Not found"
+
+    try:
+        labels = soup.select(".info-table__content")
+        for label in labels:
+            if "Height:" in label.text:
+                player['height'] = label.text.split(":")[-1].strip()
+                break
+        else:
+            player['height'] = "Not found"
+    except:
+        player['height'] = "Not found"
+
+    try:
+        for label in labels:
+            if "Foot:" in label.text:
+                player['foot'] = label.text.split(":")[-1].strip()
+                break
+        else:
+            player['foot'] = "Not found"
+    except:
+        player['foot'] = "Not found"
+
+    try:
+        val_box = soup.select_one(".tm-player-market-value-development__current-value")
+        player['market_value'] = val_box.text.strip() if val_box else "Not found"
+    except:
+        player['market_value'] = "Not found"
+
+    return player
+
+
 # Football Analytics App - Complete Version
 # Todos os componentes incluídos - v3.0
 
@@ -20,14 +87,6 @@ st.set_page_config(
     page_icon="⚽"
 )
 
-# Inicialização do session_state para perfis
-if 'saved_profiles' not in st.session_state:
-    st.session_state.saved_profiles = {
-        'radar': {},
-        'pca': {},
-        'profiler': {}
-    }
-
 # Cabeçalho com logo
 col1, col2, col3 = st.columns([1, 3, 1])
 with col2:
@@ -36,6 +95,21 @@ with col2:
 st.title('Technical Scouting Department')
 st.subheader('Football Analytics Dashboard')
 st.caption("Created by João Alberto Kolling | Player Analysis System v3.0")
+
+# =============================================
+# Transfermarkt Data Extraction
+# =============================================
+with st.expander("🔗 Import player data from Transfermarkt"):
+    tm_url = st.text_input("Paste Transfermarkt player URL:")
+
+    if tm_url:
+        try:
+            player_info = extract_transfermarkt_data(tm_url)
+            st.success("Player data loaded successfully!")
+            st.write("### Player Basic Information")
+            st.write(player_info)
+        except Exception as e:
+            st.error(f"Failed to fetch data: {e}")
 
 # Guia do Usuário
 with st.expander("📘 User Guide & Instructions", expanded=False):
@@ -167,34 +241,10 @@ if uploaded_files:
         tabs = st.tabs(['Radar', 'Bars', 'Scatter', 'Profiler', 'Correlation', 'Composite Index (PCA)'])
 
         # =============================================
-        # Radar Chart (Aba 1) - COM PERFIS
+        # Radar Chart (Aba 1)
         # =============================================
         with tabs[0]:
             st.header('Radar Chart')
-            
-            # Seção de perfis
-            col_save, col_load = st.columns(2)
-            with col_save:
-                radar_profile_name = st.text_input("Nome do Perfil (Radar)", key='radar_save')
-                if st.button("💾 Salvar Perfil Radar"):
-                    if not radar_profile_name:
-                        st.warning("Digite um nome para o perfil!")
-                    else:
-                        st.session_state.saved_profiles['radar'][radar_profile_name] = {
-                            'metrics': sel,
-                            'show_avg': show_avg
-                        }
-                        st.success(f"Perfil '{radar_profile_name}' salvo!")
-            
-            with col_load:
-                radar_profiles = list(st.session_state.saved_profiles['radar'].keys())
-                selected_radar_profile = st.selectbox("Carregar Perfil Radar", [""] + radar_profiles, key='radar_load')
-                if selected_radar_profile:
-                    radar_profile = st.session_state.saved_profiles['radar'][selected_radar_profile]
-                    sel = radar_profile['metrics']
-                    show_avg = radar_profile['show_avg']
-                    st.rerun()
-
             sel = st.multiselect('Metrics for Radar (6–12)', numeric_cols, default=numeric_cols[:6])
             
             if 6 <= len(sel) <= 12:
@@ -415,47 +465,22 @@ if uploaded_files:
                 )
 
         # =============================================
-        # Profiler (Aba 4) - COM PERFIS
+        # Profiler (Aba 4)
         # =============================================
         with tabs[3]:
             st.header('Profiler')
-            
-            # Seção de perfis
-            col_save, col_load = st.columns(2)
-            with col_save:
-                profile_name = st.text_input("Nome do Perfil", key='profiler_save')
-                if st.button("💾 Salvar Perfil"):
-                    if not profile_name:
-                        st.warning("Digite um nome para o perfil!")
-                    else:
-                        st.session_state.saved_profiles['profiler'][profile_name] = {
-                            'metrics': sel,
-                            'age_range': [age_min_profiler, age_max_profiler],
-                            'min_percentages': mins
-                        }
-                        st.success(f"Perfil '{profile_name}' salvo!")
-            
-            with col_load:
-                profiler_profiles = list(st.session_state.saved_profiles['profiler'].keys())
-                selected_profile = st.selectbox("Carregar Perfil", [""] + profiler_profiles, key='profiler_load')
-                if selected_profile:
-                    profile = st.session_state.saved_profiles['profiler'][selected_profile]
-                    sel = profile['metrics']
-                    age_min_profiler, age_max_profiler = profile['age_range']
-                    mins = profile['min_percentages']
-                    st.rerun()
-
-            sel = st.multiselect('Select 4–12 metrics', numeric_cols, default=sel)
+            sel = st.multiselect('Select 4–12 metrics', numeric_cols)
             
             age_min_profiler, age_max_profiler = st.slider(
                 'Age Range (Profiler)', 
                 min_value=int(df_minutes['Age'].min()), 
                 max_value=int(df_minutes['Age'].max()), 
-                value=(age_min_profiler, age_max_profiler))
+                value=(int(df_minutes['Age'].min()), int(df_minutes['Age'].max()))
+            )
             
             if 4 <= len(sel) <= 12:
                 pct = {m: df_minutes[m].rank(pct=True) for m in sel}
-                mins = {m: st.slider(f'Min % for {m}', 0,100, mins.get(m,50)) for m in sel}
+                mins = {m: st.slider(f'Min % for {m}', 0,100,50) for m in sel}
                 mask = np.logical_and.reduce([pct[m]*100 >= mins[m] for m in sel])
                 
                 df_profiler_filtered = df_minutes.loc[mask].copy()
@@ -507,49 +532,18 @@ if uploaded_files:
                     )
 
         # =============================================
-        # Composite PCA Index (Aba 6) - COM PERFIS
+        # Composite PCA Index (Aba 6) - SEÇÃO CORRIGIDA
         # =============================================
         with tabs[5]:
             st.header('Composite PCA Index + Excel Export')
-            
-            # Seção de perfis
-            col_save_pca, col_load_pca = st.columns(2)
-            with col_save_pca:
-                pca_profile_name = st.text_input("Nome do Perfil (PCA)", key='pca_save')
-                if st.button("💾 Salvar Perfil PCA"):
-                    if not pca_profile_name:
-                        st.warning("Digite um nome para o perfil!")
-                    else:
-                        st.session_state.saved_profiles['pca'][pca_profile_name] = {
-                            'sel': sel,
-                            'kernel_type': kernel_type,
-                            'gamma': gamma,
-                            'corr_threshold': corr_threshold,
-                            'manual_weights': manual_weights,
-                            'age_range': [age_min_pca, age_max_pca]
-                        }
-                        st.success(f"Perfil '{pca_profile_name}' salvo!")
-            
-            with col_load_pca:
-                pca_profiles = list(st.session_state.saved_profiles['pca'].keys())
-                selected_pca_profile = st.selectbox("Carregar Perfil PCA", [""] + pca_profiles, key='pca_load')
-                if selected_pca_profile:
-                    pca_profile = st.session_state.saved_profiles['pca'][selected_pca_profile]
-                    sel = pca_profile['sel']
-                    kernel_type = pca_profile['kernel_type']
-                    gamma = pca_profile['gamma']
-                    corr_threshold = pca_profile['corr_threshold']
-                    manual_weights = pca_profile['manual_weights']
-                    age_min_pca, age_max_pca = pca_profile['age_range']
-                    st.rerun()
-
             performance_cols = [col for col in numeric_cols if col not in ['Age','Height','Country','Minutes played','Position']]
             
             age_min_pca, age_max_pca = st.slider(
                 'Age Range (PCA)', 
                 min_value=int(df_minutes['Age'].min()), 
                 max_value=int(df_minutes['Age'].max()), 
-                value=(age_min_pca, age_max_pca))
+                value=(int(df_minutes['Age'].min()), int(df_minutes['Age'].max()))
+            )
             
             col1, col2, col3, col4 = st.columns(4)
             with col1:
@@ -561,11 +555,12 @@ if uploaded_files:
                     'Correlation Threshold', 
                     0.0, 1.0, 0.5, 0.05,
                     help='Minimum average correlation for feature inclusion',
-                    disabled=st.session_state.get('manual_weights', False))
+                    disabled=st.session_state.get('manual_weights', False)
+                )
             with col4:
                 manual_weights = st.checkbox('Manual Weights', key='manual_weights')
 
-            sel = st.multiselect('Select performance metrics', performance_cols, default=sel)
+            sel = st.multiselect('Select performance metrics', performance_cols)
             
             if len(sel)<2:
                 st.warning('Select at least two performance metrics.')
@@ -634,11 +629,12 @@ if uploaded_files:
                     }).sort_values('Weight', ascending=False)
                     st.dataframe(wdf.style.format({'Weight':'{:.2f}'}))
 
+                    # Linha corrigida com parêntese fechado
                     af = df_pca['Age'].between(age_min_pca, age_max_pca)
                     pf = (df_pca['Position'].astype(str).apply(lambda x: any(pos in x for pos in sel_pos))) if sel_pos else pd.Series(True, index=df_pca.index)
                     df_f = df_pca[af & pf]
 
-                      if not df_f.empty:
+                    if not df_f.empty:
                         mn, mx = df_f['PCA Score'].min(), df_f['PCA Score'].max()
                         sr = st.slider(
                             'Filter PCA Score range',
@@ -647,8 +643,7 @@ if uploaded_files:
                             value=(float(mn), float(mx))
                         )
                         
-                        df_final = df_f[df_f['PCA Score'].between(*sr)]  # Linha corrigida
-                        
+                        df_final = df_f[df_f['PCA Score'].between(*sr)]
                         if df_final.empty:
                             st.warning('No players in the selected PCA score range.')
                         else:
