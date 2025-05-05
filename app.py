@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
+import plotly.graph_objects as go
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.preprocessing import StandardScaler
@@ -569,77 +570,113 @@ def create_bar_chart(metrics, p1_name, p1_values, p2_name, p2_values, avg_values
     plt.tight_layout()
     return fig
 
-def create_scatter_plot(df, x_metric, y_metric, highlight_players=None, title=None):
-    """Create scatter plot using matplotlib with player names and hover annotations"""
-    fig, ax = plt.subplots(figsize=(12, 8))
+
+def create_scatter_plot(df, x_metric, y_metric, players_to_highlight=None):
+    fig = go.Figure()
     
-    # Definir cores consistentes
-    player1_color = "#1A78CF"      # Azul real para jogador 1
-    player2_color = "#E41A1C"      # Vermelho para jogador 2
+    # Add main scatter plot
+    fig.add_trace(go.Scatter(
+        x=df[x_metric],
+        y=df[y_metric],
+        mode='markers',
+        name='Players',
+        text=df['Player'],
+        hovertemplate=
+        '<b>Player:</b> %{text}<br>' +
+        '<b>' + x_metric + ':</b> %{x:.2f}<br>' +
+        '<b>' + y_metric + ':</b> %{y:.2f}<br>' +
+        '<b>Team:</b> %{customdata[0]}<br>' +
+        '<b>Position:</b> %{customdata[1]}',
+        customdata=np.stack((df['Team'], df['Position']), axis=1)
+    ))
     
-    # Criar um dict para armazenar nomes de todos os jogadores
-    player_names = {}
+    if players_to_highlight and len(players_to_highlight) > 0:
+        highlight_df = df[df['Player'].isin(players_to_highlight)]
+        fig.add_trace(go.Scatter(
+            x=highlight_df[x_metric],
+            y=highlight_df[y_metric],
+            mode='markers+text',
+            name='Selected Players',
+            text=highlight_df['Player'],
+            textposition='top center',
+            marker=dict(size=12, color='red'),
+            hovertemplate=
+            '<b>Player:</b> %{text}<br>' +
+            '<b>' + x_metric + ':</b> %{x:.2f}<br>' +
+            '<b>' + y_metric + ':</b> %{y:.2f}<br>'
+        ))
     
-    # Plot all players
-    all_players = df['Player'].values
-    sc = ax.scatter(df[x_metric], df[y_metric], alpha=0.5, s=50, c='gray')
+    fig.update_layout(
+        title=x_metric + ' vs ' + y_metric,
+        xaxis_title=x_metric,
+        yaxis_title=y_metric,
+        hovermode='closest',
+        showlegend=True
+    )
     
-    # Adicionar nomes para todos os jogadores
-    for i, player in enumerate(all_players):
-        if i < len(df[x_metric]) and i < len(df[y_metric]):
-            player_names[i] = player
+    return fig
+
+def create_pca_plot(df_scaled, pca, pca_metrics, players, p1=None, p2=None):
+    pca_df = pd.DataFrame(df_scaled, columns=pca_metrics, index=players)
+    pca_transformed = pca.transform(pca_df)
+    plot_df = pd.DataFrame(pca_transformed, columns=['PC1', 'PC2'], index=players)
+    plot_df['Player'] = players
     
-    # Highlight specific players with diferentes cores
+    fig = go.Figure()
+    
+    # Add main scatter plot
+    fig.add_trace(go.Scatter(
+        x=plot_df['PC1'],
+        y=plot_df['PC2'],
+        mode='markers',
+        name='Players',
+        text=plot_df['Player'],
+        hovertemplate=
+        '<b>Player:</b> %{text}<br>' +
+        '<b>PC1:</b> %{x:.2f}<br>' +
+        '<b>PC2:</b> %{y:.2f}<br>',
+    ))
+    
+    # Add feature vectors
+    for i, metric in enumerate(pca_metrics):
+        loading = pca.components_.T[i]
+        fig.add_trace(go.Scatter(
+            x=[0, loading[0]],
+            y=[0, loading[1]],
+            mode='lines+text',
+            name=metric,
+            text=[None, metric],
+            textposition='top center',
+            line=dict(color='red', width=1),
+            showlegend=False,
+            hoverinfo='skip'
+        ))
+    
+    # Add highlighted players
+    highlight_players = [p for p in [p1, p2] if p and p != 'None']
     if highlight_players:
-        # Usar cores consistentes para os primeiros dois jogadores destacados
-        colors = [player1_color, player2_color]
-        
-        # Destacar jogadores com cores padronizadas
-        for idx, (player, color) in enumerate(highlight_players.items()):
-            player_data = df[df['Player'] == player]
-            if not player_data.empty:
-                # Usar as cores padronizadas para os dois primeiros jogadores
-                if idx < 2:
-                    use_color = colors[idx]
-                else:
-                    use_color = color
-                
-                ax.scatter(player_data[x_metric], player_data[y_metric], 
-                          s=100, c=use_color, edgecolor='black', label=player)
-                
-                # Adicionar rótulos para os jogadores destacados
-                ax.annotate(player, 
-                           (player_data[x_metric].iloc[0], player_data[y_metric].iloc[0]),
-                           xytext=(10, 5), textcoords='offset points',
-                           fontsize=10, fontweight='bold', color=use_color)
+        highlight_df = plot_df[plot_df['Player'].isin(highlight_players)]
+        fig.add_trace(go.Scatter(
+            x=highlight_df['PC1'],
+            y=highlight_df['PC2'],
+            mode='markers+text',
+            name='Selected Players',
+            text=highlight_df['Player'],
+            textposition='top center',
+            marker=dict(size=12, color='red'),
+            hovertemplate=
+            '<b>Player:</b> %{text}<br>' +
+            '<b>PC1:</b> %{x:.2f}<br>' +
+            '<b>PC2:</b> %{y:.2f}<br>'
+        ))
     
-    # Usar mplcursors para adicionar interatividade (hover)
-    import mpld3
-    from mpld3 import plugins
-    
-    # Adicionar tooltip com os nomes dos jogadores ao passar o mouse
-    tooltip = plugins.PointHTMLTooltip(sc, 
-                                       labels=[f"<b>{p}</b><br>x: {df[x_metric].iloc[i]:.2f}<br>y: {df[y_metric].iloc[i]:.2f}" 
-                                               for i, p in player_names.items()],
-                                       voffset=10, hoffset=10)
-    mpld3.plugins.connect(fig, tooltip)
-    
-    # Add mean lines
-    ax.axvline(df[x_metric].mean(), color='#333333', linestyle='--', alpha=0.5)
-    ax.axhline(df[y_metric].mean(), color='#333333', linestyle='--', alpha=0.5)
-    
-    # Add labels and title
-    ax.set_xlabel(x_metric, fontsize=12)
-    ax.set_ylabel(y_metric, fontsize=12)
-    
-    if title:
-        ax.set_title(title, fontsize=10, pad=20)
-    
-    # Add legend if there are highlighted players
-    if highlight_players:
-        ax.legend(loc='best')
-    
-    ax.grid(True, alpha=0.3)
+    fig.update_layout(
+        title='Principal Component Analysis',
+        xaxis_title='PC1 (' + '{:.2%}'.format(pca.explained_variance_ratio_[0]) + ' variance)',
+        yaxis_title='PC2 (' + '{:.2%}'.format(pca.explained_variance_ratio_[1]) + ' variance)',
+        hovermode='closest',
+        showlegend=True
+    )
     
     return fig
 
