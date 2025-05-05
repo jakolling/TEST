@@ -29,8 +29,7 @@ st.set_page_config(
     page_icon="⚽"
 )
 
-roboto_condensed = FontManager('https://raw.githubusercontent.com/google/fonts/main/apache/roboto/'
-                              'Roboto%20Condensed.ttf')
+roboto_condensed = FontManager('RobotoCondensed.ttf')
 
 plt.rcParams['font.family'] = 'sans-serif'
 LOGO_PATH = "Vålerenga_Oslo_logo.svg.png"
