@@ -416,6 +416,7 @@ def create_comparison_pizza_chart(params, values_p1, values_p2=None, values_avg=
                 facecolor=compare_color, edgecolor="#000000", 
                 zorder=3, linewidth=1, alpha=0.8
             ),
+        
             kwargs_values=dict(
             color="#FF0000", 
             fontsize=9,  # Reduzido
@@ -425,7 +426,7 @@ def create_comparison_pizza_chart(params, values_p1, values_p2=None, values_avg=
             edgecolor='none',  # Removido
             facecolor='none',  # Removido
             linewidth=0  # Removido
-            ),
+            )),
             kwargs_values=dict(
                 color=player1_color, fontsize=11, fontweight="bold", zorder=5,
                 bbox=dict(
