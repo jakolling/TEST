@@ -20,6 +20,20 @@ st.set_page_config(
     page_icon="⚽"
 )
 
+# Inicializar estados persistentes
+if 'filters' not in st.session_state:
+    st.session_state.filters = {
+        'minutes_range': None,
+        'mpg_range': None,
+        'age_range': None,
+        'sel_pos': [],
+        'p1': None,
+        'p2': None
+    }
+
+if 'file_metadata' not in st.session_state:
+    st.session_state.file_metadata = {}
+
 # Cabeçalho com logo
 col1, col2, col3 = st.columns([1, 3, 1])
 with col2:
@@ -47,9 +61,6 @@ with st.expander("📘 User Guide & Instructions", expanded=False):
 # =============================================
 # Funções Principais
 # =============================================
-if 'file_metadata' not in st.session_state:
-    st.session_state.file_metadata = {}
-
 def load_and_clean(files):
     dfs = []
     for file in files[:15]:
@@ -74,6 +85,7 @@ def get_context_info(df, minutes_range, mpg_range, age_range, sel_pos):
         'leagues': ', '.join(df['Data Origin'].unique()),
         'seasons': ', '.join(df['Season'].unique()),
         'total_players': len(df),
+        'selected_dbs': len(df['Data Origin'].unique()),
         'min_min': minutes_range[0],
         'max_min': minutes_range[1],
         'min_mpg': mpg_range[0],
@@ -117,43 +129,111 @@ if uploaded_files:
         st.warning("Please provide metadata for all uploaded files")
         st.stop()
 
-    try:
-        df = load_and_clean(uploaded_files)
+    # Seleção de Databases
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("Database Selection")
+    
+    available_dbs = [
+        f"{st.session_state.file_metadata[f.name]['label']} ({st.session_state.file_metadata[f.name]['season']})" 
+        for f in uploaded_files
+    ]
+    
+    selected_dbs = st.sidebar.multiselect(
+        "Select databases to include",
+        options=available_dbs,
+        default=available_dbs
+    )
+    
+    selected_files = [
+        f for f, db in zip(uploaded_files, available_dbs) 
+        if db in selected_dbs
+    ]
+    
+    if not selected_files:
+        st.warning("Please select at least one database")
+        st.stop()
 
-        # Filtros Principais
+    try:
+        df = load_and_clean(selected_files)
+
+        # Filtro de Minutos
         min_min, max_min = int(df['Minutes played'].min()), int(df['Minutes played'].max())
-        minutes_range = st.sidebar.slider('Minutes Played', min_min, max_min, (min_min, max_min))
+        default_minutes = (min_min, max_min)
+        minutes_range = st.sidebar.slider(
+            'Minutes Played', 
+            min_min, max_min, 
+            value=st.session_state.filters.get('minutes_range', default_minutes)
+        )
+        st.session_state.filters['minutes_range'] = minutes_range
         df_minutes = df[df['Minutes played'].between(*minutes_range)].copy()
 
+        # Filtro Minutos por Jogo
         df_minutes['Minutes per game'] = df_minutes['Minutes played'] / df_minutes['Matches played'].replace(0, np.nan)
         df_minutes['Minutes per game'] = df_minutes['Minutes per game'].fillna(0).clip(0, 120)
-        
         min_mpg, max_mpg = int(df_minutes['Minutes per game'].min()), int(df_minutes['Minutes per game'].max())
-        mpg_range = st.sidebar.slider('Minutes per Game', min_mpg, max_mpg, (min_mpg, max_mpg))
+        default_mpg = (min_mpg, max_mpg)
+        mpg_range = st.sidebar.slider(
+            'Minutes per Game', 
+            min_mpg, max_mpg, 
+            value=st.session_state.filters.get('mpg_range', default_mpg)
+        )
+        st.session_state.filters['mpg_range'] = mpg_range
         df_minutes = df_minutes[df_minutes['Minutes per game'].between(*mpg_range)]
 
+        # Filtro de Idade
         min_age, max_age = int(df_minutes['Age'].min()), int(df_minutes['Age'].max())
-        age_range = st.sidebar.slider('Age Range', min_age, max_age, (min_age, max_age))
+        default_age = (min_age, max_age)
+        age_range = st.sidebar.slider(
+            'Age Range', 
+            min_age, max_age, 
+            value=st.session_state.filters.get('age_range', default_age)
+        )
+        st.session_state.filters['age_range'] = age_range
         df_minutes = df_minutes[df_minutes['Age'].between(*age_range)]
 
-        # Coleta posições
+        # Filtro de Posições
         if 'Position' in df_minutes.columns:
             df_minutes['Position_split'] = df_minutes['Position'].astype(str).apply(lambda x: [p.strip() for p in x.split(',')])
             all_pos = sorted({p for lst in df_minutes['Position_split'] for p in lst})
-            sel_pos = st.sidebar.multiselect('Positions', all_pos, default=all_pos)
+            sel_pos = st.sidebar.multiselect(
+                'Positions', 
+                all_pos, 
+                default=st.session_state.filters.get('sel_pos', all_pos)
+            )
+            st.session_state.filters['sel_pos'] = sel_pos
         else:
             sel_pos = []
 
-        # Cria dataframe para cálculos de grupo
+        # Filtragem Final
         if 'Position_split' in df_minutes.columns and sel_pos:
             df_group = df_minutes[df_minutes['Position_split'].apply(lambda x: any(pos in x for pos in sel_pos))]
         else:
             df_group = df_minutes.copy()
 
         context = get_context_info(df_minutes, minutes_range, mpg_range, age_range, sel_pos)
+        
+        # Seleção de Jogadores
         players = sorted(df_minutes['Player'].unique())
-        p1 = st.sidebar.selectbox('Select Player 1', players)
-        p2 = st.sidebar.selectbox('Select Player 2', [p for p in players if p != p1])
+        
+        # Player 1
+        p1_options = [p for p in players if p != st.session_state.filters.get('p2')]
+        current_p1 = st.session_state.filters.get('p1')
+        try:
+            p1_index = p1_options.index(current_p1) if current_p1 else 0
+        except ValueError:
+            p1_index = 0
+        p1 = st.sidebar.selectbox('Select Player 1', p1_options, index=p1_index)
+        st.session_state.filters['p1'] = p1
+        
+        # Player 2
+        p2_options = [p for p in players if p != p1]
+        current_p2 = st.session_state.filters.get('p2')
+        try:
+            p2_index = p2_options.index(current_p2) if current_p2 else 0
+        except ValueError:
+            p2_index = 0
+        p2 = st.sidebar.selectbox('Select Player 2', p2_options, index=p2_index)
+        st.session_state.filters['p2'] = p2
 
         numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
         tabs = st.tabs(['Radar', 'Bars', 'Scatter', 'Profiler', 'Correlation', 'Composite Index (PCA)'])
@@ -203,42 +283,18 @@ if uploaded_files:
                     ))
                 
                 title_text = (f"<b>{p1} vs {p2}</b><br>"
-                             f"<sup>Leagues: {context['leagues']} | Seasons: {context['seasons']}<br>"
+                             f"<sup>Databases: {context['selected_dbs']} selected | Leagues: {context['leagues']} | Seasons: {context['seasons']}<br>"
                              f"Filters: {context['min_min']}-{context['max_min']} mins | "
                              f"{context['min_mpg']}-{context['max_mpg']} min/game | "
                              f"Age {context['min_age']}-{context['max_age']} | Positions: {context['positions']}</sup>")
                 
-                
-fig_radar.update_layout(
-    template='plotly_dark',
-    polar=dict(
-        radialaxis=dict(
-            visible=True,
-            range=[0, 100],
-            showline=False,
-            gridcolor="white",
-            gridwidth=1,
-            tickfont=dict(size=10, color='white'),
-            ticks='outside',
-        ),
-        angularaxis=dict(
-            tickfont=dict(size=12, color='white'),
-            gridcolor="gray"
-        ),
-        bgcolor='rgba(0,0,0,0)'
-    ),
-    showlegend=True,
-    legend=dict(font=dict(color='white')),
-    margin=dict(t=80, b=80, l=80, r=80),
-    height=750,
-    title=dict(
-        text=title_text,
-        x=0.03,
-        xanchor='left',
-        font=dict(size=18, color='white')
-    )
-)
-
+                fig_radar.update_layout(
+                    title=dict(text=title_text, x=0.03, xanchor='left', font=dict(size=18)),
+                    polar=dict(radialaxis=dict(range=[0,100])),
+                    template='plotly_white',
+                    margin=dict(t=200, b=100, l=100, r=100),
+                    height=700
+                )
                 
                 st.plotly_chart(fig_radar)
                 
@@ -322,7 +378,7 @@ fig_radar.update_layout(
                     )
                 
                 title_text = (f"<b>Metric Comparison</b><br>"
-                             f"<sup>Context: {context['leagues']} ({context['seasons']}) | "
+                             f"<sup>Context: {context['leagues']} ({context['seasons']}) | Databases: {context['selected_dbs']} selected | "
                              f"Players: {context['total_players']} | Filters: {context['min_age']}-{context['max_age']} years</sup>")
                 
                 fig.update_layout(
@@ -383,7 +439,7 @@ fig_radar.update_layout(
                     ))
             
             title_text = (f"<b>{x} vs {y}</b><br>"
-                         f"<sup>Data Source: {context['leagues']} ({context['seasons']})<br>"
+                         f"<sup>Data Source: {context['leagues']} ({context['seasons']}) | Databases: {context['selected_dbs']} selected<br>"
                          f"Filters: {context['total_players']} players | "
                          f"{context['min_mpg']}+ min/game | {context['positions']}</sup>")
             
@@ -453,7 +509,7 @@ fig_radar.update_layout(
                 ))
                 
                 title_text = (f"<b>Metric Relationships</b><br>"
-                             f"<sup>Dataset: {context['leagues']} ({context['seasons']})<br>"
+                             f"<sup>Dataset: {context['leagues']} ({context['seasons']}) | Databases: {context['selected_dbs']} selected<br>"
                              f"Players: {context['total_players']} | Min. Minutes: {context['min_min']}+</sup>")
                 
                 fig.update_layout(
@@ -474,7 +530,7 @@ fig_radar.update_layout(
                     )
 
         # =============================================
-        # Composite PCA Index (Aba 6) - SEÇÃO CORRIGIDA
+        # Composite PCA Index (Aba 6)
         # =============================================
         with tabs[5]:
             st.header('Composite PCA Index + Excel Export')
@@ -571,7 +627,6 @@ fig_radar.update_layout(
                     }).sort_values('Weight', ascending=False)
                     st.dataframe(wdf.style.format({'Weight':'{:.2f}'}))
 
-                    # Linha corrigida com parêntese fechado
                     af = df_pca['Age'].between(age_min_pca, age_max_pca)
                     pf = (df_pca['Position'].astype(str).apply(lambda x: any(pos in x for pos in sel_pos))) if sel_pos else pd.Series(True, index=df_pca.index)
                     df_f = df_pca[af & pf]
@@ -596,7 +651,7 @@ fig_radar.update_layout(
                             fig_pca = go.Figure(data=[go.Bar(x=df_final['Player'], y=df_final['PCA Score'])])
                             
                             title_text = (f"<b>PCA Scores</b><br>"
-                                         f"<sup>Context: {context['leagues']} ({context['seasons']})<br>"
+                                         f"<sup>Context: {context['leagues']} ({context['seasons']}) | Databases: {context['selected_dbs']} selected<br>"
                                          f"Filters: Age {context['min_age']}-{context['max_age']} | "
                                          f"{context['positions']} | Metrics: {len(sel)} selected</sup>")
                             
@@ -640,3 +695,15 @@ fig_radar.update_layout(
 else:
     st.info('Please upload up to 15 Wyscout Excel files to start the analysis')
     st.warning("⚠️ Required: `pip install kaleido==0.2.1.post1`")
+
+# Botão de Reset
+if st.sidebar.button('Reset Filters'):
+    st.session_state.filters = {
+        'minutes_range': None,
+        'mpg_range': None,
+        'age_range': None,
+        'sel_pos': [],
+        'p1': None,
+        'p2': None
+    }
+    st.rerun()
