@@ -569,76 +569,31 @@ def create_bar_chart(metrics, p1_name, p1_values, p2_name, p2_values, avg_values
     plt.tight_layout()
     return fig
 
-def create_scatter_plot(df, x_metric, y_metric, title=None, highlight_players=None):
-    """Create scatter plot using matplotlib with player names and hover annotations"""
-    fig, ax = plt.subplots(figsize=(12, 8))
-    
-    # Define consistent colors
-    player1_color = "#1A78CF"
-    player2_color = "#E41A1C"
-    
-    # Create dict to store all player names
-    player_names = {}
-    
-    # Plot all players
-    all_players = df['Player'].values
-    sc = ax.scatter(df[x_metric], df[y_metric], alpha=0.5, s=50, c='gray')
-    
-    # Add names for all players
-    for i, player in enumerate(all_players):
-        if i < len(df[x_metric]) and i < len(df[y_metric]):
-            player_names[i] = player
-    
-    # Highlight specific players with different colors
-    if highlight_players:
-        colors = [player1_color, player2_color]
-        
-        for idx, (player, color) in enumerate(highlight_players.items()):
-            player_data = df[df['Player'] == player]
-            if not player_data.empty:
-                use_color = colors[idx] if idx < 2 else color
-                
-                ax.scatter(player_data[x_metric], player_data[y_metric], 
-                          s=100, c=use_color, edgecolor='black', label=player)
-                
-                ax.annotate(player, 
-                           (player_data[x_metric].iloc[0], player_data[y_metric].iloc[0]),
-                           xytext=(10, 5), textcoords='offset points',
-                           fontsize=10, fontweight='bold', color=use_color)
-    
-    # Add hover annotations
-    annot = ax.annotate("", xy=(0,0), xytext=(10,10), textcoords="offset points",
-                        bbox=dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9),
-                        arrowprops=dict(arrowstyle="->"))
-    annot.set_visible(False)
+def create_scatter_plot(df, x_metric, y_metric, title=None):
+    fig = px.scatter(
+        df, 
+        x=x_metric,
+        y=y_metric,
+        title=title if title else x_metric + ' vs ' + y_metric
+    )
 
-    def hover(event):
-        if event.inaxes == ax:
-            cont, ind = sc.contains(event)
-            if cont:
-                annot.set_visible(True)
-                pos = sc.get_offsets()[ind["ind"][0]]
-                annot.xy = pos
-                text = player_names[ind["ind"][0]]
-                annot.set_text(text)
-                fig.canvas.draw_idle()
-            else:
-                if annot.get_visible():
-                    annot.set_visible(False)
-                    fig.canvas.draw_idle()
+    # Add player names as text labels
+    for idx, row in df.iterrows():
+        fig.add_annotation(
+            x=row[x_metric],
+            y=row[y_metric],
+            text=row['Player'],
+            showarrow=False,
+            font=dict(size=8),
+            xshift=5,
+            yshift=5
+        )
 
-    fig.canvas.mpl_connect("motion_notify_event", hover)
-    
-    # Set title and labels
-    plt.title(title if title else f"{x_metric} vs {y_metric}")
-    plt.xlabel(x_metric)
-    plt.ylabel(y_metric)
-    
-    if highlight_players:
-        plt.legend()
-    
-    plt.grid(True, alpha=0.3)
-    
+    fig.update_layout(
+        showlegend=False,
+        title=title if title else x_metric + ' vs ' + y_metric
+    )
+
     return fig
 def create_similarity_viz(selected_player, similar_players, metrics, df):
     """Create player similarity visualization using regular matplotlib subplots with consistent colors"""
@@ -1235,42 +1190,34 @@ if uploaded_files:
             with col2:
                 y_metric = st.selectbox('Y-Axis Metric', metric_cols, index=min(1, len(metric_cols)-1))
             
-            col1, col2 = st.columns(2)
-            with col1:
-                p1 = st.selectbox('Highlight Player 1', ['None'] + players, key='scatter_p1')
-            with col2:
-                p2 = st.selectbox('Highlight Player 2', ['None'] + [p for p in players if p != p1], key='scatter_p2')
-            
-            # Create highlighted players dictionary
-            highlight_players = {}
-            if p1 != 'None':
-                highlight_players[p1] = "#1A78CF"
-            if p2 != 'None' and p2 != p1:
-                highlight_players[p2] = "#E41A1C"
-            
             title = f"{x_metric} vs {y_metric} | {context['leagues']} | Season(s): {context['seasons']}"
             
             fig = create_scatter_plot(
                 df=df_group,
                 x_metric=x_metric,
                 y_metric=y_metric,
-                title=title,
-                highlight_players=highlight_players
+                title=title
             )
             
-            st.pyplot(fig)
+            st.plotly_chart(fig)
             
+            # Show correlation coefficient
             corr = df_group[x_metric].corr(df_group[y_metric])
             st.info(f"Correlation coefficient: {corr:.4f}")
             
-            if st.button('Export Scatter Plot (300 DPI)', key='export_scatter'):
-                img_bytes = fig_to_bytes(fig)
-                st.download_button(
-                    "⬇️ Download Scatter Plot", 
-                    data=img_bytes, 
-                    file_name=f"scatter_{x_metric}_vs_{y_metric}.png", 
-                    mime="image/png"
-                )
+            # Display and export results
+            st.subheader("Results Table")
+            results_df = df_group[['Player', 'Team', 'Position', x_metric, y_metric]].sort_values(by=[x_metric, y_metric], ascending=[False, False])
+            st.dataframe(results_df)
+            
+            # Export CSV button
+            csv = results_df.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                "⬇️ Download Results as CSV",
+                csv,
+                f"scatter_results_{x_metric}_vs_{y_metric}.csv",
+                "text/csv"
+            )
 
         # =============================================
         # Player Similarity (Aba 4) - NEW TAB
