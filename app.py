@@ -9,7 +9,7 @@ def create_scatter_plot(df, x_metric, y_metric, title=None, **kwargs):
             (row[x_metric], row[y_metric]),
             xytext=(10, 10),
             textcoords='offset points',
-            fontsize=10,
+            fontsize=5,
             bbox=dict(facecolor='white', edgecolor='none', alpha=0.7),
             weight='bold'
         )
@@ -41,7 +41,7 @@ def create_pca_visualization(df, selected_metrics, title=None, **kwargs):
             (X_pca[idx, 0], X_pca[idx, 1]),
             xytext=(10, 10),
             textcoords='offset points',
-            fontsize=10,
+            fontsize=6,
             bbox=dict(facecolor='white', edgecolor='none', alpha=0.7),
             weight='bold'
         )
@@ -57,7 +57,7 @@ def create_pca_visualization(df, selected_metrics, title=None, **kwargs):
                 feature_vectors[i,1]*2.2, 
                 feature,
                 color='g',
-                fontsize=10)
+                fontsize=6)
     
     plt.xlabel(f'PC1 ({explained_var[0]:.1f}%)', fontsize=12)
     plt.ylabel(f'PC2 ({explained_var[1]:.1f}%)', fontsize=12)
