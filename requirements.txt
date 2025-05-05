@@ -6,3 +6,4 @@ mplsoccer
 scikit-learn
 scipy
 mpld3
+svg2rlg
