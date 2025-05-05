@@ -443,7 +443,7 @@ def create_comparison_pizza_chart(params, values_p1, values_p2=None, values_avg=
         
         # Ajustar os textos para evitar sobreposição (como no script de exemplo)
         params_offset = [True] * len(params)
-        baker.adjust_texts(params_offset, offset=-0.15)
+        baker.adjust_texts(params_offset, offset=-0.25)
         
         # Centralizar e ajustar a figura com mais espaço para a legenda
         plt.subplots_adjust(left=0.05, right=0.95, top=0.85, bottom=0.15)
