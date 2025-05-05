@@ -404,7 +404,7 @@ def create_comparison_pizza_chart(params, values_p1, values_p2=None, values_avg=
         fig, ax = baker.make_pizza(
             values_p1,                     # valores do jogador 1
             compare_values=compare_values, # valores do jogador 2 ou média
-            figsize=(10, 10),              # tamanho da figura
+            figsize=(8, 8),              # tamanho da figura
             color_blank_space="same",      # espaço em branco com mesma cor
             blank_alpha=0.4,               # transparência do espaço em branco
             param_location=110,            # localização dos parâmetros (um pouco afastados)
