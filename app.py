@@ -14,9 +14,9 @@ def create_scatter_plot(df, x_metric, y_metric, title=None, **kwargs):
             weight='bold'
         )
     
-    plt.title(title if title else f"{x_metric} vs {y_metric}", fontsize=14, pad=10)
-    plt.xlabel(x_metric, fontsize=12)
-    plt.ylabel(y_metric, fontsize=12)
+    plt.title(title if title else f"{x_metric} vs {y_metric}", fontsize=14, pad=20)
+    plt.xlabel(x_metric, fontsize=5)
+    plt.ylabel(y_metric, fontsize=5)
     plt.grid(True, alpha=0.3)
     return plt.gcf()
 
