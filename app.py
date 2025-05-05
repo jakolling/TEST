@@ -16,6 +16,9 @@ from sklearn.decomposition import PCA
 from sklearn.metrics.pairwise import cosine_similarity
 from scipy.spatial.distance import euclidean, cdist
 import base64
+from matplotlib.offsetbox import OffsetImage, AnnotationBbox
+from svglib.svglib import svg2rlg
+from reportlab.graphics import renderPM
 
 # =============================================
 # Configuration
@@ -26,17 +29,18 @@ st.set_page_config(
     page_icon="⚽"
 )
 
-# Set up consistent fonts for mplsoccer
+roboto_condensed = FontManager('https://raw.githubusercontent.com/google/fonts/main/apache/roboto/'
+                              'Roboto%20Condensed.ttf')
+
 plt.rcParams['font.family'] = 'sans-serif'
+LOGO_PATH = "Vålerenga_Oslo_logo.svg.png"
 
 # =============================================
 # Helper Functions
 # =============================================
-# Inicializar o session_state para manter os dados entre recargas
 if 'file_metadata' not in st.session_state:
     st.session_state.file_metadata = {}
 
-# Session state para persistência de filtros e seleções
 if 'last_players' not in st.session_state:
     st.session_state.last_players = []
 if 'last_metrics' not in st.session_state:
@@ -54,9 +58,7 @@ if 'last_age_range' not in st.session_state:
 if 'last_positions' not in st.session_state:
     st.session_state.last_positions = []
     
-# Função para tratamento de erros/exceções de forma centralizada
 def safe_operation(func, error_msg, fallback=None, *args, **kwargs):
-    """Execute uma função e capture exceções com uma mensagem amigável"""
     try:
         return func(*args, **kwargs)
     except Exception as e:
@@ -64,9 +66,8 @@ def safe_operation(func, error_msg, fallback=None, *args, **kwargs):
         return fallback
 
 def load_and_clean(files):
-    """Load and preprocess Excel files"""
     dfs = []
-    for file in files[:15]:  # Limit to 15 files
+    for file in files[:15]:
         df = pd.read_excel(file)
         df.dropna(how="all", inplace=True)
         df = df.loc[:, df.columns.notnull()]
@@ -81,11 +82,9 @@ def load_and_clean(files):
 
 @st.cache_data
 def calc_percentile(series, value):
-    """Calculate percentile rank of a value within a series"""
     return (series <= value).sum() / len(series)
 
 def get_context_info(df, minutes_range, mpg_range, age_range, sel_pos):
-    """Get contextual information for visualization titling"""
     return {
         'leagues': ', '.join(df['Data Origin'].unique()),
         'seasons': ', '.join(df['Season'].unique()),
@@ -100,7 +99,6 @@ def get_context_info(df, minutes_range, mpg_range, age_range, sel_pos):
     }
 
 def fig_to_bytes(fig):
-    """Convert matplotlib figure to bytes for download"""
     buf = BytesIO()
     fig.savefig(buf, format="png", dpi=300, bbox_inches='tight')
     buf.seek(0)
@@ -108,12 +106,7 @@ def fig_to_bytes(fig):
 
 def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=None, 
                        title=None, subtitle=None, p1_name="Player 1", p2_name="Player 2"):
-    """
-    Cria um pizza chart profissional usando o mesmo estilo do gráfico comparativo.
-    Usa o PyPizza da mesma maneira que o gráfico de comparação para garantir consistência visual.
-    """
     try:
-        # Métricas padrão se não forem fornecidas
         if params is None:
             params = [
                 "xG per 90",
@@ -129,15 +122,12 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
                 "Progressive passes per 90",
                 "Key passes per 90"
             ]
-            # Criar valores aleatórios para demonstração se não houver dados
             if values_p1 is None:
                 values_p1 = [random.randint(50, 95) for _ in range(len(params))]
         
-        # Verificações de segurança
         if values_p1 is not None and len(params) != len(values_p1):
             raise ValueError(f"Número de parâmetros ({len(params)}) não corresponde ao número de valores ({len(values_p1)})")
         
-        # Arredondar percentis para inteiros
         if values_p1 is not None:
             values_p1 = [round(v) for v in values_p1]
         if values_p2 is not None:
@@ -145,125 +135,101 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
         if values_avg is not None:
             values_avg = [round(v) for v in values_avg]
         
-        # Esquema uniforme de cores - azul real e azul claro
-        player1_color = "#0052CC"      # Azul real
-        player2_color = "#00A3FF"      # Azul claro
-        avg_color = "#B3CFFF"          # Azul muito claro para média
-        text_color = "#000000"         # Preto para texto
-        background_color = "#F5F5F5"   # Cinza claro para fundo
+        player1_color = "#0052CC"
+        player2_color = "#00A3FF"
+        avg_color = "#B3CFFF"
+        text_color = "#000000"
+        background_color = "#F5F5F5"
         
-        # Preparar mínimos e máximos para cada parâmetro
         min_values = [0] * len(params)
         max_values = [100] * len(params)
         
-        # Instanciar o objeto PyPizza
         baker = PyPizza(
-            params=params,                  # lista de parâmetros
-            background_color=background_color,  # cor de fundo
-            straight_line_color="#CCCCCC",  # cor das linhas retas (cinza claro)
-            straight_line_lw=1,             # largura das linhas retas
-            last_circle_lw=1,               # largura do último círculo
-            other_circle_lw=1,              # largura dos outros círculos
-            other_circle_ls="-",            # estilo dos outros círculos
-            inner_circle_size=20            # tamanho do círculo interior
+            params=params,
+            background_color=background_color,
+            straight_line_color="#CCCCCC",
+            straight_line_lw=1,
+            last_circle_lw=1,
+            other_circle_lw=1,
+            other_circle_ls="-",
+            inner_circle_size=30
         )
         
-        # Criar figura e eixos com projeção polar (tamanho menor)
         fig, ax = plt.subplots(figsize=(10, 10), facecolor=background_color, subplot_kw={"projection": "polar"})
-        
-        # Centralizar e ajustar a figura com mais espaço para a legenda
         plt.subplots_adjust(left=0.1, right=0.9, top=0.85, bottom=0.15)
+        ax.set_ylim(0, 0.9)
         
-        # Limitar o tamanho do gráfico (reduzir raio)
-        ax.set_ylim(0, 0.9)  # Reduzir o raio máximo para 0.9 (ao invés de 1.0)
-        
-        # Criar pizza para jogador 1 (principal)
-        values = values_p1
-        
-        # Cores iguais para todas as fatias
-        slice_colors = [player1_color] * len(params)
-        text_colors = ["#FF0000"] * len(params)  # Texto vermelho para os valores
-        
-        # Melhorar o grid
-        # Criar círculos de referência mais definidos (25%, 50%, 75%, 100%)
         circles = [0.25, 0.5, 0.75]
         for circle in circles:
             ax.plot(np.linspace(0, 2*np.pi, 100), [circle] * 100, 
                     color='#AAAAAA', linestyle='-', linewidth=0.8, zorder=1, alpha=0.7)
         
-        # Fazer o plot principal com grid melhorado
         baker = PyPizza(
-            params=params,                  # parâmetros
-            min_range=min_values,           # valores mínimos
-            max_range=max_values,           # valores máximos
+            params=params,
+            min_range=min_values,
+            max_range=max_values,
             background_color=background_color,
-            straight_line_color="#999999",  # linhas mais visíveis
-            straight_line_lw=1.2,           # linhas mais grossas
-            last_circle_lw=1.5,             # círculo externo mais visível
-            other_circle_lw=1,              # outros círculos visíveis
-            other_circle_ls="-",            # linhas sólidas para círculos
-            inner_circle_size=15            # círculo interno menor
+            straight_line_color="#999999",
+            straight_line_lw=1.2,
+            last_circle_lw=1.5,
+            other_circle_lw=1,
+            other_circle_ls="-",
+            inner_circle_size=30
         )
         
-        # Criar a pizza para o jogador 1
         baker.make_pizza(
-            values,                          # valores
-            ax=ax,                           # axis
-            color_blank_space="same",        # espaço em branco com mesma cor
-            slice_colors=slice_colors,       # cores das fatias
-            value_colors=text_colors,        # cores dos valores (vermelho)
-            value_bck_colors=["#FFFFFF"] * len(params),   # fundo branco para valores
-            blank_alpha=0.4,                 # transparência do espaço em branco
+            values_p1,
+            ax=ax,
+            color_blank_space="same",
+            slice_colors=[player1_color] * len(params),
+            value_colors=["#FF0000"] * len(params),
+            value_bck_colors=["#FFFFFF"] * len(params),
+            blank_alpha=0.4,
             kwargs_slices=dict(
                 edgecolor="#F2F2F2", zorder=2, linewidth=1
             ),
             kwargs_params=dict(
-            color="#000000", 
-                fontsize=9,          # Reduzido de 11 para 9
-            fontweight="normal", # Removido o negrito
-            va="center", 
-            zorder=3
+                color="#000000",
+                fontsize=8,
+                fontweight="normal",
+                va="center",
+                zorder=3,
+                fontproperties=roboto_condensed.prop
             ),
             kwargs_values=dict(
-                color="#FF0000", fontsize=11, fontweight="bold", zorder=5,
+                color="#FF0000",
+                fontsize=8,
+                fontweight="bold",
+                zorder=5,
                 bbox=dict(
-                    edgecolor="#000000", facecolor="#FFFFFF",
-                    boxstyle="round,pad=0.2", lw=1, alpha=0.9
+                    edgecolor="#000000",
+                    facecolor="#FFFFFF",
+                    boxstyle="round,pad=0.1",
+                    lw=0.5,
+                    alpha=0.9
                 )
             )
         )
         
-        # Adicionar jogador 2 se fornecido
         if values_p2 is not None:
-            if len(values_p2) != len(params):
-                raise ValueError(f"Número de valores do jogador 2 ({len(values_p2)}) não corresponde ao número de parâmetros ({len(params)})")
-            
-            # Adicionar linhas para o jogador 2
             for i, value in enumerate(values_p2):
                 angle = (i / len(params)) * 2 * np.pi
                 ax.plot([angle, angle], [0, value/100], color=player2_color, 
                         linewidth=2.5, linestyle='-', zorder=10)
                 
-                # Adicionar valor em caixa para o jogador 2 (fundo branco e texto vermelho)
-                if value > 25:  # Mostrar apenas valores relevantes
+                if value > 25:
                     radius = value / 100
                     ax.text(angle, radius + 0.05, f"{value}", color='#FF0000', 
                             fontsize=9, ha='center', va='center', fontweight='bold',
                             bbox=dict(boxstyle="round,pad=0.2", facecolor='#FFFFFF', 
                                     alpha=0.9, edgecolor='#000000', linewidth=1))
         
-        # Adicionar média do grupo se fornecida
         if values_avg is not None:
-            if len(values_avg) != len(params):
-                raise ValueError(f"Número de valores médios ({len(values_avg)}) não corresponde ao número de parâmetros ({len(params)})")
-            
-            # Adicionar linhas para média
             for i, value in enumerate(values_avg):
                 angle = (i / len(params)) * 2 * np.pi
                 ax.plot([angle, angle], [0, value/100], color=avg_color, 
                         linewidth=2, linestyle='--', zorder=5, alpha=0.7)
         
-        # Adicionar título centralizado
         if title:
             title_text = title
         else:
@@ -274,49 +240,37 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
             size=16, ha="center", fontweight="bold", color="#000000"
         )
         
-        # Adicionar subtítulo centralizado
         if subtitle:
             fig.text(
                 0.5, 0.93, subtitle,
                 size=12, ha="center", color="#666666"
             )
         
-        # Adicionar créditos na parte inferior
         fig.text(
             0.5, 0.02, "made by Joao Alberto Kolling\ndata via WyScout/SkillCorner",
             size=10, ha="center", color="#666666"
         )
         
-        # Remover grade e ticks
         ax.grid(False)
         ax.set_xticks([])
         ax.set_yticks([])
         
-        # Adicionar legenda se necessário
         if values_p2 is not None or values_avg is not None:
             legend_elements = []
-            
-            # Jogador 1
             legend_elements.append(
                 plt.Rectangle((0, 0), 1, 1, facecolor=player1_color, 
                               edgecolor='white', label=p1_name)
             )
-            
-            # Jogador 2
             if values_p2 is not None:
                 legend_elements.append(
                     plt.Rectangle((0, 0), 1, 1, facecolor=player2_color, 
                                   edgecolor='white', label=p2_name)
                 )
-            
-            # Média
             if values_avg is not None:
                 legend_elements.append(
                     plt.Line2D([0], [0], color=avg_color, linewidth=2, 
                               linestyle='--', label='Média do Grupo')
                 )
-            
-            # Posicionar legenda centralizada abaixo do gráfico
             ax.legend(
                 handles=legend_elements,
                 loc='lower center',
@@ -327,8 +281,17 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
                 edgecolor='#CCCCCC'
             )
         
+        try:
+            drawing = svg2rlg(LOGO_PATH)
+            renderPM.drawToFile(drawing, "temp_logo.png", fmt="PNG")
+            logo = plt.imread("temp_logo.png")
+            imagebox = OffsetImage(logo, zoom=0.08)
+            ab = AnnotationBbox(imagebox, (0,0), frameon=False, xycoords='data', pad=0)
+            ax.add_artist(ab)
+        except Exception as e:
+            st.error(f"Erro ao carregar o logo: {str(e)}")
+    
     except Exception as e:
-        # Em caso de erro, criar um gráfico com mensagem e imprimir o erro
         st.error(f"Erro detalhado: {str(e)}")
         import traceback
         st.text(traceback.format_exc())
@@ -343,16 +306,10 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
 
 def create_comparison_pizza_chart(params, values_p1, values_p2=None, values_avg=None,
                        title=None, subtitle=None, p1_name="Player 1", p2_name="Player 2"):
-    """
-    Cria um pizza chart para comparação entre dois jogadores ou jogador vs média,
-    usando o estilo do gráfico padrão mas com sobreposição direta das fatias.
-    """
     try:
-        # Verificações de segurança
         if values_p1 is not None and len(params) != len(values_p1):
             raise ValueError(f"Número de parâmetros ({len(params)}) não corresponde ao número de valores ({len(values_p1)})")
         
-        # Determinar quais valores usar para comparação (valores_p2 ou values_avg)
         compare_values = None
         compare_name = p2_name
         if values_p2 is not None and len(values_p2) == len(params):
@@ -364,48 +321,40 @@ def create_comparison_pizza_chart(params, values_p1, values_p2=None, values_avg=
         if compare_values is None:
             raise ValueError("Valores de comparação não fornecidos (Player 2 ou Group Average)")
         
-        # Arredondar percentis para inteiros
         values_p1 = [round(v) for v in values_p1]
         compare_values = [round(v) for v in compare_values]
         
-        # Definir cores - azul e vermelho para player vs player
-        player1_color = "#1A78CF"      # Azul real para jogador 1
-        player2_color = "#E41A1C"      # Vermelho para jogador 2 (mesma cor que usamos para média)
-        avg_color = "#E41A1C"          # Vermelho para média do grupo
-        text_color = "#000000"         # Preto para texto
-        background_color = "#F5F5F5"   # Cinza claro para fundo
+        player1_color = "#1A78CF"
+        player2_color = "#E41A1C"
+        avg_color = "#E41A1C"
+        text_color = "#000000"
+        background_color = "#F5F5F5"
         
-        # Usar vermelho como cor padrão para comparação (tanto para jogador 2 quanto para média)
-        compare_color = player2_color  # Sempre vermelho
+        compare_color = player2_color
         
-        # Ajustar os limites mínimos e máximos para os valores
-        # Usar lógica do script de exemplo para ajustar o range dos valores
-        min_range = [0] * len(params)  # Começar de zero sempre
-        max_range = [100] * len(params)  # Máximo é sempre 100 para percentis
+        min_range = [0] * len(params)
+        max_range = [100] * len(params)
         
-        # Instanciar o objeto PyPizza seguindo a lógica do exemplo
         baker = PyPizza(
             params=params,
             min_range=min_range,
             max_range=max_range,
             background_color=background_color,
-            straight_line_color="#999999",  # linhas mais visíveis
-            straight_line_lw=1.2,           # linhas mais grossas
-            last_circle_lw=1.5,             # círculo externo mais visível
-            other_circle_lw=1,              # outros círculos visíveis
-            other_circle_ls="-",            # linhas sólidas para círculos
-            inner_circle_size=15            # círculo interno menor
+            straight_line_color="#999999",
+            straight_line_lw=1.2,
+            last_circle_lw=1.5,
+            other_circle_lw=1,
+            other_circle_ls="-",
+            inner_circle_size=30
         )
         
-        # Usar o método make_pizza do PyPizza, que aceita compare_values diretamente
-        # Isso criará automaticamente um gráfico com os dois jogadores sobrepostos
         fig, ax = baker.make_pizza(
-            values_p1,                     # valores do jogador 1
-            compare_values=compare_values, # valores do jogador 2 ou média
-            figsize=(10, 10),              # tamanho da figura
-            color_blank_space="same",      # espaço em branco com mesma cor
-            blank_alpha=0.4,               # transparência do espaço em branco
-            param_location=110,            # localização dos parâmetros (um pouco afastados)
+            values_p1,
+            compare_values=compare_values,
+            figsize=(10, 10),
+            color_blank_space="same",
+            blank_alpha=0.4,
+            param_location=110,
             kwargs_slices=dict(
                 facecolor=player1_color, edgecolor="#F2F2F2",
                 zorder=2, linewidth=1
@@ -415,36 +364,45 @@ def create_comparison_pizza_chart(params, values_p1, values_p2=None, values_avg=
                 zorder=3, linewidth=1, alpha=0.8
             ),
             kwargs_params=dict(
-            color="#000000", 
-            fontsize=9,          # Reduzido de 11 para 9
-            fontweight="normal", # Removido o negrito
-            va="center", 
-            zorder=3
+                color="#000000",
+                fontsize=8,
+                fontweight="normal",
+                va="center",
+                zorder=3,
+                fontproperties=roboto_condensed.prop
             ),
             kwargs_values=dict(
-                color=player1_color, fontsize=11, fontweight="bold", zorder=5,
+                color=player1_color,
+                fontsize=8,
+                fontweight="bold",
+                zorder=5,
                 bbox=dict(
-                    edgecolor="#000000", facecolor="#FFFFFF",
-                    boxstyle="round,pad=0.2", lw=1, alpha=0.9
+                    edgecolor="#000000",
+                    facecolor="#FFFFFF",
+                    boxstyle="round,pad=0.1",
+                    lw=1,
+                    alpha=0.9
                 )
             ),
             kwargs_compare_values=dict(
-                color=compare_color, fontsize=11, fontweight="bold", zorder=6,
+                color=compare_color,
+                fontsize=8,
+                fontweight="bold",
+                zorder=6,
                 bbox=dict(
-                    edgecolor="#000000", facecolor="#FFFFFF",
-                    boxstyle="round,pad=0.2", lw=1, alpha=0.9
+                    edgecolor="#000000",
+                    facecolor="#FFFFFF",
+                    boxstyle="round,pad=0.1",
+                    lw=1,
+                    alpha=0.9
                 )
             )
         )
         
-        # Ajustar os textos para evitar sobreposição (como no script de exemplo)
-        params_offset = [True] * len(params)
-        baker.adjust_texts(params_offset, offset=-0.25)
+        baker.adjust_texts([True]*len(params), offset=-0.25)
         
-        # Centralizar e ajustar a figura com mais espaço para a legenda
         plt.subplots_adjust(left=0.05, right=0.95, top=0.85, bottom=0.15)
         
-        # Adicionar título centralizado
         if title:
             title_text = title
         else:
@@ -455,34 +413,26 @@ def create_comparison_pizza_chart(params, values_p1, values_p2=None, values_avg=
             size=16, ha="center", fontweight="bold", color="#000000"
         )
         
-        # Adicionar subtítulo centralizado
         if subtitle:
             fig.text(
                 0.5, 0.93, subtitle,
                 size=12, ha="center", color="#666666"
             )
         
-        # Remover grade e ticks
         ax.grid(False)
         ax.set_xticks([])
         ax.set_yticks([])
         
-        # Adicionar legenda para identificar os jogadores/média
         legend_elements = []
-        
-        # Jogador 1
         legend_elements.append(
             plt.Rectangle((0, 0), 1, 1, facecolor=player1_color, 
                          edgecolor='white', label=p1_name)
         )
-        
-        # Jogador 2 ou média
         legend_elements.append(
             plt.Rectangle((0, 0), 1, 1, facecolor=compare_color, 
                          edgecolor='white', alpha=0.8, label=compare_name)
         )
         
-        # Posicionar legenda centralizada abaixo do gráfico
         ax.legend(
             handles=legend_elements,
             loc='lower center',
@@ -493,14 +443,22 @@ def create_comparison_pizza_chart(params, values_p1, values_p2=None, values_avg=
             edgecolor='#CCCCCC'
         )
         
-        # Adicionar créditos na parte inferior
         fig.text(
             0.5, 0.02, "made by Joao Alberto Kolling\ndata via WyScout/SkillCorner",
             size=10, ha="center", color="#666666"
         )
         
+        try:
+            drawing = svg2rlg(LOGO_PATH)
+            renderPM.drawToFile(drawing, "temp_logo.png", fmt="PNG")
+            logo = plt.imread("temp_logo.png")
+            imagebox = OffsetImage(logo, zoom=0.08)
+            ab = AnnotationBbox(imagebox, (0,0), frameon=False, xycoords='data', pad=0)
+            ax.add_artist(ab)
+        except Exception as e:
+            st.error(f"Erro ao carregar o logo: {str(e)}")
+    
     except Exception as e:
-        # Em caso de erro, criar um gráfico com mensagem
         st.error(f"Erro na criação do pizza chart comparativo: {str(e)}")
         import traceback
         st.text(traceback.format_exc())
