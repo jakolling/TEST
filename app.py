@@ -5,12 +5,6 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
-import matplotlib as mpl
-
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
 import matplotlib as mpl
 from matplotlib.figure import Figure
 import io
@@ -558,10 +552,10 @@ def create_bar_chart(metrics, p1_name, p1_values, p2_name, p2_values, avg_values
     
     # Add title and subtitle
     if title:
-        fig.suptitle(title, fontsize=10, fontweight='bold', y=1.02)
+        fig.suptitle(title, fontsize=6, fontweight='bold', y=1.02)
     
     if subtitle:
-        plt.figtext(0.5, 0.99, subtitle, ha='center', fontsize=10, wrap=True)
+        plt.figtext(0.5, 0.99, subtitle, ha='center', fontsize=6, wrap=True)
         
     plt.tight_layout()
     return fig
@@ -608,7 +602,7 @@ def create_scatter_plot(df, x_metric, y_metric, highlight_players=None, title=No
                 ax.annotate(player, 
                            (player_data[x_metric].iloc[0], player_data[y_metric].iloc[0]),
                            xytext=(10, 5), textcoords='offset points',
-                           fontsize=10, fontweight='bold', color=use_color)
+                           fontsize=6, fontweight='bold', color=use_color)
     
     # Usar mplcursors para adicionar interatividade (hover)
     import mpld3
@@ -630,7 +624,7 @@ def create_scatter_plot(df, x_metric, y_metric, highlight_players=None, title=No
     ax.set_ylabel(y_metric, fontsize=12)
     
     if title:
-        ax.set_title(title, fontsize=10, pad=20)
+        ax.set_title(title, fontsize=6, pad=20)
     
     # Add legend if there are highlighted players
     if highlight_players:
@@ -647,7 +641,7 @@ def create_similarity_viz(selected_player, similar_players, metrics, df):
         # Create a simple figure with just a message
         fig, ax = plt.subplots(figsize=(10, 6))
         ax.text(0.5, 0.5, f"No similar players found for {selected_player} based on the selected metrics.",
-               ha='center', va='center', fontsize=10)
+               ha='center', va='center', fontsize=6)
         ax.axis('off')
         return fig
     
@@ -746,7 +740,7 @@ def create_similarity_viz(selected_player, similar_players, metrics, df):
                 radar_ax.clear()
                 radar_ax.text(0.5, 0.5, f"Não foi possível criar o radar: {str(radar_error)}", 
                             ha='center', va='center', transform=radar_ax.transAxes,
-                            fontsize=10, wrap=True)
+                            fontsize=6, wrap=True)
                 radar_ax.axis('off')
             
             # Add player info panel - second column (com formatação melhorada)
@@ -778,7 +772,7 @@ def create_similarity_viz(selected_player, similar_players, metrics, df):
                 info_text += "... and more metrics"
             
             # Mostrar a informação em um box com fundo claro
-            info_ax.text(0, 1, info_text, va='top', ha='left', fontsize=10, 
+            info_ax.text(0, 1, info_text, va='top', ha='left', fontsize=6, 
                        bbox=dict(facecolor='white', alpha=0.9, edgecolor='lightgray', 
                                boxstyle="round,pad=1", linewidth=1))
         
@@ -799,7 +793,7 @@ def create_similarity_viz(selected_player, similar_players, metrics, df):
         # Em caso de erro, criar uma figura simples com a mensagem de erro mais descritiva
         fig, ax = plt.subplots(figsize=(10, 6))
         ax.text(0.5, 0.5, f"Não foi possível gerar a visualização de similaridade:\n{str(e)}", 
-               ha='center', va='center', fontsize=10, wrap=True)
+               ha='center', va='center', fontsize=6, wrap=True)
         ax.axis('off')
     
     return fig
@@ -1487,7 +1481,7 @@ if uploaded_files:
                         ax.annotate(p1, 
                                   (pca_result[p1_idx_in_group, 0], pca_result[p1_idx_in_group, 1]),
                                   xytext=(10, 5), textcoords='offset points',
-                                  fontsize=10, fontweight='bold')
+                                  fontsize=6, fontweight='bold')
                 
                 if len(p2_idx) > 0 and p2 != 'None':
                     p2_idx = p2_idx[0]
@@ -1498,7 +1492,7 @@ if uploaded_files:
                         ax.annotate(p2, 
                                   (pca_result[p2_idx_in_group, 0], pca_result[p2_idx_in_group, 1]),
                                   xytext=(10, 5), textcoords='offset points',
-                                  fontsize=10, fontweight='bold')
+                                  fontsize=6, fontweight='bold')
                 
                 # Plot feature vectors
                 coeff = pca.components_.T
@@ -1517,7 +1511,7 @@ if uploaded_files:
                 ax.set_xlabel(f"PC1 ({explained_var[0]:.2%} variance)", fontsize=12)
                 ax.set_ylabel(f"PC2 ({explained_var[1]:.2%} variance)", fontsize=12)
                 
-                ax.set_title("Principal Component Analysis", fontsize=10)
+                ax.set_title("Principal Component Analysis", fontsize=6)
                 ax.grid(True, alpha=0.3)
                 ax.axhline(y=0, color='k', linestyle='-', alpha=0.3)
                 ax.axvline(x=0, color='k', linestyle='-', alpha=0.3)
