@@ -126,7 +126,7 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
                 values_p1 = [random.randint(50, 95) for _ in range(len(params))]
         
         if values_p1 is not None and len(params) != len(values_p1):
-            raise ValueError(f"Número de parâmetros ({len(params)}) não corresponde ao número de valores ({len(values_p1)})")
+            raise ValueError(f"Parâmetros ({len(params)}) ≠ Valores ({len(values_p1)})")
         
         if values_p1 is not None:
             values_p1 = [round(v) for v in values_p1]
@@ -308,7 +308,7 @@ def create_comparison_pizza_chart(params, values_p1, values_p2=None, values_avg=
                        title=None, subtitle=None, p1_name="Player 1", p2_name="Player 2"):
     try:
         if values_p1 is not None and len(params) != len(values_p1):
-            raise ValueError(f"Número de parâmetros ({len(params)}) não corresponde ao número de valores ({len(values_p1)})")
+            raise ValueError(f"Parâmetros ({len(params)}) ≠ Valores ({len(values_p1)})")
         
         compare_values = None
         compare_name = p2_name
@@ -319,7 +319,7 @@ def create_comparison_pizza_chart(params, values_p1, values_p2=None, values_avg=
             compare_name = "Group Average"
         
         if compare_values is None:
-            raise ValueError("Valores de comparação não fornecidos (Player 2 ou Group Average)")
+            raise ValueError("Valores de comparação ausentes")
         
         values_p1 = [round(v) for v in values_p1]
         compare_values = [round(v) for v in compare_values]
@@ -473,48 +473,38 @@ def create_comparison_pizza_chart(params, values_p1, values_p2=None, values_avg=
 
 def create_bar_chart(metrics, p1_name, p1_values, p2_name, p2_values, avg_values,
                     title=None, subtitle=None):
-    """Create horizontal bar chart using matplotlib"""
     fig, axes = plt.subplots(len(metrics), 1, figsize=(10, 3*len(metrics)))
     
-    # Handle single metric case
     if len(metrics) == 1:
         axes = [axes]
     
-    # Definir cores consistentes com o gráfico pizza
-    player1_color = "#1A78CF"      # Azul real para jogador 1
-    player2_color = "#E41A1C"      # Vermelho para jogador 2
+    player1_color = "#1A78CF"
+    player2_color = "#E41A1C"
     
     for i, metric in enumerate(metrics):
         ax = axes[i]
         
-        # Plot bars (usando as cores azul real e vermelho)
         y_pos = [0, 1]
         ax.barh(y_pos[0], p1_values[i], color=player1_color, height=0.6)
         ax.barh(y_pos[1], p2_values[i], color=player2_color, height=0.6)
         
-        # Plot average line
         ax.axvline(x=avg_values[i], color='#2ca02c', linestyle='--', alpha=0.7)
         ax.text(avg_values[i], 0.5, f'Group Avg', 
                 va='center', ha='right', rotation=90, color='#2ca02c',
                 backgroundcolor='white', alpha=0.8)
         
-        # Add metric name as title
         ax.set_title(metrics[i], fontsize=12, pad=10)
         
-        # Add player labels
         ax.set_yticks(y_pos)
         ax.set_yticklabels([p1_name, p2_name])
         
-        # Add grid
         ax.grid(axis='x', linestyle='--', alpha=0.6)
         
-        # Add value labels
         ax.text(p1_values[i], y_pos[0], f' {p1_values[i]:.2f}', va='center', 
                color=player1_color, fontweight='bold')
         ax.text(p2_values[i], y_pos[1], f' {p2_values[i]:.2f}', va='center', 
                color=player2_color, fontweight='bold')
     
-    # Add title and subtitle
     if title:
         fig.suptitle(title, fontsize=14, fontweight='bold', y=1.02)
     
@@ -525,35 +515,26 @@ def create_bar_chart(metrics, p1_name, p1_values, p2_name, p2_values, avg_values
     return fig
 
 def create_scatter_plot(df, x_metric, y_metric, highlight_players=None, title=None):
-    """Create scatter plot using matplotlib with player names and hover annotations"""
     fig, ax = plt.subplots(figsize=(12, 8))
     
-    # Definir cores consistentes
-    player1_color = "#1A78CF"      # Azul real para jogador 1
-    player2_color = "#E41A1C"      # Vermelho para jogador 2
+    player1_color = "#1A78CF"
+    player2_color = "#E41A1C"
     
-    # Criar um dict para armazenar nomes de todos os jogadores
     player_names = {}
     
-    # Plot all players
     all_players = df['Player'].values
     sc = ax.scatter(df[x_metric], df[y_metric], alpha=0.5, s=50, c='gray')
     
-    # Adicionar nomes para todos os jogadores
     for i, player in enumerate(all_players):
         if i < len(df[x_metric]) and i < len(df[y_metric]):
             player_names[i] = player
     
-    # Highlight specific players with diferentes cores
     if highlight_players:
-        # Usar cores consistentes para os primeiros dois jogadores destacados
         colors = [player1_color, player2_color]
         
-        # Destacar jogadores com cores padronizadas
         for idx, (player, color) in enumerate(highlight_players.items()):
             player_data = df[df['Player'] == player]
             if not player_data.empty:
-                # Usar as cores padronizadas para os dois primeiros jogadores
                 if idx < 2:
                     use_color = colors[idx]
                 else:
@@ -562,35 +543,29 @@ def create_scatter_plot(df, x_metric, y_metric, highlight_players=None, title=No
                 ax.scatter(player_data[x_metric], player_data[y_metric], 
                           s=100, c=use_color, edgecolor='black', label=player)
                 
-                # Adicionar rótulos para os jogadores destacados
                 ax.annotate(player, 
                            (player_data[x_metric].iloc[0], player_data[y_metric].iloc[0]),
                            xytext=(10, 5), textcoords='offset points',
                            fontsize=10, fontweight='bold', color=use_color)
     
-    # Usar mplcursors para adicionar interatividade (hover)
     import mpld3
     from mpld3 import plugins
     
-    # Adicionar tooltip com os nomes dos jogadores ao passar o mouse
     tooltip = plugins.PointHTMLTooltip(sc, 
                                        labels=[f"<b>{p}</b><br>x: {df[x_metric].iloc[i]:.2f}<br>y: {df[y_metric].iloc[i]:.2f}" 
                                                for i, p in player_names.items()],
                                        voffset=10, hoffset=10)
     mpld3.plugins.connect(fig, tooltip)
     
-    # Add mean lines
     ax.axvline(df[x_metric].mean(), color='#333333', linestyle='--', alpha=0.5)
     ax.axhline(df[y_metric].mean(), color='#333333', linestyle='--', alpha=0.5)
     
-    # Add labels and title
     ax.set_xlabel(x_metric, fontsize=12)
     ax.set_ylabel(y_metric, fontsize=12)
     
     if title:
         ax.set_title(title, fontsize=14, pad=20)
     
-    # Add legend if there are highlighted players
     if highlight_players:
         ax.legend(loc='best')
     
@@ -599,55 +574,39 @@ def create_scatter_plot(df, x_metric, y_metric, highlight_players=None, title=No
     return fig
 
 def create_similarity_viz(selected_player, similar_players, metrics, df):
-    """Create player similarity visualization using regular matplotlib subplots with consistent colors"""
-    # Check if we have any similar players
     if not similar_players:
-        # Create a simple figure with just a message
         fig, ax = plt.subplots(figsize=(10, 6))
-        ax.text(0.5, 0.5, f"No similar players found for {selected_player} based on the selected metrics.",
+        ax.text(0.5, 0.5, f"No similar players found for {selected_player}",
                ha='center', va='center', fontsize=14)
         ax.axis('off')
         return fig
     
     try:
-        # Extract data for players
-        if selected_player not in df['Player'].values:
-            raise ValueError(f"Player '{selected_player}' not found in filtered dataset")
-            
         player_data = df[df['Player'] == selected_player].iloc[0]
         
-        # Definir cores consistentes com o resto da aplicação
-        player1_color = "#1A78CF"      # Azul real para jogador principal
-        player2_color = "#E41A1C"      # Vermelho para jogador similar
+        player1_color = "#1A78CF"
+        player2_color = "#E41A1C"
         
-        # Create figure with multiple subplots
         num_players = len(similar_players)
-        # Limitar o número máximo de jogadores similares para evitar figuras muito grandes
         num_players = min(num_players, 5)
         fig = plt.figure(figsize=(12, num_players * 2.5))
         
-        # Add title to the figure
         fig.suptitle(f"Players Similar to {selected_player}", fontsize=18, y=0.98)
         plt.figtext(0.5, 0.96, f"Based on metrics: {', '.join(metrics)}", 
                    ha='center', fontsize=12, fontstyle='italic')
         
-        # Create subplot grid - 1 row per player, 2 columns (radar + info)
         gs = fig.add_gridspec(num_players, 2, height_ratios=[2.5]*num_players, 
                              width_ratios=[1, 1.5], hspace=0.4, wspace=0.15)
         
-        # Iterar apenas sobre os N primeiros jogadores similares
         processed_players = 0
         
-        # For each similar player, create a radar comparison
         for i, (sim_player, sim_score) in enumerate(similar_players[:num_players]):
-            # Verificar se o jogador semelhante existe no dataframe
             if sim_player not in df['Player'].values:
                 continue
                 
             sim_data = df[df['Player'] == sim_player].iloc[0]
             processed_players += 1
             
-            # Extract radar metrics for both players (com verificação de segurança)
             try:
                 values_selected = [calc_percentile(df[m], player_data[m])*100 for m in metrics]
                 values_similar = [calc_percentile(df[m], sim_data[m])*100 for m in metrics]
@@ -655,42 +614,34 @@ def create_similarity_viz(selected_player, similar_players, metrics, df):
                 st.warning(f"Erro ao calcular percentis: {str(e)}")
                 continue
             
-            # Create radar subplot - first column
             radar_ax = fig.add_subplot(gs[i, 0], polar=True)
             
-            # Usar uma implementação de radar mais simples e robusta
-            # Inicializar o objeto radar com os parâmetros e configurações básicas
             radar = Radar(
                 metrics, 
                 min_range=[0]*len(metrics), 
                 max_range=[100]*len(metrics),
-                round_int=[True]*len(metrics),  # Arredondar para inteiros
-                num_rings=4,                   # Número de círculos concêntricos
-                ring_width=1,                  # Largura das linhas dos círculos
-                center_circle_radius=1        # Raio do círculo central
+                round_int=[True]*len(metrics),
+                num_rings=4,
+                ring_width=1,
+                center_circle_radius=1
             )
             
-            # Preparar o eixo e desenhar os círculos
             radar_ax = radar.setup_axis(ax=radar_ax)
             rings_inner = radar.draw_circles(ax=radar_ax, facecolor='#f9f9f9', edgecolor='#c5c5c5')
             
-            # Usar try/except para capturar possíveis erros
             try:
-                # Desenhar o radar para o jogador selecionado (usando azul)
                 radar_poly1, rings_outer1, vertices1 = radar.draw_radar(
                     values_selected, ax=radar_ax, 
                     kwargs_radar={'facecolor': player1_color, 'alpha': 0.6, 'edgecolor': player1_color, 'linewidth': 1.5},
                     kwargs_rings={'facecolor': player1_color, 'alpha': 0.1}
                 )
                 
-                # Desenhar o radar para o jogador similar (usando vermelho)
                 radar_poly2, rings_outer2, vertices2 = radar.draw_radar(
                     values_similar, ax=radar_ax,
                     kwargs_radar={'facecolor': player2_color, 'alpha': 0.6, 'edgecolor': player2_color, 'linewidth': 1.5},
                     kwargs_rings={'facecolor': player2_color, 'alpha': 0.1}
                 )
                 
-                # Adicionar legenda
                 legend_elements = [
                     plt.Line2D([0], [0], marker='o', color='w', markerfacecolor=player1_color, 
                             markersize=10, label=selected_player),
@@ -700,18 +651,15 @@ def create_similarity_viz(selected_player, similar_players, metrics, df):
                 radar_ax.legend(handles=legend_elements, loc='upper right', bbox_to_anchor=(1.1, 1.05), fontsize=9)
                 
             except Exception as radar_error:
-                # Em caso de erro no radar, mostrar mensagem amigável
                 radar_ax.clear()
                 radar_ax.text(0.5, 0.5, f"Não foi possível criar o radar: {str(radar_error)}", 
                             ha='center', va='center', transform=radar_ax.transAxes,
                             fontsize=10, wrap=True)
                 radar_ax.axis('off')
             
-            # Add player info panel - second column (com formatação melhorada)
             info_ax = fig.add_subplot(gs[i, 1])
             info_ax.axis('off')
             
-            # Coletar informações e formatar o texto
             info_text = f"""
             Player: {sim_player}
             Team: {sim_data.get('Team', 'N/A')}
@@ -725,9 +673,8 @@ def create_similarity_viz(selected_player, similar_players, metrics, df):
             if 'Minutes per game' in sim_data:
                 info_text += f"Minutes per game: {sim_data['Minutes per game']:.1f}\n"
             
-            # Add metric comparison
             info_text += "\nMetric comparison:\n"
-            for metric in metrics[:10]:  # Limitar a 10 métricas para não ficar muito extenso
+            for metric in metrics[:10]:
                 p1_value = player_data.get(metric, 0)
                 p2_value = sim_data.get(metric, 0)
                 info_text += f"{metric}: {p2_value:.2f} (Selected: {p1_value:.2f})\n"
@@ -735,26 +682,21 @@ def create_similarity_viz(selected_player, similar_players, metrics, df):
             if len(metrics) > 10:
                 info_text += "... and more metrics"
             
-            # Mostrar a informação em um box com fundo claro
             info_ax.text(0, 1, info_text, va='top', ha='left', fontsize=10, 
                        bbox=dict(facecolor='white', alpha=0.9, edgecolor='lightgray', 
                                boxstyle="round,pad=1", linewidth=1))
         
-        # Verificar se conseguimos processar ao menos um jogador similar
         if processed_players == 0:
             raise ValueError("Nenhum jogador similar pôde ser processado")
             
-        # Adicionar créditos na parte inferior
         fig.text(
             0.5, 0.01, "made by Joao Alberto Kolling\ndata via WyScout/SkillCorner",
             size=9, ha="center", color="#666666"
         )
         
-        # Ajustar espaçamento e layout
         plt.tight_layout(rect=[0, 0.03, 1, 0.95])
         
     except Exception as e:
-        # Em caso de erro, criar uma figura simples com a mensagem de erro mais descritiva
         fig, ax = plt.subplots(figsize=(10, 6))
         ax.text(0.5, 0.5, f"Não foi possível gerar a visualização de similaridade:\n{str(e)}", 
                ha='center', va='center', fontsize=14, wrap=True)
@@ -763,67 +705,51 @@ def create_similarity_viz(selected_player, similar_players, metrics, df):
     return fig
 
 def compute_player_similarity(df, player, metrics, n=5, method='cosine'):
-    """Compute player similarity using vector distance methods"""
-    # Safety check: make sure player exists in the dataframe
     if player not in df['Player'].values:
-        st.error(f"Player '{player}' not found in the filtered dataset!")
+        st.error(f"Player '{player}' not found!")
         return []
     
-    # Safety check: ensure all metrics exist in dataframe
     valid_metrics = [m for m in metrics if m in df.columns]
     if len(valid_metrics) != len(metrics):
         missing = set(metrics) - set(valid_metrics)
-        st.warning(f"Some metrics were not found: {missing}")
+        st.warning(f"Missing metrics: {missing}")
         if not valid_metrics:
             return []
     
-    # Extract feature columns for valid metrics only
     X = df[valid_metrics].values
     
-    # Handle missing values in features
     if np.isnan(X).any():
-        st.warning("Missing values detected in metrics. They will be filled with column means.")
-        # Replace NaNs with column means
+        st.warning("Filling missing values with column means")
         col_means = np.nanmean(X, axis=0)
         inds = np.where(np.isnan(X))
         X[inds] = np.take(col_means, inds[1])
     
-    # Standardize features
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
     
-    # Get index of player - using DataFrame.index now for safety
     player_data = df[df['Player'] == player]
     if player_data.empty:
-        st.error(f"Player '{player}' not found in dataset")
+        st.error(f"Player '{player}' not found")
         return []
     
     player_idx = player_data.index[0]
     
-    # Make sure player_idx is within the bounds of X_scaled
     if player_idx >= X_scaled.shape[0]:
-        st.error(f"Player index out of bounds: {player_idx} >= {X_scaled.shape[0]}")
+        st.error(f"Player index out of bounds")
         return []
     
-    # Compute similarities based on method
     try:
         if method == 'cosine':
-            # Cosine similarity (higher is more similar)
             similarities = cosine_similarity([X_scaled[player_idx]], X_scaled)[0]
-            # Convert to similarity score (0 to 1, higher is better)
-            similarities = (similarities + 1) / 2  # Convert from [-1,1] to [0,1]
+            similarities = (similarities + 1) / 2
         else:
-            # Euclidean distance (lower is more similar)
             distances = cdist([X_scaled[player_idx]], X_scaled, 'euclidean')[0]
-            # Convert to similarity score (0 to 1, higher is better)
             max_dist = np.max(distances)
             similarities = 1 - (distances / max_dist)
         
-        # Get player indices sorted by similarity (excluding the player itself)
         similar_indices = np.argsort(similarities)[::-1]
         similar_indices = [i for i in similar_indices if i != player_idx][:n]
         
-        # Return player names and similarity scores
         similar_players = [(df.iloc[i]['Player'], similarities[i]) for i in similar_indices]
         return similar_players
     
@@ -834,18 +760,14 @@ def compute_player_similarity(df, player, metrics, n=5, method='cosine'):
 # =============================================
 # Main Application
 # =============================================
-
-# Cabeçalho com logo
 col1, col2, col3 = st.columns([1, 3, 1])
 with col2:
-    # Instead of using an image file, let's use a title and emoji
     st.title("⚽ Football Analytics")
 
 st.header('Technical Scouting Department')
 st.subheader('Football Analytics Dashboard')
 st.caption("Created by João Alberto Kolling | Enhanced Player Analysis System v4.0")
 
-# Guia do Usuário
 with st.expander("📘 User Guide & Instructions", expanded=False):
     st.markdown("""
     **⚠️ Requirements:**  
@@ -859,9 +781,6 @@ with st.expander("📘 User Guide & Instructions", expanded=False):
     - Professional 300 DPI exports  
     """)
 
-# =============================================
-# Filtros da Barra Lateral
-# =============================================
 st.sidebar.header('Filters')
 with st.sidebar.expander("⚙️ Advanced Filters", expanded=True):
     uploaded_files = st.file_uploader(
@@ -874,7 +793,6 @@ st.sidebar.markdown("---")
 st.sidebar.subheader("Dataframe Filters")
 
 if uploaded_files:
-    # Coleta de Metadados
     new_files = [f for f in uploaded_files if f.name not in st.session_state.file_metadata]
     
     for file in new_files:
@@ -902,25 +820,22 @@ if uploaded_files:
         )
         
         if df.empty:
-            st.error("Failed to load data from uploaded files or no data available.")
+            st.error("Failed to load data from uploaded files")
             st.stop()
             
-        # Verificar se colunas essenciais existem
         required_cols = ['Player', 'Minutes played', 'Matches played', 'Age']
         missing_cols = [col for col in required_cols if col not in df.columns]
         if missing_cols:
-            st.error(f"Required columns are missing: {', '.join(missing_cols)}")
+            st.error(f"Missing columns: {', '.join(missing_cols)}")
             st.stop()
 
-        # Filtros Principais (com validação)
         try:
             min_min, max_min = int(df['Minutes played'].min()), int(df['Minutes played'].max())
             minutes_range = st.sidebar.slider('Minutes Played', min_min, max_min, (min_min, max_min))
             df_minutes = df[df['Minutes played'].between(*minutes_range)].copy()
             
-            # Verificar se temos jogadores após o filtro
             if df_minutes.empty:
-                st.warning("No players match the selected minutes range. Using all players.")
+                st.warning("No players match the minutes range")
                 df_minutes = df.copy()
                 minutes_range = (min_min, max_min)
         except Exception as e:
@@ -928,7 +843,6 @@ if uploaded_files:
             df_minutes = df.copy()
             minutes_range = (df['Minutes played'].min(), df['Minutes played'].max())
         
-        # Calcular minutos por jogo com tratamento adequado para divisão por zero
         try:
             df_minutes['Minutes per game'] = df_minutes['Minutes played'] / df_minutes['Matches played'].replace(0, np.nan)
             df_minutes['Minutes per game'] = df_minutes['Minutes per game'].fillna(0).clip(0, 120)
@@ -937,9 +851,8 @@ if uploaded_files:
             mpg_range = st.sidebar.slider('Minutes per Game', min_mpg, max_mpg, (min_mpg, max_mpg))
             df_filtered = df_minutes[df_minutes['Minutes per game'].between(*mpg_range)]
             
-            # Verificar se ainda temos jogadores
             if df_filtered.empty:
-                st.warning("No players match the selected minutes per game range. Using previous filter.")
+                st.warning("No players match the minutes per game range")
                 df_filtered = df_minutes
                 mpg_range = (min_mpg, max_mpg)
             else:
@@ -948,15 +861,13 @@ if uploaded_files:
             st.error(f"Error calculating minutes per game: {str(e)}")
             mpg_range = (0, 120)
 
-        # Filtro de idade
         try:
             min_age, max_age = int(df_minutes['Age'].min()), int(df_minutes['Age'].max())
             age_range = st.sidebar.slider('Age Range', min_age, max_age, (min_age, max_age))
             df_filtered = df_minutes[df_minutes['Age'].between(*age_range)]
             
-            # Verificar se ainda temos jogadores
             if df_filtered.empty:
-                st.warning("No players match the selected age range. Using previous filter.")
+                st.warning("No players match the age range")
                 age_range = (min_age, max_age)
             else:
                 df_minutes = df_filtered
@@ -964,7 +875,6 @@ if uploaded_files:
             st.error(f"Error filtering by age: {str(e)}")
             age_range = (df_minutes['Age'].min(), df_minutes['Age'].max())
 
-        # Coleta posições
         if 'Position' in df_minutes.columns:
             df_minutes['Position_split'] = df_minutes['Position'].astype(str).apply(lambda x: [p.strip() for p in x.split(',')])
             all_pos = sorted({p for lst in df_minutes['Position_split'] for p in lst})
@@ -972,7 +882,6 @@ if uploaded_files:
         else:
             sel_pos = []
 
-        # Cria dataframe para cálculos de grupo
         if 'Position_split' in df_minutes.columns and sel_pos:
             df_group = df_minutes[df_minutes['Position_split'].apply(lambda x: any(pos in x for pos in sel_pos))]
         else:
@@ -981,18 +890,12 @@ if uploaded_files:
         context = get_context_info(df_minutes, minutes_range, mpg_range, age_range, sel_pos)
         players = sorted(df_minutes['Player'].unique())
         
-        # Get numeric columns for metrics
         numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-        # Remove some columns that aren't player metrics
         exclude_cols = ['Age', 'Minutes played', 'Matches played', 'Minutes per game']
         metric_cols = [col for col in numeric_cols if col not in exclude_cols]
         
-        # Create tabs for different analyses
         tabs = st.tabs(['Pizza Chart', 'Bars', 'Scatter', 'Similarity', 'Correlation', 'Composite Index (PCA)'])
 
-        # =============================================
-        # Pizza Chart (Aba 1) - Estilo Sofyan Amrabat
-        # =============================================
         with tabs[0]:
             st.header('Pizza Chart')
             
@@ -1011,17 +914,11 @@ if uploaded_files:
                 p1pct = [calc_percentile(df_minutes[m], d1[m])*100 for m in sel]
                 p2pct = [calc_percentile(df_minutes[m], d2[m])*100 for m in sel]
                 
-                # Group average
                 gm = {m: df_group[m].mean() for m in sel}
                 gmpct = [calc_percentile(df_minutes[m], gm[m])*100 for m in sel]
                 
-                # Controle de visualização modificado para limitar a 2 elementos
                 st.subheader("Display Options")
                 
-                # Sempre mostrar jogador 1 por padrão
-                show_p1 = True
-                
-                # Opções de comparação (exclusivas)
                 comparison_option = st.radio(
                     "Compare with:", 
                     [f"No comparison (only {p1})", 
@@ -1030,7 +927,6 @@ if uploaded_files:
                     index=0
                 )
                 
-                # Configurar valores com base na opção selecionada
                 if comparison_option == f"No comparison (only {p1})":
                     show_p2 = False
                     show_avg = False
@@ -1039,7 +935,7 @@ if uploaded_files:
                     show_p2 = True
                     show_avg = False
                     title = f"{p1} vs {p2}"
-                else:  # Player vs Group Average
+                else:
                     show_p2 = False
                     show_avg = True
                     title = f"{p1} vs Group Average"
@@ -1047,19 +943,15 @@ if uploaded_files:
                 subtitle = (f"Percentile Rank | {context['leagues']} | "
                           f"{context['min_min']}+ mins | Position: {context['positions']}")
                 
-                # Preparar dados conforme seleção
                 values_p1_arg = p1pct if show_p1 else None
                 values_p2_arg = p2pct if show_p2 else None
                 values_avg_arg = gmpct if show_avg else None
                 
-                # Flag para usar o chart comparativo para comparações entre jogadores ou jogador vs média
                 use_comparison_chart = False
                 if show_p1 and (show_p2 or show_avg):
                     use_comparison_chart = True
                 
-                # Criar o Pizza Chart de acordo com a escolha
                 if use_comparison_chart:
-                    # Usar o chart comparativo (para dois jogadores ou jogador vs média)
                     fig = create_comparison_pizza_chart(
                         params=sel,
                         values_p1=values_p1_arg, 
@@ -1071,7 +963,6 @@ if uploaded_files:
                         p2_name=p2
                     )
                 else:
-                    # Usar o chart padrão para casos com média ou apenas um jogador
                     fig = create_pizza_chart(
                         params=sel,
                         values_p1=values_p1_arg, 
@@ -1083,10 +974,8 @@ if uploaded_files:
                         p2_name=p2
                     )
                 
-                # Display pizza chart
                 st.pyplot(fig)
                 
-                # Display nominal values table
                 st.markdown("**Nominal Values**")
                 
                 table_data = {'Metric': sel}
@@ -1100,7 +989,6 @@ if uploaded_files:
                 df_table = pd.DataFrame(table_data).set_index('Metric')
                 st.dataframe(df_table)
                 
-                # Export button
                 if st.button('Export Pizza Chart (300 DPI)', key='export_pizza'):
                     img_bytes = fig_to_bytes(fig)
                     players_str = p1
@@ -1115,9 +1003,6 @@ if uploaded_files:
                         mime="image/png"
                     )
 
-        # =============================================
-        # Bar Charts (Aba 2)
-        # =============================================
         with tabs[1]:
             st.header('Bar Chart Comparison')
             
@@ -1167,10 +1052,8 @@ if uploaded_files:
                     subtitle=subtitle
                 )
                 
-                # Display bar chart
                 st.pyplot(fig)
                 
-                # Export button
                 if st.button('Export Bar Chart (300 DPI)', key='export_bar'):
                     img_bytes = fig_to_bytes(fig)
                     st.download_button(
@@ -1180,9 +1063,6 @@ if uploaded_files:
                         mime="image/png"
                     )
 
-        # =============================================
-        # Scatter Plot (Aba 3)
-        # =============================================
         with tabs[2]:
             st.header('Scatter Plot Analysis')
             
@@ -1210,7 +1090,6 @@ if uploaded_files:
                     else:
                         p2 = st.selectbox('Highlight Player 2', remaining_players, key='scatter_p2')
             
-            # Create highlighted players dict
             highlight_players = {}
             if p1 != 'None':
                 highlight_players[p1] = '#1f77b4'
@@ -1228,14 +1107,11 @@ if uploaded_files:
                 title=title
             )
             
-            # Display scatter plot
             st.pyplot(fig)
             
-            # Show correlation coefficient
             corr = df_group[x_metric].corr(df_group[y_metric])
             st.info(f"Correlation coefficient: {corr:.4f}")
             
-            # Export button
             if st.button('Export Scatter Plot (300 DPI)', key='export_scatter'):
                 img_bytes = fig_to_bytes(fig)
                 st.download_button(
@@ -1245,9 +1121,6 @@ if uploaded_files:
                     mime="image/png"
                 )
 
-        # =============================================
-        # Player Similarity (Aba 4) - NEW TAB
-        # =============================================
         with tabs[3]:
             st.header('Player Similarity Analysis')
             
@@ -1259,7 +1132,6 @@ if uploaded_files:
                                               ['Cosine Similarity', 'Euclidean Distance'], 
                                               index=0)
             
-            # Select metrics for similarity calculation
             st.subheader("Select Metrics for Similarity Calculation")
             sim_metric_options = st.multiselect(
                 'Choose metrics that define player style (3-8 recommended)', 
@@ -1267,13 +1139,10 @@ if uploaded_files:
                 default=metric_cols[:4]
             )
             
-            # Number of similar players to find
             num_similar = st.slider('Number of similar players to show', 1, 10, 5)
             
-            # Filter similar players by position
             filter_by_position = st.checkbox('Filter similar players by reference player position', True)
             
-            # Filter similar players by age
             filter_by_age = st.checkbox('Filter similar players by age range', False)
             if filter_by_age:
                 ref_player_age = df_minutes[df_minutes['Player'] == sim_player]['Age'].iloc[0]
@@ -1281,18 +1150,15 @@ if uploaded_files:
                 min_age_filter = ref_player_age - age_diff
                 max_age_filter = ref_player_age + age_diff
                 
-                # Apply age filter to dataframe
                 df_sim = df_minutes[df_minutes['Age'].between(min_age_filter, max_age_filter)]
             else:
                 df_sim = df_minutes.copy()
             
-            # Apply position filter if selected
             if filter_by_position and 'Position_split' in df_minutes.columns:
                 ref_player_pos = df_minutes[df_minutes['Player'] == sim_player]['Position_split'].iloc[0]
                 df_sim = df_sim[df_sim['Position_split'].apply(
                     lambda x: any(pos in ref_player_pos for pos in x))]
             
-            # Compute similar players
             if len(sim_metric_options) >= 2 and len(df_sim) > 1:
                 method = 'cosine' if similarity_method == 'Cosine Similarity' else 'euclidean'
                 similar_players = compute_player_similarity(
@@ -1303,13 +1169,11 @@ if uploaded_files:
                     method=method
                 )
                 
-                # Show similarity table
                 st.subheader("Most Similar Players")
                 sim_df = pd.DataFrame(similar_players, columns=['Player', 'Similarity Score'])
                 sim_df['Similarity Score'] = sim_df['Similarity Score'].apply(lambda x: f"{x:.2f}")
                 st.dataframe(sim_df, use_container_width=True)
                 
-                # Create visualization
                 st.subheader("Similarity Visualization")
                 fig = create_similarity_viz(
                     selected_player=sim_player,
@@ -1318,10 +1182,8 @@ if uploaded_files:
                     df=df_minutes
                 )
                 
-                # Display similarity visualization
                 st.pyplot(fig)
                 
-                # Export button
                 if st.button('Export Similarity Analysis (300 DPI)', key='export_similarity'):
                     img_bytes = fig_to_bytes(fig)
                     st.download_button(
@@ -1332,17 +1194,13 @@ if uploaded_files:
                     )
             else:
                 if len(sim_metric_options) < 2:
-                    st.warning("Please select at least 2 metrics for similarity calculation")
+                    st.warning("Please select at least 2 metrics")
                 else:
                     st.warning("Not enough players matching the filter criteria")
 
-        # =============================================
-        # Correlation Matrix (Aba 5)
-        # =============================================
         with tabs[4]:
             st.header('Metric Correlation Analysis')
             
-            # Select metrics for correlation
             corr_metrics = st.multiselect(
                 'Select metrics to analyze correlations (2-10)', 
                 metric_cols, 
@@ -1355,24 +1213,19 @@ if uploaded_files:
             elif len(corr_metrics) > 10:
                 st.warning("Too many metrics selected. Please limit to 10 or fewer")
             else:
-                # Calculate correlation matrix
                 corr_matrix = df_group[corr_metrics].corr()
                 
-                # Create correlation heatmap
                 fig, ax = plt.subplots(figsize=(10, 8))
                 im = ax.imshow(corr_matrix, cmap='coolwarm', vmin=-1, vmax=1)
                 
-                # Add colorbar
                 cbar = plt.colorbar(im, ax=ax)
                 cbar.set_label('Correlation Coefficient')
                 
-                # Add labels
                 ax.set_xticks(np.arange(len(corr_metrics)))
                 ax.set_yticks(np.arange(len(corr_metrics)))
                 ax.set_xticklabels(corr_metrics, rotation=45, ha="right")
                 ax.set_yticklabels(corr_metrics)
                 
-                # Loop over data dimensions and create text annotations
                 for i in range(len(corr_metrics)):
                     for j in range(len(corr_metrics)):
                         text = ax.text(j, i, f"{corr_matrix.iloc[i, j]:.2f}",
@@ -1382,10 +1235,8 @@ if uploaded_files:
                 ax.set_title("Correlation Matrix")
                 fig.tight_layout()
                 
-                # Display correlation heatmap
                 st.pyplot(fig)
                 
-                # Export button
                 if st.button('Export Correlation Matrix (300 DPI)', key='export_corr'):
                     img_bytes = fig_to_bytes(fig)
                     st.download_button(
@@ -1395,17 +1246,12 @@ if uploaded_files:
                         mime="image/png"
                     )
                 
-                # Show correlation table
                 st.subheader("Correlation Values")
                 st.dataframe(corr_matrix.style.format("{:.2f}").background_gradient(cmap='coolwarm', axis=None))
 
-        # =============================================
-        # Composite Index - PCA (Aba 6)
-        # =============================================
         with tabs[5]:
             st.header('Composite Index Analysis (PCA)')
             
-            # Select metrics for PCA
             pca_metrics = st.multiselect(
                 'Select metrics for composite index (3-10 recommended)', 
                 metric_cols, 
@@ -1418,28 +1264,23 @@ if uploaded_files:
             elif len(pca_metrics) > 15:
                 st.warning("Too many metrics selected. Please limit to 15 or fewer")
             else:
-                # Standardize data
                 X = df_group[pca_metrics].values
                 X_scaled = StandardScaler().fit_transform(X)
                 
-                # Perform PCA
                 pca = PCA(n_components=2)
                 pca_result = pca.fit_transform(X_scaled)
                 
-                # Create PCA plot
                 fig, ax = plt.subplots(figsize=(12, 8))
                 
-                # Plot all players
                 sc = ax.scatter(pca_result[:, 0], pca_result[:, 1], alpha=0.5, s=50, c='gray')
                 
-                # Highlight selected players
                 p1_idx = df_group[df_group['Player'] == p1].index
                 p2_idx = df_group[df_group['Player'] == p2].index
                 
                 if len(p1_idx) > 0 and p1 != 'None':
                     p1_idx = p1_idx[0]
                     p1_idx_in_group = df_group.index.get_indexer([p1_idx])[0]
-                    if p1_idx_in_group >= 0:  # Player is in the filtered group
+                    if p1_idx_in_group >= 0:
                         ax.scatter(pca_result[p1_idx_in_group, 0], pca_result[p1_idx_in_group, 1], 
                                   s=100, c='#1f77b4', edgecolor='black', label=p1)
                         ax.annotate(p1, 
@@ -1450,7 +1291,7 @@ if uploaded_files:
                 if len(p2_idx) > 0 and p2 != 'None':
                     p2_idx = p2_idx[0]
                     p2_idx_in_group = df_group.index.get_indexer([p2_idx])[0]
-                    if p2_idx_in_group >= 0:  # Player is in the filtered group
+                    if p2_idx_in_group >= 0:
                         ax.scatter(pca_result[p2_idx_in_group, 0], pca_result[p2_idx_in_group, 1], 
                                   s=100, c='#ff7f0e', edgecolor='black', label=p2)
                         ax.annotate(p2, 
@@ -1458,19 +1299,16 @@ if uploaded_files:
                                   xytext=(10, 5), textcoords='offset points',
                                   fontsize=10, fontweight='bold')
                 
-                # Plot feature vectors
                 coeff = pca.components_.T
                 feat_xs = coeff[:, 0]
                 feat_ys = coeff[:, 1]
                 
-                # Scale feature vectors for better visibility
                 scale_factor = 5
                 
                 for i, (x, y) in enumerate(zip(feat_xs, feat_ys)):
                     plt.arrow(0, 0, x*scale_factor, y*scale_factor, head_width=0.15, head_length=0.2, fc='red', ec='red')
                     plt.text(x*scale_factor*1.1, y*scale_factor*1.1, pca_metrics[i], color='red')
                 
-                # Add explanations
                 explained_var = pca.explained_variance_ratio_
                 ax.set_xlabel(f"PC1 ({explained_var[0]:.2%} variance)", fontsize=12)
                 ax.set_ylabel(f"PC2 ({explained_var[1]:.2%} variance)", fontsize=12)
@@ -1480,17 +1318,13 @@ if uploaded_files:
                 ax.axhline(y=0, color='k', linestyle='-', alpha=0.3)
                 ax.axvline(x=0, color='k', linestyle='-', alpha=0.3)
                 
-                # Add legend
                 if p1 != 'None' or p2 != 'None':
                     ax.legend(loc='best')
                 
-                # Display PCA plot
                 st.pyplot(fig)
                 
-                # Show explained variance
                 st.info(f"Total explained variance: {sum(explained_var):.2%}")
                 
-                # Export button
                 if st.button('Export PCA Analysis (300 DPI)', key='export_pca'):
                     img_bytes = fig_to_bytes(fig)
                     st.download_button(
@@ -1500,7 +1334,6 @@ if uploaded_files:
                         mime="image/png"
                     )
                 
-                # Show loadings
                 st.subheader("PCA Loadings (Feature Importance)")
                 loadings = pd.DataFrame(
                     pca.components_.T, 
@@ -1515,7 +1348,6 @@ if uploaded_files:
 else:
     st.info("👈 Please upload Wyscout Excel files to begin analysis")
     
-    # Show example data format
     with st.expander("📋 Expected Data Format"):
         st.markdown("""
         Your Excel files should contain the following columns:
