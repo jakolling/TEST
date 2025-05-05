@@ -638,7 +638,7 @@ if uploaded_files:
                     pf = (df_pca['Position'].astype(str).apply(lambda x: any(pos in x for pos in sel_pos))) if sel_pos else pd.Series(True, index=df_pca.index)
                     df_f = df_pca[af & pf]
 
-                    if not df_f.empty:
+                  if not df_f.empty:
                         mn, mx = df_f['PCA Score'].min(), df_f['PCA Score'].max()
                         sr = st.slider(
                             'Filter PCA Score range',
@@ -647,7 +647,8 @@ if uploaded_files:
                             value=(float(mn), float(mx))
                         )
                         
-                        df_final = df_f[df_f['PCA Score'].between(*sr)]
+                        df_final = df_f[df_f['PCA Score'].between(*sr)]  # Linha corrigida
+                        
                         if df_final.empty:
                             st.warning('No players in the selected PCA score range.')
                         else:
