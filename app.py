@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
+
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.preprocessing import StandardScaler
@@ -581,13 +582,15 @@ def create_scatter_plot(df, x_metric, y_metric, players_to_highlight=None):
         mode='markers',
         name='Players',
         text=df['Player'],
-        hovertemplate=
-        '<b>Player:</b> %{text}<br>' +
-        '<b>' + x_metric + ':</b> %{x:.2f}<br>' +
-        '<b>' + y_metric + ':</b> %{y:.2f}<br>' +
-        '<b>Team:</b> %{customdata[0]}<br>' +
-        '<b>Position:</b> %{customdata[1]}',
-        customdata=np.stack((df['Team'], df['Position']), axis=1)
+        customdata=np.stack((df['Team'], df['Position']), axis=1),
+        hovertemplate=(
+            '<b>%{text}</b><br>' +
+            'Team: %{customdata[0]}<br>' +
+            'Position: %{customdata[1]}<br>' +
+            f'{x_metric}: %{x:.2f}<br>' +
+            f'{y_metric}: %{y:.2f}<br>' +
+            '<extra></extra>'
+        )
     ))
     
     if players_to_highlight and len(players_to_highlight) > 0:
@@ -600,10 +603,15 @@ def create_scatter_plot(df, x_metric, y_metric, players_to_highlight=None):
             text=highlight_df['Player'],
             textposition='top center',
             marker=dict(size=12, color='red'),
-            hovertemplate=
-            '<b>Player:</b> %{text}<br>' +
-            '<b>' + x_metric + ':</b> %{x:.2f}<br>' +
-            '<b>' + y_metric + ':</b> %{y:.2f}<br>'
+            customdata=np.stack((highlight_df['Team'], highlight_df['Position']), axis=1),
+            hovertemplate=(
+                '<b>%{text}</b><br>' +
+                'Team: %{customdata[0]}<br>' +
+                'Position: %{customdata[1]}<br>' +
+                f'{x_metric}: %{x:.2f}<br>' +
+                f'{y_metric}: %{y:.2f}<br>' +
+                '<extra></extra>'
+            )
         ))
     
     fig.update_layout(
@@ -611,7 +619,7 @@ def create_scatter_plot(df, x_metric, y_metric, players_to_highlight=None):
         xaxis_title=x_metric,
         yaxis_title=y_metric,
         hovermode='closest',
-        showlegend=True
+        hoverlabel=dict(bgcolor='white')
     )
     
     return fig
@@ -619,7 +627,7 @@ def create_scatter_plot(df, x_metric, y_metric, players_to_highlight=None):
 def create_pca_plot(df_scaled, pca, pca_metrics, players, p1=None, p2=None):
     pca_df = pd.DataFrame(df_scaled, columns=pca_metrics, index=players)
     pca_transformed = pca.transform(pca_df)
-    plot_df = pd.DataFrame(pca_transformed, columns=['PC1', 'PC2'], index=players)
+    plot_df = pd.DataFrame(pca_transformed, columns=['PC1', 'PC2'])
     plot_df['Player'] = players
     
     fig = go.Figure()
@@ -631,10 +639,12 @@ def create_pca_plot(df_scaled, pca, pca_metrics, players, p1=None, p2=None):
         mode='markers',
         name='Players',
         text=plot_df['Player'],
-        hovertemplate=
-        '<b>Player:</b> %{text}<br>' +
-        '<b>PC1:</b> %{x:.2f}<br>' +
-        '<b>PC2:</b> %{y:.2f}<br>',
+        hovertemplate=(
+            '<b>%{text}</b><br>' +
+            'PC1: %{x:.2f}<br>' +
+            'PC2: %{y:.2f}<br>' +
+            '<extra></extra>'
+        )
     ))
     
     # Add feature vectors
@@ -664,10 +674,12 @@ def create_pca_plot(df_scaled, pca, pca_metrics, players, p1=None, p2=None):
             text=highlight_df['Player'],
             textposition='top center',
             marker=dict(size=12, color='red'),
-            hovertemplate=
-            '<b>Player:</b> %{text}<br>' +
-            '<b>PC1:</b> %{x:.2f}<br>' +
-            '<b>PC2:</b> %{y:.2f}<br>'
+            hovertemplate=(
+                '<b>%{text}</b><br>' +
+                'PC1: %{x:.2f}<br>' +
+                'PC2: %{y:.2f}<br>' +
+                '<extra></extra>'
+            )
         ))
     
     fig.update_layout(
@@ -675,7 +687,7 @@ def create_pca_plot(df_scaled, pca, pca_metrics, players, p1=None, p2=None):
         xaxis_title='PC1 (' + '{:.2%}'.format(pca.explained_variance_ratio_[0]) + ' variance)',
         yaxis_title='PC2 (' + '{:.2%}'.format(pca.explained_variance_ratio_[1]) + ' variance)',
         hovermode='closest',
-        showlegend=True
+        hoverlabel=dict(bgcolor='white')
     )
     
     return fig
