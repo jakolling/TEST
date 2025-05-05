@@ -10,7 +10,7 @@ def create_scatter_plot(df, x_metric, y_metric, title=None, **kwargs):
             xytext=(6, 6),
             textcoords='offset points',
             fontsize=5,
-            bbox=dict(facecolor='white', edgecolor='none', alpha=0.7),
+            bbox=dict(facecolor='white', edgecolor='none', alpha=0),
             weight='bold'
         )
     
