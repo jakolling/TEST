@@ -2,8 +2,6 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
-import plotly.graph_objects as go
-
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.preprocessing import StandardScaler
@@ -571,127 +569,30 @@ def create_bar_chart(metrics, p1_name, p1_values, p2_name, p2_values, avg_values
     plt.tight_layout()
     return fig
 
-
-def create_scatter_plot(df, x_metric, y_metric, players_to_highlight=None):
-    fig = go.Figure()
-    
-    # Add main scatter plot
-    fig.add_trace(go.Scatter(
-        x=df[x_metric],
-        y=df[y_metric],
-        mode='markers',
-        name='Players',
-        text=df['Player'],
-        customdata=np.stack((df['Team'], df['Position']), axis=1),
-        hovertemplate=(
-            '<b>%{text}</b><br>' +
-            'Team: %{customdata[0]}<br>' +
-            'Position: %{customdata[1]}<br>' +
-            f'{x_metric}: %{x:.2f}<br>' +
-            f'{y_metric}: %{y:.2f}<br>' +
-            '<extra></extra>'
-        )
-    ))
-    
-    if players_to_highlight and len(players_to_highlight) > 0:
-        highlight_df = df[df['Player'].isin(players_to_highlight)]
-        fig.add_trace(go.Scatter(
-            x=highlight_df[x_metric],
-            y=highlight_df[y_metric],
-            mode='markers+text',
-            name='Selected Players',
-            text=highlight_df['Player'],
-            textposition='top center',
-            marker=dict(size=12, color='red'),
-            customdata=np.stack((highlight_df['Team'], highlight_df['Position']), axis=1),
-            hovertemplate=(
-                '<b>%{text}</b><br>' +
-                'Team: %{customdata[0]}<br>' +
-                'Position: %{customdata[1]}<br>' +
-                f'{x_metric}: %{x:.2f}<br>' +
-                f'{y_metric}: %{y:.2f}<br>' +
-                '<extra></extra>'
-            )
-        ))
-    
-    fig.update_layout(
-        title=x_metric + ' vs ' + y_metric,
-        xaxis_title=x_metric,
-        yaxis_title=y_metric,
-        hovermode='closest',
-        hoverlabel=dict(bgcolor='white')
+def create_scatter_plot(df, x_metric, y_metric, title=None):
+    fig = px.scatter(
+        df, 
+        x=x_metric,
+        y=y_metric,
+        hover_name='Player',
+        hover_data=['Team', 'Position'],
+        title=title if title else x_metric + ' vs ' + y_metric
     )
-    
-    return fig
 
-def create_pca_plot(df_scaled, pca, pca_metrics, players, p1=None, p2=None):
-    pca_df = pd.DataFrame(df_scaled, columns=pca_metrics, index=players)
-    pca_transformed = pca.transform(pca_df)
-    plot_df = pd.DataFrame(pca_transformed, columns=['PC1', 'PC2'])
-    plot_df['Player'] = players
-    
-    fig = go.Figure()
-    
-    # Add main scatter plot
-    fig.add_trace(go.Scatter(
-        x=plot_df['PC1'],
-        y=plot_df['PC2'],
-        mode='markers',
-        name='Players',
-        text=plot_df['Player'],
-        hovertemplate=(
-            '<b>%{text}</b><br>' +
-            'PC1: %{x:.2f}<br>' +
-            'PC2: %{y:.2f}<br>' +
-            '<extra></extra>'
-        )
-    ))
-    
-    # Add feature vectors
-    for i, metric in enumerate(pca_metrics):
-        loading = pca.components_.T[i]
-        fig.add_trace(go.Scatter(
-            x=[0, loading[0]],
-            y=[0, loading[1]],
-            mode='lines+text',
-            name=metric,
-            text=[None, metric],
-            textposition='top center',
-            line=dict(color='red', width=1),
-            showlegend=False,
-            hoverinfo='skip'
-        ))
-    
-    # Add highlighted players
-    highlight_players = [p for p in [p1, p2] if p and p != 'None']
-    if highlight_players:
-        highlight_df = plot_df[plot_df['Player'].isin(highlight_players)]
-        fig.add_trace(go.Scatter(
-            x=highlight_df['PC1'],
-            y=highlight_df['PC2'],
-            mode='markers+text',
-            name='Selected Players',
-            text=highlight_df['Player'],
-            textposition='top center',
-            marker=dict(size=12, color='red'),
-            hovertemplate=(
-                '<b>%{text}</b><br>' +
-                'PC1: %{x:.2f}<br>' +
-                'PC2: %{y:.2f}<br>' +
-                '<extra></extra>'
-            )
-        ))
-    
-    fig.update_layout(
-        title='Principal Component Analysis',
-        xaxis_title='PC1 (' + '{:.2%}'.format(pca.explained_variance_ratio_[0]) + ' variance)',
-        yaxis_title='PC2 (' + '{:.2%}'.format(pca.explained_variance_ratio_[1]) + ' variance)',
-        hovermode='closest',
-        hoverlabel=dict(bgcolor='white')
+    fig.update_traces(
+        hovertemplate="<b>%{customdata[0]}</b><br>" +
+                      "Team: %{customdata[1]}<br>" +
+                      "Position: %{customdata[2]}<br>" +
+                      x_metric + ": %{x:.2f}<br>" +
+                      y_metric + ": %{y:.2f}"
     )
-    
-    return fig
 
+    fig.update_layout(
+        hovermode='closest',
+        hoverlabel=dict(bgcolor="white")
+    )
+
+    return fig
 def create_similarity_viz(selected_player, similar_players, metrics, df):
     """Create player similarity visualization using regular matplotlib subplots with consistent colors"""
     # Check if we have any similar players
