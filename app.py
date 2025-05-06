@@ -322,8 +322,11 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
             inner_circle_size=20            # tamanho do círculo interior
         )
 
-        # Criar figura e eixos com projeção polar (tamanho menor)
-        fig, ax = plt.subplots(figsize=(10, 10), facecolor=background_color, subplot_kw={"projection": "polar"})
+        # Criar figura e eixos com projeção polar (tamanho menor para visualização no app)
+        fig, ax = plt.subplots(figsize=(8, 8), facecolor=background_color, subplot_kw={"projection": "polar"}, dpi=100)
+        
+        # Definir DPI maior para exportação, mas tamanho menor para visualização
+        fig.set_dpi(300)  # Usado apenas na exportação
 
         # Centralizar e ajustar a figura com mais espaço para a legenda
         plt.subplots_adjust(left=0.1, right=0.9, top=0.85, bottom=0.15)
@@ -460,22 +463,21 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
                 center = plt.Circle((0, 0), center_radius * 0.9, color='white', zorder=20)
                 ax.add_patch(center)
                 
-                # Definir um subplot para o logo ocupando o centro do gráfico polar
-                # Criar um inset axes no centro do gráfico polar
-                from mpl_toolkits.axes_grid1.inset_locator import InsetPosition
-                
-                # Criar o eixo com zOrder alto
-                logo_ax = fig.add_axes([0, 0, 1, 1], zorder=30)
-                
-                # Posicionar o eixo inset no centro com tamanho proporcional ao inner_circle
-                circle_size = center_radius * 0.8  # Ligeiramente menor que o círculo interno
-                pos = InsetPosition(ax, [0.5-circle_size, 0.5-circle_size, circle_size*2, circle_size*2])
-                logo_ax.set_axes_locator(pos)
-                
-                # Carregar e mostrar o logo no eixo inset
+                # Usar abordagem bem mais simples colocando o logo diretamente na figura
+                # Carregar o logo
                 logo = plt.imread(logo_file)
+                
+                # Cálculo para tamanho proporcional ao círculo interno (em coordenadas de figura)
+                # Tamanho do logo em relação ao tamanho da figura
+                logo_display_size = 0.25  # 25% do tamanho da figura
+                
+                # Criar imshow como um novo axes na figura
+                logo_ax = fig.add_axes([0.5-logo_display_size/2, 0.5-logo_display_size/2, 
+                                       logo_display_size, logo_display_size], zorder=30)
+                
+                # Mostrar a imagem e desativar os eixos
                 logo_ax.imshow(logo)
-                logo_ax.axis('off')  # Esconder eixos do logo
+                logo_ax.axis('off')
                 
                 print(f"Logo do Vålerenga adicionado com sucesso")
             else:
