@@ -43,8 +43,15 @@ AVAILABLE_LEAGUES = {
 }
 
 def load_league_data(selected_leagues):
-    """Carrega dados das ligas selecionadas"""
+    """
+    Carrega dados das ligas selecionadas.
+    Se st.session_state.combine_leagues for True, combina todas as ligas em um único dataframe.
+    Se False, processa cada liga separadamente para cálculo de percentis.
+    """
     dfs = []
+    league_dfs = {}  # Para armazenar cada dataframe separadamente por liga
+    
+    # Carregar cada liga selecionada
     for league_name in selected_leagues:
         try:
             file_path = AVAILABLE_LEAGUES[league_name]
@@ -53,15 +60,54 @@ def load_league_data(selected_leagues):
             df = df.loc[:, df.columns.notnull()]
             df.columns = [str(c).strip() for c in df.columns]
             df['Data Origin'] = league_name
-            df['Season'] = "2023/2024"  # Você pode ajustar isso conforme necessário
+            df['Season'] = "2023/2024"
+            
+            # Calcular métricas ofensivas para cada liga
+            df = calculate_offensive_metrics(df)
+            
             dfs.append(df)
+            league_dfs[league_name] = df
         except Exception as e:
             st.error(f"Erro ao carregar {league_name}: {str(e)}")
 
-    if dfs:
+    if not dfs:
+        return pd.DataFrame()
+    
+    # Verificar o modo de processamento
+    combine_leagues = st.session_state.get('combine_leagues', True)
+    
+    if combine_leagues:
+        # Modo padrão: combinar todas as ligas e calcular percentis globalmente
         combined_df = pd.concat(dfs, ignore_index=True)
-        return calculate_offensive_metrics(combined_df)
-    return pd.DataFrame()
+        return combined_df
+    else:
+        # Modo novo: calcular percentis separadamente para cada liga e depois combinar
+        processed_dfs = []
+        
+        # Identificar todas as colunas métricas (excluindo colunas categóricas/identificadoras)
+        # Assumindo que o primeiro dataframe tem todas as colunas que queremos processar
+        first_df = dfs[0]
+        metric_cols = [col for col in first_df.columns if col not in 
+                      ['Player', 'Team', 'Position', 'Data Origin', 'Season']]
+        
+        # Processar cada liga separadamente
+        for league_name, league_df in league_dfs.items():
+            # Para cada métrica no dataframe, calcular percentil dentro de cada liga
+            for col in metric_cols:
+                if col in league_df.columns and league_df[col].dtype in [np.float64, np.int64]:
+                    # Criar nova coluna com percentis
+                    col_percentile = f"{col}_percentile_in_{league_name}"
+                    league_df[col_percentile] = league_df[col].rank(pct=True) * 100
+            
+            processed_dfs.append(league_df)
+        
+        # Combinar todos os dataframes processados
+        combined_df = pd.concat(processed_dfs, ignore_index=True)
+        
+        # Exibir informação sobre o modo de processamento
+        st.info("Percentiles calculated separately within each league. Check new columns with '_percentile_in_' suffix for league-specific percentiles.")
+        
+        return combined_df
 
 # Inicializar o session_state para manter os dados entre recargas
 if 'file_metadata' not in st.session_state:
@@ -100,7 +146,8 @@ def calculate_offensive_metrics(df):
     1. npxG (non-penalty expected Goals): xG - (0.81 * Penalties taken)
     2. G-xG (Goals minus Expected Goals)
     3. npxG per Shot: (xG - (0.81 * Penalties taken)) / (Shots - Penalties taken)
-    4. Box Efficiency: (npxG_per_90 + xA_per_90) / Touches_in_Box_per_90
+    4. npxG per 90: npxG * 90 / Minutes played
+    5. Box Efficiency: (npxG_per_90 + xA_per_90) / Touches_in_Box_per_90
 
     Args:
         df: DataFrame containing player data with the required metrics
@@ -112,7 +159,7 @@ def calculate_offensive_metrics(df):
     df_copy = df.copy()
 
     # Check if required columns exist
-    required_cols = ['xG', 'Penalties taken', 'Goals', 'Shots', 'npxG per 90', 'xA per 90', 'Touches in box per 90']
+    required_cols = ['xG', 'Penalties taken', 'Goals', 'Shots', 'Minutes played', 'xA per 90', 'Touches in box per 90']
     missing_cols = [col for col in required_cols if col not in df_copy.columns]
 
     # Replace missing columns with zeros to allow calculation
@@ -133,17 +180,23 @@ def calculate_offensive_metrics(df):
         df_copy['npxG'] / shots_minus_penalties,
         0  # Default value when denominator is zero
     )
+    
+    # Calculate npxG per 90 minutes
+    df_copy['npxG per 90'] = np.where(
+        df_copy['Minutes played'] > 0,
+        df_copy['npxG'] * 90 / df_copy['Minutes played'],
+        0  # Default value when minutes played is zero
+    )
 
     # Calculate Box Efficiency
-    # Replace column names if they have slight variations in the dataset
-    npxg_per_90_col = 'npxG per 90' if 'npxG per 90' in df_copy.columns else 'npxG per 90'
+    # Use our calculated npxG per 90 and get other per90 metrics from the dataset
     xa_per_90_col = 'xA per 90' if 'xA per 90' in df_copy.columns else 'xA per 90'
     touches_box_col = 'Touches in box per 90' if 'Touches in box per 90' in df_copy.columns else 'Touches in box per 90'
 
     # Avoid division by zero
     df_copy['Box Efficiency'] = np.where(
         df_copy[touches_box_col] > 0,
-        (df_copy[npxg_per_90_col] + df_copy[xa_per_90_col]) / df_copy[touches_box_col],
+        (df_copy['npxG per 90'] + df_copy[xa_per_90_col]) / df_copy[touches_box_col],
         0  # Default value when denominator is zero
     )
 
@@ -1362,6 +1415,20 @@ with st.sidebar.expander("⚙️ Select Leagues", expanded=True):
         options=list(AVAILABLE_LEAGUES.keys()),
         default=[list(AVAILABLE_LEAGUES.keys())[0]]
     )
+    
+    # Opção para escolher como calcular os percentis
+    if 'combine_leagues' not in st.session_state:
+        st.session_state.combine_leagues = True
+        
+    combine_leagues = st.checkbox(
+        "Combine all selected leagues into one dataset for percentile calculation", 
+        value=st.session_state.combine_leagues,
+        help="When checked, all leagues are combined into one dataset and percentiles are calculated globally. When unchecked, percentiles are calculated separately within each league."
+    )
+    
+    # Atualizar o estado da sessão se houver mudança
+    if combine_leagues != st.session_state.combine_leagues:
+        st.session_state.combine_leagues = combine_leagues
 
     # Separador visual
     st.sidebar.markdown("---")
