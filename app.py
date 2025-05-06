@@ -7,7 +7,7 @@ def create_scatter_plot(df, x_metric, y_metric, title=None, **kwargs):
         plt.annotate(
             row['Player'],
             (row[x_metric], row[y_metric]),
-            xytext=(6, 6),
+            xytext=(2, 2),
             textcoords='offset points',
             fontsize=5,
             bbox=dict(facecolor='white', edgecolor='none', alpha=0),
