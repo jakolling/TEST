@@ -343,8 +343,8 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
             logo_file = "attached_assets/Vålerenga_Oslo_logo.svg.png"
             
             if os.path.exists(logo_file):
-                # Desenhar um círculo branco no centro - MENOR para não ocupar tanto espaço
-                center_circle = plt.Circle((0, 0), 0.15, facecolor='white', edgecolor='none', zorder=10)
+                # Desenhar um círculo branco no centro - BEM MENOR para não ocupar tanto espaço
+                center_circle = plt.Circle((0, 0), 0.08, facecolor='white', edgecolor='none', zorder=10)
                 ax.add_patch(center_circle)
                 
                 # Carregar logo
@@ -352,7 +352,7 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
                 
                 # Criar um novo axes no centro - Tamanho menor e mais centralizado
                 # Posição relativa à figura: [left, bottom, width, height]
-                logo_ax = fig.add_axes([0.425, 0.425, 0.15, 0.15], zorder=100)
+                logo_ax = fig.add_axes([0.46, 0.46, 0.08, 0.08], zorder=100)
                 
                 # Mostrar logo e remover eixos
                 logo_ax.imshow(logo_img)
@@ -392,7 +392,7 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
             other_circle_color="#FFFFFF",   # linhas circulares brancas
             other_circle_lw=1.5,            # largura das linhas circulares
             other_circle_ls="-",            # linhas sólidas para círculos
-            inner_circle_size=20            # círculo interno MENOR (20% do raio total)
+            inner_circle_size=10            # círculo interno BEM MENOR (10% do raio total)
         )
 
         # Criar a pizza para o jogador 1
