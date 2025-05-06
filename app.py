@@ -1731,183 +1731,62 @@ if selected_leagues:
             # Display pizza chart
             st.pyplot(fig)
 
-                # Display nominal values table
-                st.markdown("**Nominal Values**")
+            # Display nominal values table
+            st.markdown("**Nominal Values**")
 
-                table_data = {'Metric': sel}
-                if show_p1:
-                    table_data[p1] = [round(d1[m], 2) for m in sel]
+            table_data = {'Metric': sel}
+            if show_p1:
+                table_data[p1] = [round(d1[m], 2) for m in sel]
+            if show_p2:
+                table_data[p2] = [round(d2[m], 2) for m in sel]
+            if show_avg:
+                table_data['Group Avg'] = [round(gm[m], 2) for m in sel]
+
+            df_table = pd.DataFrame(table_data).set_index('Metric')
+            st.dataframe(df_table)
+
+            # Export button
+            if st.button('Export Pizza Chart (300 DPI)', key='export_pizza'):
+                img_bytes = fig_to_bytes(fig)
+                players_str = p1
                 if show_p2:
-                    table_data[p2] = [round(d2[m], 2) for m in sel]
-                if show_avg:
-                    table_data['Group Avg'] = [round(gm[m], 2) for m in sel]
+                    players_str += f"_vs_{p2}"
+                if show_avg and not show_p2:
+                    players_str += "_vs_avg"
+                st.download_button(
+                    "⬇️ Download Pizza Chart", 
+                    data=img_bytes, 
+                    file_name=f"pizza_chart_{players_str}.png", 
+                    mime="image/png"
+                )
 
-                df_table = pd.DataFrame(table_data).set_index('Metric')
-                st.dataframe(df_table)
+        # =============================================
+        # Bar Charts (Aba 2)
+        # =============================================
+        with tabs[1]:
+            st.header('Bar Chart Comparison')
 
-                # Export button
-                if st.button('Export Pizza Chart (300 DPI)', key='export_pizza'):
-                    img_bytes = fig_to_bytes(fig)
-                    players_str = p1
-                    if show_p2:
-                        players_str += f"_vs_{p2}"
-                    if show_avg and not show_p2:
-                        players_str += "_vs_avg"
-                    st.download_button(
-                        "⬇️ Download Pizza Chart", 
-                        data=img_bytes, 
-                        file_name=f"pizza_chart_{players_str}.png", 
-                        mime="image/png"
-                    )
+            # Verificar se temos um benchmark carregado
+            benchmark_available = st.session_state.benchmark_loaded and st.session_state.benchmark_df is not None
 
-            # =============================================
-            # Bar Charts (Aba 2)
-            # =============================================
-            with tabs[1]:
-                st.header('Bar Chart Comparison')
+            # Primeiramente, decidir se queremos usar o benchmark ou não
+            if benchmark_available:
+                use_benchmark = st.checkbox("Use benchmark for comparison", value=False, 
+                                         help="When enabled, you can compare a player from your dataset with players from the benchmark league",
+                                         key="bar_use_benchmark")
+            else:
+                use_benchmark = False
 
-                # Verificar se temos um benchmark carregado
-                benchmark_available = st.session_state.benchmark_loaded and st.session_state.benchmark_df is not None
-
-                # Primeiramente, decidir se queremos usar o benchmark ou não
-                if benchmark_available:
-                    use_benchmark = st.checkbox("Use benchmark for comparison", value=False, 
-                                             help="When enabled, you can compare a player from your dataset with players from the benchmark league",
-                                             key="bar_use_benchmark")
+            col1, col2 = st.columns(2)
+            with col1:
+                if 'p1' not in locals():
+                    p1 = st.selectbox('Select Player 1', players, key='bar_p1')
                 else:
-                    use_benchmark = False
+                    p1 = st.selectbox('Select Player 1', players, index=players.index(p1), key='bar_p1')
 
-                col1, col2 = st.columns(2)
-                with col1:
-                    if 'p1' not in locals():
-                        p1 = st.selectbox('Select Player 1', players, key='bar_p1')
-                    else:
-                        p1 = st.selectbox('Select Player 1', players, index=players.index(p1), key='bar_p1')
-
-                # A seleção do segundo jogador depende se estamos usando benchmark ou não
-                with col2:
-                    if use_benchmark:
-                        # Filtrar o benchmark com os mesmos filtros aplicados à base principal
-                        filtered_benchmark = apply_benchmark_filter(
-                            st.session_state.benchmark_df,
-                            minutes_range,
-                            mpg_range,
-                            age_range,
-                            sel_pos
-                        )
-
-                        if filtered_benchmark is not None and not filtered_benchmark.empty:
-                            benchmark_players = sorted(filtered_benchmark['Player'].unique())
-                            p2 = st.selectbox('Select Benchmark Player', benchmark_players, key='bar_p2_benchmark')
-
-                            # Exibir informações do jogador benchmark selecionado
-                            st.info(f"Benchmark: {p2} from {st.session_state.benchmark_name}")
-                        else:
-                            st.warning("No benchmark players match the applied filters")
-                            p2 = None
-                            use_benchmark = False
-                    else:
-                        # Seleção normal do segundo jogador da mesma base
-                        if 'p2' not in locals():
-                            p2 = st.selectbox('Select Player 2', [p for p in players if p != p1], key='bar_p2')
-                        else:
-                            remaining_players = [p for p in players if p != p1]
-                            if p2 in remaining_players:
-                                p2 = st.selectbox('Select Player 2', remaining_players, 
-                                                 index=remaining_players.index(p2), key='bar_p2')
-                            else:
-                                p2 = st.selectbox('Select Player 2', remaining_players, key='bar_p2')
-
-                selected_metrics = st.multiselect('Select metrics (max 5)', metric_cols, 
-                                                default=metric_cols[:1], key='bar_metrics')
-
-                if len(selected_metrics) > 5:
-                    st.error("Maximum 5 metrics allowed!")
-
-                elif len(selected_metrics) >= 1 and p2 is not None:
-                    # Dados do jogador 1 (sempre da base principal)
-                    d1 = df_minutes[df_minutes['Player']==p1].iloc[0]
-
-                    # Dados do jogador 2 (pode ser do benchmark ou da base principal)
-                    if use_benchmark:
-                        # Obter dados do benchmark
-                        d2 = filtered_benchmark[filtered_benchmark['Player']==p2].iloc[0]
-
-                        # A média do grupo é a média do benchmark para comparação consistente
-                        avg_values = [filtered_benchmark[m].mean() for m in selected_metrics]
-
-                        # Texto especial para o subtítulo
-                        benchmark_text = f" | Benchmark: {st.session_state.benchmark_name}"
-                    else:
-                        # Fluxo normal - ambos jogadores da base principal
-                        d2 = df_minutes[df_minutes['Player']==p2].iloc[0]
-
-                        # Group average da base principal
-                        avg_values = [df_group[m].mean() for m in selected_metrics]
-
-                        benchmark_text = ""
-
-                    # Valores nominais para os jogadores
-                    p1_values = [d1[m] for m in selected_metrics]
-                    p2_values = [d2[m] for m in selected_metrics]
-
-                    title = "Metric Comparison"
-                    subtitle = (f"Context: {context['leagues']} ({context['seasons']}) | "
-                              f"Players: {context['total_players']} | Filters: {context['min_age']}-{context['max_age']} years{benchmark_text}")
-
-                    fig = create_bar_chart(
-                        metrics=selected_metrics,
-                        p1_name=p1,
-                        p1_values=p1_values,
-                        p2_name=p2,
-                        p2_values=p2_values,
-                        avg_values=avg_values,
-                        title=title,
-                        subtitle=subtitle
-                    )
-
-                    # Display bar chart
-                    st.pyplot(fig)
-
-                    # Export button
-                    if st.button('Export Bar Chart (300 DPI)', key='export_bar'):
-                        img_bytes = fig_to_bytes(fig)
-                        st.download_button(
-                            "⬇️ Download Bar Chart", 
-                            data=img_bytes, 
-                            file_name=f"bar_{p1}_vs_{p2}.png", 
-                            mime="image/png"
-                        )
-
-            # =============================================
-            # Scatter Plot (Aba 3)
-            # =============================================
-            with tabs[2]:
-                st.header('Scatter Plot Analysis')
-
-                # Verificar se temos um benchmark carregado
-                benchmark_available = st.session_state.benchmark_loaded and st.session_state.benchmark_df is not None
-
-                # Primeiramente, decidir se queremos incluir o benchmark no scatter plot
-                if benchmark_available:
-                    include_benchmark = st.checkbox("Include benchmark players in scatter plot", value=False, 
-                                             help="When enabled, players from benchmark database will be shown in a different color",
-                                             key="scatter_use_benchmark")
-                else:
-                    include_benchmark = False
-
-                col1, col2 = st.columns(2)
-                with col1:
-                    x_metric = st.selectbox('X-Axis Metric', metric_cols, index=0)
-                with col2:
-                    y_metric = st.selectbox('Y-Axis Metric', metric_cols, index=min(1, len(metric_cols)-1))
-
-                # Configurar o título base
-                title = f"Scatter Analysis: {x_metric} vs {y_metric}"
-                subtitle = f"League(s): {context['leagues']} | Season(s): {context['seasons']}"
-
-                # Se estamos incluindo o benchmark, preparar os dados
-                if include_benchmark:
+            # A seleção do segundo jogador depende se estamos usando benchmark ou não
+            with col2:
+                if use_benchmark:
                     # Filtrar o benchmark com os mesmos filtros aplicados à base principal
                     filtered_benchmark = apply_benchmark_filter(
                         st.session_state.benchmark_df,
@@ -1918,363 +1797,484 @@ if selected_leagues:
                     )
 
                     if filtered_benchmark is not None and not filtered_benchmark.empty:
-                        # Adicionar informação sobre o benchmark ao subtítulo
-                        subtitle += f" | Benchmark: {st.session_state.benchmark_name}"
+                        benchmark_players = sorted(filtered_benchmark['Player'].unique())
+                        p2 = st.selectbox('Select Benchmark Player', benchmark_players, key='bar_p2_benchmark')
 
-                        # Criar figura manualmente para combinar os dados
-                        fig, ax = plt.subplots(figsize=(10, 6))
-
-                        # Plotar pontos da base principal (azul)
-                        sc1 = ax.scatter(df_group[x_metric], df_group[y_metric], 
-                                     alpha=0.7, s=60, c=player1_color, edgecolor='white', label='Current Database')
-
-                        # Plotar pontos do benchmark (vermelho)
-                        sc2 = ax.scatter(filtered_benchmark[x_metric], filtered_benchmark[y_metric], 
-                                     alpha=0.7, s=60, c=player2_color, edgecolor='white', label='Benchmark Database')
-
-                        # Adicionar rótulos para jogadores da base principal
-                        for i, row in df_group.iterrows():
-                            # Adicionar textos abaixo dos pontos
-                            ax.annotate(row['Player'], 
-                                       (row[x_metric], row[y_metric]),
-                                       xytext=(0, -10),
-                                       textcoords='offset points',
-                                       fontsize=8,
-                                       ha='center',
-                                       va='top',
-                                       alpha=0.8,
-                                       color=player1_color,
-                                       bbox=dict(
-                                           facecolor='white',
-                                           alpha=0.7,
-                                           edgecolor=player1_color,
-                                           boxstyle="round,pad=0.1",
-                                           linewidth=0.5
-                                       ),
-                                       zorder=10)
-
-                        # Adicionar rótulos para jogadores do benchmark
-                        for i, row in filtered_benchmark.iterrows():
-                            # Adicionar textos abaixo dos pontos
-                            ax.annotate(row['Player'], 
-                                       (row[x_metric], row[y_metric]),
-                                       xytext=(0, -10),
-                                       textcoords='offset points',
-                                       fontsize=8,
-                                       ha='center',
-                                       va='top',
-                                       alpha=0.8,
-                                       color=player2_color,
-                                       bbox=dict(
-                                           facecolor='white',
-                                           alpha=0.7,
-                                           edgecolor=player2_color,
-                                           boxstyle="round,pad=0.1",
-                                           linewidth=0.5
-                                       ),
-                                       zorder=10)
-
-                        # Adicionar linhas médias
-                        ax.axvline(df_group[x_metric].mean(), color=player1_color, linestyle='--', alpha=0.5, label='Current DB Mean')
-                        ax.axhline(df_group[y_metric].mean(), color=player1_color, linestyle='--', alpha=0.5)
-
-                        ax.axvline(filtered_benchmark[x_metric].mean(), color=player2_color, linestyle='--', alpha=0.5, label='Benchmark Mean')
-                        ax.axhline(filtered_benchmark[y_metric].mean(), color=player2_color, linestyle='--', alpha=0.5)
-
-                        # Configurar rótulos e título
-                        ax.set_xlabel(x_metric, fontsize=12)
-                        ax.set_ylabel(y_metric, fontsize=12)
-                        ax.set_title(title, fontsize=14)
-                        ax.grid(True, alpha=0.3)
-                        ax.legend()
-
-                        # Adicionar subtítulo
-                        plt.figtext(0.5, 0.01, subtitle, ha='center', fontsize=10)
-
-                        # Ajustar layout
-                        plt.tight_layout(rect=[0, 0.03, 1, 0.97])
+                        # Exibir informações do jogador benchmark selecionado
+                        st.info(f"Benchmark: {p2} from {st.session_state.benchmark_name}")
                     else:
                         st.warning("No benchmark players match the applied filters")
-
-                        # Criar scatter plot normal se o benchmark não tem dados
-                        fig = create_scatter_plot(
-                            df=df_group,
-                            x_metric=x_metric,
-                            y_metric=y_metric,
-                            title=title
-                        )
+                        p2 = None
+                        use_benchmark = False
                 else:
-                    # Criar scatter plot normal
+                    # Seleção normal do segundo jogador da mesma base
+                    if 'p2' not in locals():
+                        p2 = st.selectbox('Select Player 2', [p for p in players if p != p1], key='bar_p2')
+                    else:
+                        remaining_players = [p for p in players if p != p1]
+                        if p2 in remaining_players:
+                            p2 = st.selectbox('Select Player 2', remaining_players, 
+                                             index=remaining_players.index(p2), key='bar_p2')
+                        else:
+                            p2 = st.selectbox('Select Player 2', remaining_players, key='bar_p2')
+
+            selected_metrics = st.multiselect('Select metrics (max 5)', metric_cols, 
+                                            default=metric_cols[:1], key='bar_metrics')
+
+            if len(selected_metrics) > 5:
+                st.error("Maximum 5 metrics allowed!")
+
+            elif len(selected_metrics) >= 1 and p2 is not None:
+                # Dados do jogador 1 (sempre da base principal)
+                d1 = df_minutes[df_minutes['Player']==p1].iloc[0]
+
+                # Dados do jogador 2 (pode ser do benchmark ou da base principal)
+                if use_benchmark:
+                    # Obter dados do benchmark
+                    d2 = filtered_benchmark[filtered_benchmark['Player']==p2].iloc[0]
+
+                    # A média do grupo é a média do benchmark para comparação consistente
+                    avg_values = [filtered_benchmark[m].mean() for m in selected_metrics]
+
+                    # Texto especial para o subtítulo
+                    benchmark_text = f" | Benchmark: {st.session_state.benchmark_name}"
+                else:
+                    # Fluxo normal - ambos jogadores da base principal
+                    d2 = df_minutes[df_minutes['Player']==p2].iloc[0]
+
+                    # Group average da base principal
+                    avg_values = [df_group[m].mean() for m in selected_metrics]
+
+                    benchmark_text = ""
+
+                # Valores nominais para os jogadores
+                p1_values = [d1[m] for m in selected_metrics]
+                p2_values = [d2[m] for m in selected_metrics]
+
+                title = "Metric Comparison"
+                subtitle = (f"Context: {context['leagues']} ({context['seasons']}) | "
+                          f"Players: {context['total_players']} | Filters: {context['min_age']}-{context['max_age']} years{benchmark_text}")
+
+                fig = create_bar_chart(
+                    metrics=selected_metrics,
+                    p1_name=p1,
+                    p1_values=p1_values,
+                    p2_name=p2,
+                    p2_values=p2_values,
+                    avg_values=avg_values,
+                    title=title,
+                    subtitle=subtitle
+                )
+
+                # Display bar chart
+                st.pyplot(fig)
+
+                # Export button
+                if st.button('Export Bar Chart (300 DPI)', key='export_bar'):
+                    img_bytes = fig_to_bytes(fig)
+                    st.download_button(
+                        "⬇️ Download Bar Chart", 
+                        data=img_bytes, 
+                        file_name=f"bar_{p1}_vs_{p2}.png", 
+                        mime="image/png"
+                    )
+
+        # =============================================
+        # Scatter Plot (Aba 3)
+        # =============================================
+        with tabs[2]:
+            st.header('Scatter Plot Analysis')
+
+            # Verificar se temos um benchmark carregado
+            benchmark_available = st.session_state.benchmark_loaded and st.session_state.benchmark_df is not None
+
+            # Primeiramente, decidir se queremos incluir o benchmark no scatter plot
+            if benchmark_available:
+                include_benchmark = st.checkbox("Include benchmark players in scatter plot", value=False, 
+                                         help="When enabled, players from benchmark database will be shown in a different color",
+                                         key="scatter_use_benchmark")
+            else:
+                include_benchmark = False
+
+            col1, col2 = st.columns(2)
+            with col1:
+                x_metric = st.selectbox('X-Axis Metric', metric_cols, index=0)
+            with col2:
+                y_metric = st.selectbox('Y-Axis Metric', metric_cols, index=min(1, len(metric_cols)-1))
+
+            # Configurar o título base
+            title = f"Scatter Analysis: {x_metric} vs {y_metric}"
+            subtitle = f"League(s): {context['leagues']} | Season(s): {context['seasons']}"
+
+            # Se estamos incluindo o benchmark, preparar os dados
+            if include_benchmark:
+                # Filtrar o benchmark com os mesmos filtros aplicados à base principal
+                filtered_benchmark = apply_benchmark_filter(
+                    st.session_state.benchmark_df,
+                    minutes_range,
+                    mpg_range,
+                    age_range,
+                    sel_pos
+                )
+
+                if filtered_benchmark is not None and not filtered_benchmark.empty:
+                    # Adicionar informação sobre o benchmark ao subtítulo
+                    subtitle += f" | Benchmark: {st.session_state.benchmark_name}"
+
+                    # Criar figura manualmente para combinar os dados
+                    fig, ax = plt.subplots(figsize=(10, 6))
+
+                    # Plotar pontos da base principal (azul)
+                    sc1 = ax.scatter(df_group[x_metric], df_group[y_metric], 
+                                 alpha=0.7, s=60, c=player1_color, edgecolor='white', label='Current Database')
+
+                    # Plotar pontos do benchmark (vermelho)
+                    sc2 = ax.scatter(filtered_benchmark[x_metric], filtered_benchmark[y_metric], 
+                                 alpha=0.7, s=60, c=player2_color, edgecolor='white', label='Benchmark Database')
+
+                    # Adicionar rótulos para jogadores da base principal
+                    for i, row in df_group.iterrows():
+                        # Adicionar textos abaixo dos pontos
+                        ax.annotate(row['Player'], 
+                                   (row[x_metric], row[y_metric]),
+                                   xytext=(0, -10),
+                                   textcoords='offset points',
+                                   fontsize=8,
+                                   ha='center',
+                                   va='top',
+                                   alpha=0.8,
+                                   color=player1_color,
+                                   bbox=dict(
+                                       facecolor='white',
+                                       alpha=0.7,
+                                       edgecolor=player1_color,
+                                       boxstyle="round,pad=0.1",
+                                       linewidth=0.5
+                                   ),
+                                   zorder=10)
+
+                    # Adicionar rótulos para jogadores do benchmark
+                    for i, row in filtered_benchmark.iterrows():
+                        # Adicionar textos abaixo dos pontos
+                        ax.annotate(row['Player'], 
+                                   (row[x_metric], row[y_metric]),
+                                   xytext=(0, -10),
+                                   textcoords='offset points',
+                                   fontsize=8,
+                                   ha='center',
+                                   va='top',
+                                   alpha=0.8,
+                                   color=player2_color,
+                                   bbox=dict(
+                                       facecolor='white',
+                                       alpha=0.7,
+                                       edgecolor=player2_color,
+                                       boxstyle="round,pad=0.1",
+                                       linewidth=0.5
+                                   ),
+                                   zorder=10)
+
+                    # Adicionar linhas médias
+                    ax.axvline(df_group[x_metric].mean(), color=player1_color, linestyle='--', alpha=0.5, label='Current DB Mean')
+                    ax.axhline(df_group[y_metric].mean(), color=player1_color, linestyle='--', alpha=0.5)
+
+                    ax.axvline(filtered_benchmark[x_metric].mean(), color=player2_color, linestyle='--', alpha=0.5, label='Benchmark Mean')
+                    ax.axhline(filtered_benchmark[y_metric].mean(), color=player2_color, linestyle='--', alpha=0.5)
+
+                    # Configurar rótulos e título
+                    ax.set_xlabel(x_metric, fontsize=12)
+                    ax.set_ylabel(y_metric, fontsize=12)
+                    ax.set_title(title, fontsize=14)
+                    ax.grid(True, alpha=0.3)
+                    ax.legend()
+
+                    # Adicionar subtítulo
+                    plt.figtext(0.5, 0.01, subtitle, ha='center', fontsize=10)
+
+                    # Ajustar layout
+                    plt.tight_layout(rect=[0, 0.03, 1, 0.97])
+                else:
+                    st.warning("No benchmark players match the applied filters")
+
+                    # Criar scatter plot normal se o benchmark não tem dados
                     fig = create_scatter_plot(
                         df=df_group,
                         x_metric=x_metric,
                         y_metric=y_metric,
                         title=title
                     )
-
-                # Display scatter plot
-                st.pyplot(fig)
-
-                # Show correlation coefficient
-                corr = df_group[x_metric].corr(df_group[y_metric])
-                st.info(f"Correlation coefficient: {corr:.4f}")
-
-                # Export button
-                if st.button('Export Scatter Plot (300 DPI)', key='export_scatter'):
-                    img_bytes = fig_to_bytes(fig)
-                    st.download_button(
-                        "⬇️ Download Scatter Plot", 
-                        data=img_bytes, 
-                        file_name=f"scatter_{x_metric}_vs_{y_metric}.png", 
-                        mime="image/png"
-                    )
-
-            # =============================================
-            # Player Similarity (Aba 4) - Advanced Similarity Model
-            # =============================================
-            with tabs[3]:
-                st.header('Advanced Player Similarity Analysis')
-
-                # Explicação do modelo de similaridade aprimorado
-                with st.expander("ℹ️ About Player Similarity Model", expanded=False):
-                    st.markdown("""
-                    This advanced player similarity model uses the approach from [SteveAQ's Player Similarity Models](https://steveaq.github.io/Player-Similarity-Models/).
-
-                    **How it works:**
-                    1. **PCA (Principal Component Analysis)** reduces multiple metrics to two dimensions
-                    2. **K-Means Clustering** groups players with similar styles
-                    3. **Euclidean Distance** in PCA space finds players with most similar profiles
-                    4. Players closer in the PCA chart have more similar playing styles
-
-                    This approach provides more intuitive and visually informative player comparisons than traditional methods.
-                    """)
-
-                col1, col2 = st.columns(2)
-                with col1:
-                    # Initialize benchmark player usage flag
-                    use_benchmark_player = st.session_state.get('use_benchmark_player', False)
-
-                    # Verificar opção de player benchmark e recarregar a página se necessário
-                    # Isso garante que a interface seja atualizada quando o usuário marca/desmarca a opção
-                    if st.session_state.get('use_benchmark_player') != use_benchmark_player:
-                        # Atualizar o estado
-                        st.session_state.use_benchmark_player = use_benchmark_player
-
-                    # Select player for similarity search based on benchmark preference
-                    if use_benchmark_player and st.session_state.benchmark_loaded:
-                        # If using benchmark player as reference, prepare benchmark data
-                        try:
-                            # Get benchmark data with minimal filters
-                            benchmark_min_filter = apply_benchmark_filter(
-                                st.session_state.benchmark_df,
-                                [0, 5000],  # Wide minutes range
-                                [0, 90],    # Wide MPG range
-                                [15, 45],   # Wide age range
-                                ["All"]     # All positions
-                            )
-
-                            if benchmark_min_filter is not None and not benchmark_min_filter.empty:
-                                st.success("Using benchmark player as reference to find similar players in main dataset")
-                                # Show dropdown with benchmark players
-                                benchmark_players = benchmark_min_filter['Player'].sort_values().tolist()
-                                sim_player = st.selectbox(
-                                    'Select BENCHMARK Reference Player', 
-                                    benchmark_players, 
-                                    key='sim_player_benchmark'
-                                )
-
-                                # Set benchmark player flag
-                                is_benchmark_player = True
-                            else:
-                                st.error("Could not load benchmark players")
-                                sim_player = st.selectbox('Select Reference Player', players, key='sim_player')
-                                is_benchmark_player = False
-                        except Exception as bench_ref_error:
-                            st.error(f"Error loading benchmark players: {str(bench_ref_error)}")
-                            sim_player = st.selectbox('Select Reference Player', players, key='sim_player')
-                            is_benchmark_player = False
-                    else:
-                        # Regular selection from main dataset
-                        sim_player = st.selectbox('Select Reference Player', players, key='sim_player')
-                        is_benchmark_player = False
-
-                with col2:
-                    similarity_method = st.selectbox('Similarity Method', 
-                                                  ['PCA + K-Means (Recommended)', 'Cosine Similarity', 'Euclidean Distance'], 
-                                                  index=0)
-
-                # Map the displayed method name to internal method identifier
-                method_mapping = {
-                    'PCA + K-Means (Recommended)': 'pca_kmeans',
-                    'Cosine Similarity': 'cosine',
-                    'Euclidean Distance': 'euclidean'
-                }
-                method = method_mapping[similarity_method]
-
-                # Select metrics for similarity calculation
-                st.subheader("Select Metrics for Similarity Calculation")
-
-                # Predefined metric groups for easy selection - always using per 90 metrics
-                metric_groups = {
-                    "Offensive": ['Goals per 90', 'Shots per 90', 'xG per 90', 'npxG', 'G-xG', 'npxG per Shot', 'Box Efficiency', 'Shots on target per 90', 'Successful dribbles per 90', 'Progressive runs per 90'],
-                    "Passing": ['Passes per 90', 'Accurate passes, %', 'Forward passes per 90', 'Progressive passes per 90', 'Key passes per 90', 'Assists per 90', 'xA per 90'],
-                    "Defensive": ['Interceptions per 90', 'Tackles per 90', 'Defensive duels per 90', 'Aerial duels won per 90', 'Recoveries per 90'],
-                    "Physical": ['Accelerations per 90', 'Sprint distance per 90', 'Distance covered per 90'],
-                    "Advanced Metrics": ['npxG', 'G-xG', 'npxG per Shot', 'Box Efficiency']  # Incluindo Box Efficiency nas métricas avançadas
-                }
-
-                # Let user first select a preset group or custom
-                metric_selection_mode = st.radio(
-                    "Metric Selection Mode", 
-                    ["Custom (Select Individual Metrics)", "Use Metric Presets"],
-                    horizontal=True,
-                    key="similarity_metric_selection_mode"  # Adicionando chave única
+            else:
+                # Criar scatter plot normal
+                fig = create_scatter_plot(
+                    df=df_group,
+                    x_metric=x_metric,
+                    y_metric=y_metric,
+                    title=title
                 )
 
-                if metric_selection_mode == "Use Metric Presets":
-                    selected_groups = st.multiselect(
-                        "Select Metric Groups", 
-                        list(metric_groups.keys()),
-                        default=["Offensive", "Passing"],
-                        key="similarity_preset_groups"  # Adicionando chave única
-                    )
+            # Display scatter plot
+            st.pyplot(fig)
 
-                    # Combine all metrics from selected groups
-                    preset_metrics = []
-                    for group in selected_groups:
-                        # Only add metrics that exist in the dataframe
-                        available_metrics = [m for m in metric_groups[group] if m in metric_cols]
-                        preset_metrics.extend(available_metrics)
+            # Show correlation coefficient
+            corr = df_group[x_metric].corr(df_group[y_metric])
+            st.info(f"Correlation coefficient: {corr:.4f}")
 
-                    # Allow further customization
-                    sim_metric_options = st.multiselect(
-                        'Add or Remove Individual Metrics', 
-                        metric_cols,
-                        default=preset_metrics,
-                        key="similarity_preset_metrics"  # Adicionando chave única
-                    )
-                else:
-                    # Let user select metrics manually
-                    sim_metric_options = st.multiselect(
-                        'Choose Individual Metrics (6-15 recommended for PCA)', 
-                        metric_cols,
-                        default=metric_cols[:min(8, len(metric_cols))],
-                        key="similarity_custom_metrics"  # Adicionando chave única
-                    )
+            # Export button
+            if st.button('Export Scatter Plot (300 DPI)', key='export_scatter'):
+                img_bytes = fig_to_bytes(fig)
+                st.download_button(
+                    "⬇️ Download Scatter Plot", 
+                    data=img_bytes, 
+                    file_name=f"scatter_{x_metric}_vs_{y_metric}.png", 
+                    mime="image/png"
+                )
 
-                # Advanced options in expander
-                with st.expander("Advanced Filtering Options", expanded=False):
-                    # Number of similar players to find
-                    num_similar = st.slider('Number of similar players to show', 3, 15, 8)
+        # =============================================
+        # Player Similarity (Aba 4) - Advanced Similarity Model
+        # =============================================
+        with tabs[3]:
+            st.header('Advanced Player Similarity Analysis')
 
-                    # Filter similar players by position
-                    filter_by_position = st.checkbox('Filter similar players by reference player position', True)
+            # Explicação do modelo de similaridade aprimorado
+            with st.expander("ℹ️ About Player Similarity Model", expanded=False):
+                st.markdown("""
+                This advanced player similarity model uses the approach from [SteveAQ's Player Similarity Models](https://steveaq.github.io/Player-Similarity-Models/).
 
-                    # Filter similar players by age
-                    filter_by_age = st.checkbox('Filter similar players by age range', False)
-                    if filter_by_age:
-                        ref_player_age = df_minutes[df_minutes['Player'] == sim_player]['Age'].iloc[0]
-                        age_diff = st.slider('Maximum age difference (years)', 0, 10, 3)
-                        min_age_filter = ref_player_age - age_diff
-                        max_age_filter = ref_player_age + age_diff
+                **How it works:**
+                1. **PCA (Principal Component Analysis)** reduces multiple metrics to two dimensions
+                2. **K-Means Clustering** groups players with similar styles
+                3. **Euclidean Distance** in PCA space finds players with most similar profiles
+                4. Players closer in the PCA chart have more similar playing styles
 
-                        # Apply age filter to dataframe
-                        df_sim = df_minutes[df_minutes['Age'].between(min_age_filter, max_age_filter)]
-                    else:
-                        df_sim = df_minutes.copy()
+                This approach provides more intuitive and visually informative player comparisons than traditional methods.
+                """)
 
-                    # Only if using PCA+K-Means, let user specify number of clusters
-                    if method == 'pca_kmeans':
-                        num_clusters = st.slider('Number of clusters for K-Means', 3, 12, 8)
-                    else:
-                        num_clusters = 8
+            col1, col2 = st.columns(2)
+            with col1:
+                # Initialize benchmark player usage flag
+                use_benchmark_player = st.session_state.get('use_benchmark_player', False)
 
-                    # Benchmark options 
-                    use_benchmark = False
+                # Verificar opção de player benchmark e recarregar a página se necessário
+                # Isso garante que a interface seja atualizada quando o usuário marca/desmarca a opção
+                if st.session_state.get('use_benchmark_player') != use_benchmark_player:
+                    # Atualizar o estado
+                    st.session_state.use_benchmark_player = use_benchmark_player
 
-                    if st.session_state.benchmark_loaded:
-                        st.info(f"Benchmark dataset loaded: {st.session_state.benchmark_name}")
+                # Select player for similarity search based on benchmark preference
+                if use_benchmark_player and st.session_state.benchmark_loaded:
+                    # If using benchmark player as reference, prepare benchmark data
+                    try:
+                        # Get benchmark data with minimal filters
+                        benchmark_min_filter = apply_benchmark_filter(
+                            st.session_state.benchmark_df,
+                            [0, 5000],  # Wide minutes range
+                            [0, 90],    # Wide MPG range
+                            [15, 45],   # Wide age range
+                            ["All"]     # All positions
+                        )
 
-                        benchmark_options = st.columns(2)
-                        with benchmark_options[0]:
-                            use_benchmark = st.checkbox(
-                                "Include benchmark players in results", 
-                                value=True,
-                                help="Include players from benchmark dataset in similarity search results"
+                        if benchmark_min_filter is not None and not benchmark_min_filter.empty:
+                            st.success("Using benchmark player as reference to find similar players in main dataset")
+                            # Show dropdown with benchmark players
+                            benchmark_players = benchmark_min_filter['Player'].sort_values().tolist()
+                            sim_player = st.selectbox(
+                                'Select BENCHMARK Reference Player', 
+                                benchmark_players, 
+                                key='sim_player_benchmark'
                             )
 
-                        with benchmark_options[1]:
-                            use_benchmark_player = st.checkbox(
-                                "Use benchmark player as reference", 
-                                value=False,
-                                help="Select a player from the benchmark dataset to find similar ones in main dataset"
-                            )
-
-                            # Verificar se o valor mudou para forçar recarregamento da página
-                            old_value = st.session_state.get('use_benchmark_player', None)
-                            if old_value != use_benchmark_player:
-                                # Atualizar estado e forçar recarregamento da página
-                                st.session_state.use_benchmark_player = use_benchmark_player
-                                st.rerun()
-
-                            # Adicionar opção para buscar similares em ambos os datasets ou apenas no principal
-                            if use_benchmark_player:
-                                st.session_state.search_in_benchmark = st.checkbox(
-                                    'Include Benchmark Players in similarity search', 
-                                    False, 
-                                    help="When checked, players from both the main dataset and benchmark will be considered. When unchecked, only players from the main dataset will be shown as similar."
-                                )
-
-                        if use_benchmark:
-                            try:
-                                # Use current filter values from sidebar for benchmark
-                                curr_minutes_range = st.session_state.last_minutes_range
-                                curr_mpg_range = st.session_state.last_mpg_range
-                                curr_age_range = st.session_state.last_age_range
-                                curr_pos = st.session_state.last_positions
-
-                                # Apply filters to benchmark data
-                                filtered_benchmark = apply_benchmark_filter(
-                                    st.session_state.benchmark_df,
-                                    curr_minutes_range,
-                                    curr_mpg_range,
-                                    curr_age_range,
-                                    curr_pos
-                                )
-
-                                if filtered_benchmark is not None and not filtered_benchmark.empty:
-                                    # Apply additional age filter if needed
-                                    if filter_by_age:
-                                        # Set default age range values if not already defined
-                                        age_min = min_age_filter if 'min_age_filter' in locals() else 15
-                                        age_max = max_age_filter if 'max_age_filter' in locals() else 45
-
-                                        filtered_benchmark = filtered_benchmark[
-                                            filtered_benchmark['Age'].between(age_min, age_max)
-                                        ]
-
-                                    # Get reference player position for filtering  
-                                    if filter_by_position and 'Position_split' in df_minutes.columns:
-                                        ref_player_pos = df_minutes[df_minutes['Player'] == sim_player]['Position_split'].iloc[0]
-
-                                        # Apply position filter to benchmark if possible
-                                        if 'Position_split' in filtered_benchmark.columns:
-                                            filtered_benchmark = filtered_benchmark[filtered_benchmark['Position_split'].apply(
-                                                lambda x: any(pos in ref_player_pos for pos in x) if isinstance(x, list) else False)]
-                                        elif 'Position' in filtered_benchmark.columns:
-                                            # Try using regular Position column if Position_split not available
-                                            ref_player_pos_text = df_minutes[df_minutes['Player'] == sim_player]['Position'].iloc[0]
-                                            filtered_benchmark = filtered_benchmark[filtered_benchmark['Position'] == ref_player_pos_text]
-
-                                    # Combine dataframes for similarity search
-                                    df_sim = pd.concat([df_sim, filtered_benchmark], ignore_index=True)
-                                    st.info(f"Including {len(filtered_benchmark)} benchmark players in similarity search")
-                                else:
-                                    st.warning("No benchmark players match the current filters")
-                            except Exception as bench_error:
-                                st.error(f"Error applying benchmark filters: {str(bench_error)}")
+                            # Set benchmark player flag
+                            is_benchmark_player = True
                         else:
-                            st.info("No benchmark database loaded. Upload one in the sidebar to include players from other leagues.")
+                            st.error("Could not load benchmark players")
+                            sim_player = st.selectbox('Select Reference Player', players, key='sim_player')
+                            is_benchmark_player = False
+                    except Exception as bench_ref_error:
+                        st.error(f"Error loading benchmark players: {str(bench_ref_error)}")
+                        sim_player = st.selectbox('Select Reference Player', players, key='sim_player')
+                        is_benchmark_player = False
+                else:
+                    # Regular selection from main dataset
+                    sim_player = st.selectbox('Select Reference Player', players, key='sim_player')
+                    is_benchmark_player = False
+
+            with col2:
+                similarity_method = st.selectbox('Similarity Method', 
+                                            ['PCA + K-Means (Recommended)', 'Cosine Similarity', 'Euclidean Distance'], 
+                                            index=0)
+
+            # Map the displayed method name to internal method identifier
+            method_mapping = {
+                'PCA + K-Means (Recommended)': 'pca_kmeans',
+                'Cosine Similarity': 'cosine',
+                'Euclidean Distance': 'euclidean'
+            }
+            method = method_mapping[similarity_method]
+
+            # Select metrics for similarity calculation
+            st.subheader("Select Metrics for Similarity Calculation")
+
+            # Predefined metric groups for easy selection - always using per 90 metrics
+            metric_groups = {
+                "Offensive": ['Goals per 90', 'Shots per 90', 'xG per 90', 'npxG', 'G-xG', 'npxG per Shot', 'Box Efficiency', 'Shots on target per 90', 'Successful dribbles per 90', 'Progressive runs per 90'],
+                "Passing": ['Passes per 90', 'Accurate passes, %', 'Forward passes per 90', 'Progressive passes per 90', 'Key passes per 90', 'Assists per 90', 'xA per 90'],
+                "Defensive": ['Interceptions per 90', 'Tackles per 90', 'Defensive duels per 90', 'Aerial duels won per 90', 'Recoveries per 90'],
+                "Physical": ['Accelerations per 90', 'Sprint distance per 90', 'Distance covered per 90'],
+                "Advanced Metrics": ['npxG', 'G-xG', 'npxG per Shot', 'Box Efficiency']  # Incluindo Box Efficiency nas métricas avançadas
+            }
+
+            # Let user first select a preset group or custom
+            metric_selection_mode = st.radio(
+                "Metric Selection Mode", 
+                ["Custom (Select Individual Metrics)", "Use Metric Presets"],
+                horizontal=True,
+                key="similarity_metric_selection_mode"  # Adicionando chave única
+            )
+
+            if metric_selection_mode == "Use Metric Presets":
+                selected_groups = st.multiselect(
+                    "Select Metric Groups", 
+                    list(metric_groups.keys()),
+                    default=["Offensive", "Passing"],
+                    key="similarity_preset_groups"  # Adicionando chave única
+                )
+
+                # Combine all metrics from selected groups
+                preset_metrics = []
+                for group in selected_groups:
+                    # Only add metrics that exist in the dataframe
+                    available_metrics = [m for m in metric_groups[group] if m in metric_cols]
+                    preset_metrics.extend(available_metrics)
+
+                # Allow further customization
+                sim_metric_options = st.multiselect(
+                    'Add or Remove Individual Metrics', 
+                    metric_cols,
+                    default=preset_metrics,
+                    key="similarity_preset_metrics"  # Adicionando chave única
+                )
+            else:
+                # Let user select metrics manually
+                sim_metric_options = st.multiselect(
+                    'Choose Individual Metrics (6-15 recommended for PCA)', 
+                    metric_cols,
+                    default=metric_cols[:min(8, len(metric_cols))],
+                    key="similarity_custom_metrics"  # Adicionando chave única
+                )
+
+            # Advanced options in expander
+            with st.expander("Advanced Filtering Options", expanded=False):
+                # Number of similar players to find
+                num_similar = st.slider('Number of similar players to show', 3, 15, 8)
+
+                # Filter similar players by position
+                filter_by_position = st.checkbox('Filter similar players by reference player position', True)
+
+                # Filter similar players by age
+                filter_by_age = st.checkbox('Filter similar players by age range', False)
+                if filter_by_age:
+                    ref_player_age = df_minutes[df_minutes['Player'] == sim_player]['Age'].iloc[0]
+                    age_diff = st.slider('Maximum age difference (years)', 0, 10, 3)
+                    min_age_filter = ref_player_age - age_diff
+                    max_age_filter = ref_player_age + age_diff
+
+                    # Apply age filter to dataframe
+                    df_sim = df_minutes[df_minutes['Age'].between(min_age_filter, max_age_filter)]
+                else:
+                    df_sim = df_minutes.copy()
+
+                # Only if using PCA+K-Means, let user specify number of clusters
+                if method == 'pca_kmeans':
+                    num_clusters = st.slider('Number of clusters for K-Means', 3, 12, 8)
+                else:
+                    num_clusters = 8
+
+                # Benchmark options 
+                use_benchmark = False
+
+                if st.session_state.benchmark_loaded:
+                    st.info(f"Benchmark dataset loaded: {st.session_state.benchmark_name}")
+
+                    benchmark_options = st.columns(2)
+                    with benchmark_options[0]:
+                        use_benchmark = st.checkbox(
+                            "Include benchmark players in results", 
+                            value=True,
+                            help="Include players from benchmark dataset in similarity search results"
+                        )
+
+                    with benchmark_options[1]:
+                        use_benchmark_player = st.checkbox(
+                            "Use benchmark player as reference", 
+                            value=False,
+                            help="Select a player from the benchmark dataset to find similar ones in main dataset"
+                        )
+
+                        # Verificar se o valor mudou para forçar recarregamento da página
+                        old_value = st.session_state.get('use_benchmark_player', None)
+                        if old_value != use_benchmark_player:
+                            # Atualizar estado e forçar recarregamento da página
+                            st.session_state.use_benchmark_player = use_benchmark_player
+                            st.rerun()
+
+                        # Adicionar opção para buscar similares em ambos os datasets ou apenas no principal
+                        if use_benchmark_player:
+                            st.session_state.search_in_benchmark = st.checkbox(
+                                'Include Benchmark Players in similarity search', 
+                                False, 
+                                help="When checked, players from both the main dataset and benchmark will be considered. When unchecked, only players from the main dataset will be shown as similar."
+                            )
+
+                if use_benchmark:
+                    try:
+                        # Use current filter values from sidebar for benchmark
+                        curr_minutes_range = st.session_state.last_minutes_range
+                        curr_mpg_range = st.session_state.last_mpg_range
+                        curr_age_range = st.session_state.last_age_range
+                        curr_pos = st.session_state.last_positions
+
+                        # Apply filters to benchmark data
+                        filtered_benchmark = apply_benchmark_filter(
+                            st.session_state.benchmark_df,
+                            curr_minutes_range,
+                            curr_mpg_range,
+                            curr_age_range,
+                            curr_pos
+                        )
+
+                        if filtered_benchmark is not None and not filtered_benchmark.empty:
+                            # Apply additional age filter if needed
+                            if filter_by_age:
+                                # Set default age range values if not already defined
+                                age_min = min_age_filter if 'min_age_filter' in locals() else 15
+                                age_max = max_age_filter if 'max_age_filter' in locals() else 45
+
+                                filtered_benchmark = filtered_benchmark[
+                                    filtered_benchmark['Age'].between(age_min, age_max)
+                                ]
+
+                            # Get reference player position for filtering  
+                            if filter_by_position and 'Position_split' in df_minutes.columns:
+                                ref_player_pos = df_minutes[df_minutes['Player'] == sim_player]['Position_split'].iloc[0]
+
+                                # Apply position filter to benchmark if possible
+                                if 'Position_split' in filtered_benchmark.columns:
+                                    filtered_benchmark = filtered_benchmark[filtered_benchmark['Position_split'].apply(
+                                        lambda x: any(pos in ref_player_pos for pos in x) if isinstance(x, list) else False)]
+                                elif 'Position' in filtered_benchmark.columns:
+                                    # Try using regular Position column if Position_split not available
+                                    ref_player_pos_text = df_minutes[df_minutes['Player'] == sim_player]['Position'].iloc[0]
+                                    filtered_benchmark = filtered_benchmark[filtered_benchmark['Position'] == ref_player_pos_text]
+
+                            # Combine dataframes for similarity search
+                            df_sim = pd.concat([df_sim, filtered_benchmark], ignore_index=True)
+                            st.info(f"Including {len(filtered_benchmark)} benchmark players in similarity search")
+                        else:
+                            st.warning("No benchmark players match the current filters")
+                    except Exception as bench_error:
+                        st.error(f"Error applying benchmark filters: {str(bench_error)}")
+                elif not st.session_state.benchmark_loaded:
+                    st.info("No benchmark database loaded. Upload one in the sidebar to include players from other leagues.")
 
                 # Handle benchmark player as reference (search in main dataset only)
                 if is_benchmark_player and use_benchmark_player:
@@ -3170,26 +3170,26 @@ if selected_leagues:
                 except Exception as e:
                     st.error(f"Error in profiler: {str(e)}")
                     st.exception(e)
-    else:
-        st.info("👈 Please upload Wyscout Excel files to begin analysis")
+else:
+    st.info("👈 Please upload Wyscout Excel files to begin analysis")
 
-        # Show example data format
-        with st.expander("📋 Expected Data Format"):
-            st.markdown("""
-            Your Excel files should contain the following columns:
-            - **Player**: Player name
-            - **Team**: Team name
-            - **Age**: Player age
-            - **Position**: Player position(s)
-            - **Minutes played**: Total minutes played
-            - **Matches played**: Number of matches
+    # Show example data format
+    with st.expander("📋 Expected Data Format"):
+        st.markdown("""
+        Your Excel files should contain the following columns:
+        - **Player**: Player name
+        - **Team**: Team name
+        - **Age**: Player age
+        - **Position**: Player position(s)
+        - **Minutes played**: Total minutes played
+        - **Matches played**: Number of matches
 
-            Plus various performance metrics like:
-            - Goals
-            - Assists
-            - Passes
-            - Tackles
-            - etc.
+        Plus various performance metrics like:
+        - Goals
+        - Assists
+        - Passes
+        - Tackles
+        - etc.
 
-            Files should be in Excel (.xlsx) format exported from Wyscout or similar platforms.
-            """)
+        Files should be in Excel (.xlsx) format exported from Wyscout or similar platforms.
+        """)
