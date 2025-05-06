@@ -1011,205 +1011,205 @@ def create_similarity_viz(selected_player, similar_players, metrics, df, method=
                     bbox=dict(facecolor='white', alpha=0.8, boxstyle="round,pad=0.3")
                 )
 
-            # Top similar players table
-            ax_table = fig.add_subplot(gs[0:2, 3:6])
-            ax_table.axis('off')
+        # Top similar players table
+        ax_table = fig.add_subplot(gs[0:2, 3:6])
+        ax_table.axis('off')
 
-            # Mostrar tabela de similaridade
-            table_data = []
-            for i, (player_name, similarity) in enumerate(similar_players[:10], 1):
-                # Obter dados básicos do jogador
-                player_info = df[df['Player'] == player_name]
-                if not player_info.empty:
-                    team = player_info.iloc[0].get('Team', 'N/A')
-                    age = player_info.iloc[0].get('Age', 'N/A')
-                    position = player_info.iloc[0].get('Position', 'N/A')
+        # Mostrar tabela de similaridade
+        table_data = []
+        for i, (player_name, similarity) in enumerate(similar_players[:10], 1):
+            # Obter dados básicos do jogador
+            player_info = df[df['Player'] == player_name]
+            if not player_info.empty:
+                team = player_info.iloc[0].get('Team', 'N/A')
+                age = player_info.iloc[0].get('Age', 'N/A')
+                position = player_info.iloc[0].get('Position', 'N/A')
 
-                    table_data.append([
-                        f"{i}. {player_name}",
-                        team,
-                        f"{age:.1f}" if isinstance(age, (int, float)) else age,
-                        position,
-                        f"{similarity:.1f}%"
-                    ])
+                table_data.append([
+                    f"{i}. {player_name}",
+                    team,
+                    f"{age:.1f}" if isinstance(age, (int, float)) else age,
+                    position,
+                    f"{similarity:.1f}%"
+                ])
 
-            # Criar a tabela
-            if table_data:
-                table = ax_table.table(
-                    cellText=table_data,
-                    colLabels=['Player', 'Team', 'Age', 'Position', 'Similarity'],
-                    cellLoc='center',
-                    loc='center',
-                    colWidths=[0.35, 0.25, 0.1, 0.15, 0.15]
-                )
-
-                # Configurações de estilo da tabela
-                table.auto_set_font_size(False)
-                table.set_fontsize(9)
-                table.scale(1, 1.5)
-
-                # Estilizar o cabeçalho
-                for (i, j), cell in table.get_celld().items():
-                    if i == 0:  # Cabeçalho
-                        cell.set_text_props(weight='bold', color='white')
-                        cell.set_facecolor(player1_color)
-                    else:
-                        # Alternar cores das linhas
-                        if i % 2 == 0:
-                            cell.set_facecolor('#f0f0f0')
-                        # Colorir célula de similaridade
-                        if j == 4:  # Coluna de similaridade
-                            similarity_value = float(table_data[i-1][4].strip('%'))
-                            # Gradiente de cor vermelho-amarelo-verde baseado na similaridade
-                            if similarity_value >= 80:
-                                cell.set_facecolor('#d4f7d4')  # Verde claro
-                            elif similarity_value >= 60:
-                                cell.set_facecolor('#fffacd')  # Amarelo claro
-                            else:
-                                cell.set_facecolor('#ffecec')  # Vermelho claro
-
-                ax_table.set_title('Top Similar Players', fontsize=14)
-
-            # Criar radar chart para o jogador selecionado e o jogador mais similar
-            if similar_players:
-                # Obter os dados do jogador selecionado e do mais similar
-                selected_data = df[df['Player'] == selected_player]
-                similar_data = df[df['Player'] == similar_players[0][0]]
-
-                if not selected_data.empty and not similar_data.empty:
-                    # Criar um grid para o radar
-                    ax_radar = fig.add_subplot(gs[2, 1:5], polar=True)
-
-                    # Selecionar métricas para o radar (limitando a 8 para não ficar poluído)
-                    radar_metrics = metrics[:8] if len(metrics) > 8 else metrics
-
-                    # Calcular percentis
-                    values_selected = [calc_percentile(df[m], selected_data.iloc[0][m])*100 for m in radar_metrics]
-                    values_similar = [calc_percentile(df[m], similar_data.iloc[0][m])*100 for m in radar_metrics]
-
-                    # Inicializar o radar
-                    radar = Radar(
-                        radar_metrics, 
-                        min_range=[0]*len(radar_metrics), 
-                        max_range=[100]*len(radar_metrics),
-                        round_int=[True]*len(radar_metrics),
-                        num_rings=4,
-                        ring_width=1,
-                        center_circle_radius=1
-                    )
-
-                    # Preparar o eixo e desenhar os círculos
-                    ax_radar = radar.setup_axis(ax=ax_radar)
-                    rings_inner = radar.draw_circles(ax=ax_radar, facecolor='#f9f9f9', edgecolor='#c5c5c5')
-
-                    # Desenhar o radar para o jogador selecionado
-                    radar_poly1, rings_outer1, vertices1 = radar.draw_radar(
-                        values_selected, ax=ax_radar, 
-                        kwargs_radar={'facecolor': player1_color, 'alpha': 0.6, 'edgecolor': player1_color, 'linewidth': 1.5},
-                        kwargs_rings={'facecolor': player1_color, 'alpha': 0.1}
-                    )
-
-                    # Desenhar o radar para o jogador similar
-                    radar_poly2, rings_outer2, vertices2 = radar.draw_radar(
-                        values_similar, ax=ax_radar,
-                        kwargs_radar={'facecolor': player2_color, 'alpha': 0.6, 'edgecolor': player2_color, 'linewidth': 1.5},
-                        kwargs_rings={'facecolor': player2_color, 'alpha': 0.1}
-                    )
-
-                    # Adicionar legenda
-                    legend_elements = [
-                        plt.Line2D([0], [0], marker='o', color='w', markerfacecolor=player1_color, 
-                                markersize=10, label=selected_player),
-                        plt.Line2D([0], [0], marker='o', color='w', markerfacecolor=player2_color, 
-                                markersize=10, label=similar_players[0][0])
-                    ]
-                    ax_radar.legend(handles=legend_elements, loc='upper right', fontsize=9)
-
-                    # Título do radar
-                    ax_radar.set_title(f"Percentile Radar Comparison with Most Similar Player", fontsize=12)
-
-            # Adicionar créditos na parte inferior
-            fig.text(
-                0.5, 0.01, "made by Joao Alberto Kolling\ndata via WyScout/SkillCorner",
-                size=9, ha="center", color="#666666"
+        # Criar a tabela
+        if table_data:
+            table = ax_table.table(
+                cellText=table_data,
+                colLabels=['Player', 'Team', 'Age', 'Position', 'Similarity'],
+                cellLoc='center',
+                loc='center',
+                colWidths=[0.35, 0.25, 0.1, 0.15, 0.15]
             )
 
-            # Adjust spacing and layout - use larger bottom margin to fix the "bottom" error
-            plt.tight_layout(rect=[0, 0.05, 1, 0.95])
+            # Configurações de estilo da tabela
+            table.auto_set_font_size(False)
+            table.set_fontsize(9)
+            table.scale(1, 1.5)
 
-        except Exception as e:
-            # Create a simple figure with error description in English
-            fig, ax = plt.subplots(figsize=(10, 6))
-            ax.text(0.5, 0.5, f"Could not generate similarity visualization:\n{str(e)}", 
-                   ha='center', va='center', fontsize=14, wrap=True)
-            ax.axis('off')
+            # Estilizar o cabeçalho
+            for (i, j), cell in table.get_celld().items():
+                if i == 0:  # Cabeçalho
+                    cell.set_text_props(weight='bold', color='white')
+                    cell.set_facecolor(player1_color)
+                else:
+                    # Alternar cores das linhas
+                    if i % 2 == 0:
+                        cell.set_facecolor('#f0f0f0')
+                    # Colorir célula de similaridade
+                    if j == 4:  # Coluna de similaridade
+                        similarity_value = float(table_data[i-1][4].strip('%'))
+                        # Gradiente de cor vermelho-amarelo-verde baseado na similaridade
+                        if similarity_value >= 80:
+                            cell.set_facecolor('#d4f7d4')  # Verde claro
+                        elif similarity_value >= 60:
+                            cell.set_facecolor('#fffacd')  # Amarelo claro
+                        else:
+                            cell.set_facecolor('#ffecec')  # Vermelho claro
 
+            ax_table.set_title('Top Similar Players', fontsize=14)
+
+        # Criar radar chart para o jogador selecionado e o jogador mais similar
+        if similar_players:
+            # Obter os dados do jogador selecionado e do mais similar
+            selected_data = df[df['Player'] == selected_player]
+            similar_data = df[df['Player'] == similar_players[0][0]]
+
+            if not selected_data.empty and not similar_data.empty:
+                # Criar um grid para o radar
+                ax_radar = fig.add_subplot(gs[2, 1:5], polar=True)
+
+                # Selecionar métricas para o radar (limitando a 8 para não ficar poluído)
+                radar_metrics = metrics[:8] if len(metrics) > 8 else metrics
+
+                # Calcular percentis
+                values_selected = [calc_percentile(df[m], selected_data.iloc[0][m])*100 for m in radar_metrics]
+                values_similar = [calc_percentile(df[m], similar_data.iloc[0][m])*100 for m in radar_metrics]
+
+                # Inicializar o radar
+                radar = Radar(
+                    radar_metrics, 
+                    min_range=[0]*len(radar_metrics), 
+                    max_range=[100]*len(radar_metrics),
+                    round_int=[True]*len(radar_metrics),
+                    num_rings=4,
+                    ring_width=1,
+                    center_circle_radius=1
+                )
+
+                # Preparar o eixo e desenhar os círculos
+                ax_radar = radar.setup_axis(ax=ax_radar)
+                rings_inner = radar.draw_circles(ax=ax_radar, facecolor='#f9f9f9', edgecolor='#c5c5c5')
+
+                # Desenhar o radar para o jogador selecionado
+                radar_poly1, rings_outer1, vertices1 = radar.draw_radar(
+                    values_selected, ax=ax_radar, 
+                    kwargs_radar={'facecolor': player1_color, 'alpha': 0.6, 'edgecolor': player1_color, 'linewidth': 1.5},
+                    kwargs_rings={'facecolor': player1_color, 'alpha': 0.1}
+                )
+
+                # Desenhar o radar para o jogador similar
+                radar_poly2, rings_outer2, vertices2 = radar.draw_radar(
+                    values_similar, ax=ax_radar,
+                    kwargs_radar={'facecolor': player2_color, 'alpha': 0.6, 'edgecolor': player2_color, 'linewidth': 1.5},
+                    kwargs_rings={'facecolor': player2_color, 'alpha': 0.1}
+                )
+
+                # Adicionar legenda
+                legend_elements = [
+                    plt.Line2D([0], [0], marker='o', color='w', markerfacecolor=player1_color, 
+                            markersize=10, label=selected_player),
+                    plt.Line2D([0], [0], marker='o', color='w', markerfacecolor=player2_color, 
+                            markersize=10, label=similar_players[0][0])
+                ]
+                ax_radar.legend(handles=legend_elements, loc='upper right', fontsize=9)
+
+                # Título do radar
+                ax_radar.set_title(f"Percentile Radar Comparison with Most Similar Player", fontsize=12)
+
+        # Adicionar créditos na parte inferior
+        fig.text(
+            0.5, 0.01, "made by Joao Alberto Kolling\ndata via WyScout/SkillCorner",
+            size=9, ha="center", color="#666666"
+        )
+
+        # Adjust spacing and layout - use larger bottom margin to fix the "bottom" error
+        plt.tight_layout(rect=[0, 0.05, 1, 0.95])
+        return fig
+        
+    except Exception as e:
+        # Create a simple figure with error description in English
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.text(0.5, 0.5, f"Could not generate similarity visualization:\n{str(e)}", 
+               ha='center', va='center', fontsize=14, wrap=True)
+        ax.axis('off')
         return fig
 
-    def create_pca_kmeans_df(df, metrics, n_clusters=8):
-        """
-        Create a PCA and K-Means clustering model for player similarity.
-        This follows the methodology from the reference website.
+def create_pca_kmeans_df(df, metrics, n_clusters=8):
+    """
+    Create a PCA and K-Means clustering model for player similarity.
+    This follows the methodology from the reference website.
 
-        Args:
-            df: DataFrame containing player data
-            metrics: List of metrics to use for similarity calculation
-            n_clusters: Number of clusters for K-Means
+    Args:
+        df: DataFrame containing player data
+        metrics: List of metrics to use for similarity calculation
+        n_clusters: Number of clusters for K-Means
 
-        Returns:
-            DataFrame with player information, PCA coordinates, and cluster assignments
-        """
-        try:
-            # Safety check: ensure all metrics exist in dataframe
-            valid_metrics = [m for m in metrics if m in df.columns]
-            if len(valid_metrics) != len(metrics):
-                missing = set(metrics) - set(valid_metrics)
-                st.warning(f"Some metrics were not found: {missing}")
-                if not valid_metrics:
-                    return None
+    Returns:
+        DataFrame with player information, PCA coordinates, and cluster assignments
+    """
+    try:
+        # Safety check: ensure all metrics exist in dataframe
+        valid_metrics = [m for m in metrics if m in df.columns]
+        if len(valid_metrics) != len(metrics):
+            missing = set(metrics) - set(valid_metrics)
+            st.warning(f"Some metrics were not found: {missing}")
+            if not valid_metrics:
+                return None
 
-            # Keep player information
-            player_info = df[['Player', 'Team', 'Position', 'Age']].copy()
+        # Keep player information
+        player_info = df[['Player', 'Team', 'Position', 'Age']].copy()
 
-            # Extract feature columns for valid metrics only
-            X = df[valid_metrics].copy()
+        # Extract feature columns for valid metrics only
+        X = df[valid_metrics].copy()
 
-            # Handle missing values in features
-            if X.isna().any().any():
-                st.info("Missing values detected in metrics. They will be filled with column means.")
-                X = X.fillna(X.mean())
+        # Handle missing values in features
+        if X.isna().any().any():
+            st.info("Missing values detected in metrics. They will be filled with column means.")
+            X = X.fillna(X.mean())
 
-            # Normalize/Scale the data
-            scaler = MinMaxScaler()
-            X_scaled = scaler.fit_transform(X)
+        # Normalize/Scale the data
+        scaler = MinMaxScaler()
+        X_scaled = scaler.fit_transform(X)
 
-            # Reduce dimensionality with PCA
-            pca = PCA(n_components=2)
-            pca_result = pca.fit_transform(X_scaled)
+        # Reduce dimensionality with PCA
+        pca = PCA(n_components=2)
+        pca_result = pca.fit_transform(X_scaled)
 
-            # Add PCA coordinates to player info
-            player_info['x'] = pca_result[:, 0]
-            player_info['y'] = pca_result[:, 1]
+        # Add PCA coordinates to player info
+        player_info['x'] = pca_result[:, 0]
+        player_info['y'] = pca_result[:, 1]
 
-            # Compute K-Means clustering
-            kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
-            cluster_labels = kmeans.fit_predict(X_scaled)
+        # Compute K-Means clustering
+        kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
+        cluster_labels = kmeans.fit_predict(X_scaled)
 
-            # Add cluster assignments to player info
-            player_info['cluster'] = cluster_labels
+        # Add cluster assignments to player info
+        player_info['cluster'] = cluster_labels
 
-            # Get variance explained by PCA
-            variance_explained = pca.explained_variance_ratio_.sum()
-            st.info(f"PCA with 2 components explains {variance_explained:.1%} of the variance in the data")
+        # Get variance explained by PCA
+        variance_explained = pca.explained_variance_ratio_.sum()
+        st.info(f"PCA with 2 components explains {variance_explained:.1%} of the variance in the data")
 
-            return player_info
+        return player_info
 
-        except Exception as e:
-            st.error(f"Error in K-Means clustering: {str(e)}")
-            return None
+    except Exception as e:
+        st.error(f"Error in K-Means clustering: {str(e)}")
+        return None
 
 
-    def compute_player_similarity(df, player, metrics, n=5, method='pca_kmeans'):
+def compute_player_similarity(df, player, metrics, n=5, method='pca_kmeans'):
         """
         Compute player similarity using PCA and K-Means clustering.
         This follows the methodology from the reference website.
