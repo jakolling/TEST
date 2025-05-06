@@ -443,19 +443,19 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
         ax.set_xticks([])
         ax.set_yticks([])
 
-        # Adicionar logo no centro do gráfico
+        # Adicionar logo do Vålerenga no centro do gráfico
         try:
             # Caminho para o logo do Vålerenga
-            logo_path = "assets/logo.png"
+            logo_path = "assets/valeranga_logo.png"
             
             # Debug - imprimir no console para verificar
-            print(f"Tentando carregar logo de: {logo_path}")
+            print(f"Tentando carregar logo no gráfico simples: {logo_path}")
             print(f"Arquivo existe: {os.path.exists(logo_path)}")
 
             # Verificar se o arquivo existe
             if os.path.exists(logo_path):
                 # Adicionar círculo branco de fundo primeiro 
-                circle_size = 0.08  # Tamanho do círculo de fundo
+                circle_size = 0.09  # Tamanho do círculo de fundo
                 circle_pos = [0.5 - circle_size/2, 0.5 - circle_size/2, circle_size, circle_size]
                 circle_ax = fig.add_axes(circle_pos, zorder=19)
                 circle = plt.Circle((0.5, 0.5), 0.5, facecolor='white', edgecolor='#CCCCCC', linewidth=0.5)
@@ -464,7 +464,7 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
 
                 # Criar uma nova figura de eixo para o logo (inset)
                 # O logo do Vålerenga é oval, então vamos ajustar para ficar bem dentro do círculo
-                logo_size = 0.06  # Tamanho do logo
+                logo_size = 0.07  # Tamanho do logo
                 logo_position = [0.5 - logo_size/2, 0.5 - logo_size/2, logo_size, logo_size]
                 logo_ax = fig.add_axes(logo_position, zorder=20)
 
@@ -477,12 +477,11 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
                 logo_ax.set_aspect('equal')
                 logo_ax.set_frame_on(False)
                 logo_ax.set_position(logo_position)
-                print("Logo carregado e posicionado com sucesso")
+                print("Logo do Vålerenga carregado com sucesso no gráfico simples")
             else:
                 print(f"Logo não encontrado em: {logo_path}")
         except Exception as logo_err:
             # Se houver problema ao adicionar o logo, mostrar mensagem detalhada
-            st.warning(f"Não foi possível adicionar o logo: {str(logo_err)}")
             print(f"Erro ao adicionar logo: {str(logo_err)}")
             import traceback
             print(traceback.format_exc())
@@ -686,46 +685,7 @@ def create_comparison_pizza_chart(params, values_p1, values_p2=None, values_avg=
             edgecolor='#CCCCCC'
         )
 
-        # Adicionar logo no centro do gráfico
-        try:
-            # Caminho para o logo do Vålerenga
-            logo_path = "assets/logo.png"
-            
-            # Debug - imprimir no console
-            print(f"Tentando carregar logo em comparison chart de: {logo_path}")
-            print(f"Arquivo existe: {os.path.exists(logo_path)}")
-
-            # Verificar se o arquivo existe
-            if os.path.exists(logo_path):
-                # Adicionar círculo branco de fundo primeiro
-                circle_size = 0.08
-                circle_pos = [0.5 - circle_size/2, 0.5 - circle_size/2, circle_size, circle_size]
-                circle_ax = fig.add_axes(circle_pos, zorder=19)
-                circle = plt.Circle((0.5, 0.5), 0.5, facecolor='white', edgecolor='#CCCCCC', linewidth=0.5)
-                circle_ax.add_patch(circle)
-                circle_ax.axis('off')
-
-                # Criar uma nova figura de eixo para o logo
-                logo_size = 0.06
-                logo_position = [0.5 - logo_size/2, 0.5 - logo_size/2, logo_size, logo_size]
-                logo_ax = fig.add_axes(logo_position, zorder=20)
-
-                # Carregar e mostrar o logo
-                logo_img = plt.imread(logo_path)
-                logo_ax.imshow(logo_img)
-                logo_ax.axis('off')
-
-                # Melhorar proporção do logo
-                logo_ax.set_aspect('equal')
-                logo_ax.set_frame_on(False)
-                logo_ax.set_position(logo_position)
-                print("Logo carregado e posicionado com sucesso no gráfico de comparação")
-            else:
-                print(f"Logo não encontrado em: {logo_path}")
-        except Exception as logo_err:
-            print(f"Erro ao adicionar logo no gráfico de comparação: {str(logo_err)}")
-            import traceback
-            print(traceback.format_exc())
+        # No gráfico de comparação não adicionamos logo
 
         # Adicionar créditos na parte inferior
         fig.text(
