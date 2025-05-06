@@ -1768,36 +1768,83 @@ if selected_leagues:
         if 6 <= len(sel) <= 15:
             # Dados do jogador 1 (sempre da base principal)
             d1 = df_minutes[df_minutes['Player']==p1].iloc[0]
-
+            
+            # Verificar modo de cálculo de percentis (global ou por liga)
+            combine_leagues = st.session_state.get('combine_leagues', True)
+            
+            # Identificar a liga do jogador 1
+            player1_league = d1['Data Origin']
+            
             # Dados do jogador 2 (pode ser do benchmark ou da base principal)
             if use_benchmark and p2 is not None:
                 # Obter dados do benchmark
                 d2 = filtered_benchmark[filtered_benchmark['Player']==p2].iloc[0]
+                
+                # Calcular percentis de acordo com a configuração
+                if combine_leagues:
+                    # Modo Global: usar todo o dataframe para cálculo de percentis
+                    p1pct = [calc_percentile(df_minutes[m], d1[m])*100 for m in sel]
+                    p2pct = [calc_percentile(filtered_benchmark[m], d2[m])*100 for m in sel]
+                    
+                    # Média global para comparação 
+                    gm = {m: filtered_benchmark[m].mean() for m in sel}
+                    gmpct = [calc_percentile(filtered_benchmark[m], gm[m])*100 for m in sel]
+                else:
+                    # Modo Por Liga: usar apenas jogadores da mesma liga para cálculo de percentis
+                    # Filtrar jogadores da mesma liga que o jogador 1
+                    same_league_players = df_minutes[df_minutes['Data Origin'] == player1_league]
+                    
+                    # Para jogador 1, calcular percentis dentro da sua própria liga
+                    p1pct = [calc_percentile(same_league_players[m], d1[m])*100 for m in sel]
+                    
+                    # Para jogador 2 (benchmark), calcular percentis dentro do benchmark
+                    p2pct = [calc_percentile(filtered_benchmark[m], d2[m])*100 for m in sel]
+                    
+                    # Média do benchmark para comparação
+                    gm = {m: filtered_benchmark[m].mean() for m in sel}
+                    gmpct = [calc_percentile(filtered_benchmark[m], gm[m])*100 for m in sel]
 
-                # Calcular percentis - o jogador 1 usa a base principal e o jogador 2 usa o benchmark
-                p1pct = [calc_percentile(df_minutes[m], d1[m])*100 for m in sel]
-
-                # Para o jogador 2, calcular os percentis em relação ao benchmark
-                p2pct = [calc_percentile(filtered_benchmark[m], d2[m])*100 for m in sel]
-
-                # A média do grupo é a média do benchmark para comparação consistente
-                gm = {m: filtered_benchmark[m].mean() for m in sel}
-                gmpct = [calc_percentile(filtered_benchmark[m], gm[m])*100 for m in sel]
-
-                # Texto especial para o subtítulo
+                # Texto especial para o subtítulo 
                 benchmark_text = f" | Benchmark: {st.session_state.benchmark_name}"
+                
+                # Adicionar informação sobre modo de cálculo de percentis
+                if not combine_leagues:
+                    benchmark_text += " | Percentiles: League-specific"
             else:
                 # Fluxo normal - ambos jogadores da base principal
                 d2 = df_minutes[df_minutes['Player']==p2].iloc[0]
-
-                p1pct = [calc_percentile(df_minutes[m], d1[m])*100 for m in sel]
-                p2pct = [calc_percentile(df_minutes[m], d2[m])*100 for m in sel]
-
-                # Group average da base principal
-                gm = {m: df_group[m].mean() for m in sel}
-                gmpct = [calc_percentile(df_minutes[m], gm[m])*100 for m in sel]
-
-                benchmark_text = ""
+                player2_league = d2['Data Origin']
+                
+                if combine_leagues:
+                    # Modo Global: usar todo o dataframe para cálculo de percentis
+                    p1pct = [calc_percentile(df_minutes[m], d1[m])*100 for m in sel]
+                    p2pct = [calc_percentile(df_minutes[m], d2[m])*100 for m in sel]
+                    
+                    # Média global para comparação
+                    gm = {m: df_group[m].mean() for m in sel}
+                    gmpct = [calc_percentile(df_minutes[m], gm[m])*100 for m in sel]
+                else:
+                    # Modo Por Liga: usar apenas jogadores da mesma liga para cálculo de percentis
+                    # Filtrar jogadores da mesma liga que o jogador 1
+                    same_league_players1 = df_minutes[df_minutes['Data Origin'] == player1_league]
+                    same_league_players2 = df_minutes[df_minutes['Data Origin'] == player2_league]
+                    
+                    # Para cada jogador, calcular percentis dentro da sua própria liga
+                    p1pct = [calc_percentile(same_league_players1[m], d1[m])*100 for m in sel]
+                    p2pct = [calc_percentile(same_league_players2[m], d2[m])*100 for m in sel]
+                    
+                    # Calcular média global (manter comportamento original)
+                    gm = {m: df_group[m].mean() for m in sel}
+                    
+                    if player1_league == player2_league:
+                        # Se ambos jogadores são da mesma liga, usar essa liga para gmpct
+                        gmpct = [calc_percentile(same_league_players1[m], gm[m])*100 for m in sel]
+                    else:
+                        # Se são de ligas diferentes, usar o dataset global para gmpct
+                        gmpct = [calc_percentile(df_minutes[m], gm[m])*100 for m in sel]
+                
+                # Adicionar informação sobre modo de cálculo de percentis no subtítulo
+                benchmark_text = "" if combine_leagues else " | Percentiles: League-specific"
 
             # Controle de visualização modificado para limitar a 2 elementos
             st.subheader("Display Options")
