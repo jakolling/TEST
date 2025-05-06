@@ -1359,74 +1359,74 @@ with st.expander("📘 User Guide & Instructions", expanded=False):
 # =============================================
 st.sidebar.header('Filters')
 with st.sidebar.expander("⚙️ Select Leagues", expanded=True):
-        selected_leagues = st.multiselect(
-            "Select leagues to analyze",
-            options=list(AVAILABLE_LEAGUES.keys()),
-            default=[list(AVAILABLE_LEAGUES.keys())[0]]
-        )
+    selected_leagues = st.multiselect(
+        "Select leagues to analyze",
+        options=list(AVAILABLE_LEAGUES.keys()),
+        default=[list(AVAILABLE_LEAGUES.keys())[0]]
+    )
 
-        # Separador visual
-        st.markdown("---")
+    # Separador visual
+    st.markdown("---")
 
-        # Opção para carregar benchmark
-        st.subheader("Benchmark Database")
-        benchmark_file = st.file_uploader(
-            "Upload benchmark Excel file (optional)",
-            type=["xlsx"],
-            help="Upload a separate database (e.g., Premier League) to use as a benchmark for comparison"
-        )
+    # Opção para carregar benchmark
+    st.subheader("Benchmark Database")
+    benchmark_file = st.file_uploader(
+        "Upload benchmark Excel file (optional)",
+        type=["xlsx"],
+        help="Upload a separate database (e.g., Premier League) to use as a benchmark for comparison"
+    )
 
-        # Inicializar variáveis de estado para o benchmark
-        if 'benchmark_loaded' not in st.session_state:
+    # Inicializar variáveis de estado para o benchmark
+    if 'benchmark_loaded' not in st.session_state:
+        st.session_state.benchmark_loaded = False
+        st.session_state.benchmark_df = None
+        st.session_state.benchmark_name = ""
+
+    # Se um arquivo de benchmark foi carregado
+    if benchmark_file:
+        benchmark_name = st.text_input("Benchmark name (e.g., 'Premier League')", 
+                                     key="benchmark_name_input",
+                                     value="Benchmark League")
+
+        if st.button("Load Benchmark"):
+            try:
+                with st.spinner("Loading benchmark data..."):
+                    # Carregar o arquivo de benchmark
+                    benchmark_df = pd.read_excel(benchmark_file)
+
+                    # Verificar e processar as colunas necessárias
+                    required_cols = ['Player', 'Team', 'Age', 'Position', 'Minutes played']
+                    if all(col in benchmark_df.columns for col in required_cols):
+                        # Processamento básico (o mesmo aplicado aos arquivos regulares)
+                        if 'Minutes per game' not in benchmark_df.columns and 'Matches played' in benchmark_df.columns:
+                            benchmark_df['Minutes per game'] = benchmark_df['Minutes played'] / benchmark_df['Matches played']
+
+                        # Limpeza básica
+                        benchmark_df = benchmark_df.fillna(0)
+
+                        # Calcular métricas ofensivas avançadas para o benchmark
+                        benchmark_df = calculate_offensive_metrics(benchmark_df)
+
+                        # Salvar no session_state
+                        st.session_state.benchmark_df = benchmark_df
+                        st.session_state.benchmark_loaded = True
+                        st.session_state.benchmark_name = benchmark_name
+
+                        st.success(f"Benchmark '{benchmark_name}' loaded successfully with {len(benchmark_df)} players!")
+                    else:
+                        missing = [col for col in required_cols if col not in benchmark_df.columns]
+                        st.error(f"Benchmark file is missing required columns: {', '.join(missing)}")
+            except Exception as e:
+                st.error(f"Error loading benchmark: {str(e)}")
+
+    # Status do benchmark
+    if st.session_state.benchmark_loaded:
+        st.info(f"Current benchmark: {st.session_state.benchmark_name} ({len(st.session_state.benchmark_df)} players)")
+        if st.button("Reset Benchmark"):
             st.session_state.benchmark_loaded = False
             st.session_state.benchmark_df = None
             st.session_state.benchmark_name = ""
-
-        # Se um arquivo de benchmark foi carregado
-        if benchmark_file:
-            benchmark_name = st.text_input("Benchmark name (e.g., 'Premier League')", 
-                                         key="benchmark_name_input",
-                                         value="Benchmark League")
-
-            if st.button("Load Benchmark"):
-                try:
-                    with st.spinner("Loading benchmark data..."):
-                        # Carregar o arquivo de benchmark
-                        benchmark_df = pd.read_excel(benchmark_file)
-
-                        # Verificar e processar as colunas necessárias
-                        required_cols = ['Player', 'Team', 'Age', 'Position', 'Minutes played']
-                        if all(col in benchmark_df.columns for col in required_cols):
-                            # Processamento básico (o mesmo aplicado aos arquivos regulares)
-                            if 'Minutes per game' not in benchmark_df.columns and 'Matches played' in benchmark_df.columns:
-                                benchmark_df['Minutes per game'] = benchmark_df['Minutes played'] / benchmark_df['Matches played']
-
-                            # Limpeza básica
-                            benchmark_df = benchmark_df.fillna(0)
-
-                            # Calcular métricas ofensivas avançadas para o benchmark
-                            benchmark_df = calculate_offensive_metrics(benchmark_df)
-
-                            # Salvar no session_state
-                            st.session_state.benchmark_df = benchmark_df
-                            st.session_state.benchmark_loaded = True
-                            st.session_state.benchmark_name = benchmark_name
-
-                            st.success(f"Benchmark '{benchmark_name}' loaded successfully with {len(benchmark_df)} players!")
-                        else:
-                            missing = [col for col in required_cols if col not in benchmark_df.columns]
-                            st.error(f"Benchmark file is missing required columns: {', '.join(missing)}")
-                except Exception as e:
-                    st.error(f"Error loading benchmark: {str(e)}")
-
-        # Status do benchmark
-        if st.session_state.benchmark_loaded:
-            st.info(f"Current benchmark: {st.session_state.benchmark_name} ({len(st.session_state.benchmark_df)} players)")
-            if st.button("Reset Benchmark"):
-                st.session_state.benchmark_loaded = False
-                st.session_state.benchmark_df = None
-                st.session_state.benchmark_name = ""
-                st.success("Benchmark has been reset")
+            st.success("Benchmark has been reset")
 
     st.sidebar.markdown("---")
     st.sidebar.subheader("Dataframe Filters")
