@@ -251,6 +251,27 @@ def get_context_info(df, minutes_range, mpg_range, age_range, sel_pos):
         'positions': ', '.join(sel_pos) if sel_pos else 'All'
     }
 
+def abbreviate_metric_name(metric):
+    """
+    Abreviar nomes de métricas para o gráfico de pizza
+    """
+    # Substituir palavras comuns por abreviações
+    shortened = metric
+    shortened = shortened.replace("Progressive", "Prog")
+    shortened = shortened.replace("Accurate", "Acc")
+    shortened = shortened.replace("Defensive", "Def")
+    shortened = shortened.replace("Attacking", "Att")
+    shortened = shortened.replace("per 90", "/90")
+    shortened = shortened.replace("Completion", "Comp")
+    shortened = shortened.replace("Completions", "Comp")
+    
+    # Se ainda for muito longo, tentar abreviar mais
+    if len(shortened) > 20:
+        # Remover palavras comuns que não mudam o significado da métrica
+        shortened = shortened.replace(" in ", " ")
+        
+    return shortened
+
 def fig_to_bytes(fig):
     """Convert matplotlib figure to bytes for download"""
     buf = BytesIO()
@@ -380,9 +401,12 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
             ax.plot(np.linspace(0, 2*np.pi, 100), [circle] * 100, 
                     color='#AAAAAA', linestyle='-', linewidth=0.8, zorder=1, alpha=0.7)
 
+        # Abreviar os rótulos dos parâmetros para melhor visualização
+        abbreviated_params = [abbreviate_metric_name(param) for param in params]
+        
         # Fazer o plot principal com grid melhorado e círculo interno de tamanho adequado
         baker = PyPizza(
-            params=params,                  # parâmetros
+            params=abbreviated_params,      # parâmetros abreviados
             min_range=min_values,           # valores mínimos
             max_range=max_values,           # valores máximos
             background_color=background_color,
@@ -572,9 +596,12 @@ def create_comparison_pizza_chart(params, values_p1, values_p2=None, values_avg=
         min_range = [0] * len(params)  # Começar de zero sempre
         max_range = [100] * len(params)  # Máximo é sempre 100 para percentis
 
+        # Abreviar os rótulos dos parâmetros para melhor visualização
+        abbreviated_params = [abbreviate_metric_name(param) for param in params]
+        
         # Instanciar o objeto PyPizza com círculo interno padrão, logo será menor
         baker = PyPizza(
-            params=params,
+            params=abbreviated_params,      # parâmetros abreviados
             min_range=min_range,
             max_range=max_range,
             background_color=background_color,
