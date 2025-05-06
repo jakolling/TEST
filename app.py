@@ -1326,39 +1326,39 @@ def compute_player_similarity(df, player, metrics, n=5, method='pca_kmeans'):
             st.error(f"Error computing similarity: {str(e)}")
             return []
 
-    # =============================================
-    # Main Application
-    # =============================================
+# =============================================
+# Main Application
+# =============================================
 
-    # Cabeçalho com logo
-    col1, col2, col3 = st.columns([1, 3, 1])
-    with col2:
-        # Instead of using an image file, let's use a title and emoji
-        st.title("⚽ Football Analytics")
+# Cabeçalho com logo
+col1, col2, col3 = st.columns([1, 3, 1])
+with col2:
+    # Instead of using an image file, let's use a title and emoji
+    st.title("⚽ Football Analytics")
 
-    st.header('Technical Scouting Department')
-    st.subheader('Football Analytics Dashboard')
-    st.caption("Created by João Alberto Kolling | Enhanced Player Analysis System v4.0")
+st.header('Technical Scouting Department')
+st.subheader('Football Analytics Dashboard')
+st.caption("Created by João Alberto Kolling | Enhanced Player Analysis System v4.0")
 
-    # Guia do Usuário
-    with st.expander("📘 User Guide & Instructions", expanded=False):
-        st.markdown("""
-        **⚠️ Requirements:**  
-        1. Data must contain columns: Player, Age, Position, Metrics, Team  
+# Guia do Usuário
+with st.expander("📘 User Guide & Instructions", expanded=False):
+    st.markdown("""
+    **⚠️ Requirements:**  
+    1. Data must contain columns: Player, Age, Position, Metrics, Team  
 
-        **Key Features:**  
-        - Player comparison with radar/barcharts  
-        - Metric correlation analysis  
-        - Advanced filtering system  
-        - Player similarity modeling  
-        - Professional 300 DPI exports  
-        """)
+    **Key Features:**  
+    - Player comparison with radar/barcharts  
+    - Metric correlation analysis  
+    - Advanced filtering system  
+    - Player similarity modeling  
+    - Professional 300 DPI exports  
+    """)
 
-    # =============================================
-    # Filtros da Barra Lateral
-    # =============================================
-    st.sidebar.header('Filters')
-    with st.sidebar.expander("⚙️ Select Leagues", expanded=True):
+# =============================================
+# Filtros da Barra Lateral
+# =============================================
+st.sidebar.header('Filters')
+with st.sidebar.expander("⚙️ Select Leagues", expanded=True):
         selected_leagues = st.multiselect(
             "Select leagues to analyze",
             options=list(AVAILABLE_LEAGUES.keys()),
