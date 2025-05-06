@@ -355,37 +355,8 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
         # Limitar o tamanho do gráfico (reduzir raio)
         ax.set_ylim(0, 0.9)  # Reduzir o raio máximo para 0.9 (ao invés de 1.0)
 
-        # Adicionar logo do Vålerenga ao centro do gráfico ANTES de criar a pizza
-        try:
-            # Vamos tentar uma abordagem bem diferente: adicionar o logo antes de criar a pizza
-            print(f"Tentando adicionar logo do Vålerenga ao gráfico pizza (ABORDAGEM NOVA)")
-            
-            # Carregar o arquivo de imagem do Vålerenga diretamente
-            logo_file = "attached_assets/Vålerenga_Oslo_logo.svg.png"
-            
-            if os.path.exists(logo_file):
-                # Desenhar um círculo branco no centro - BEM MENOR para não ocupar tanto espaço
-                center_circle = plt.Circle((0, 0), 0.08, facecolor='white', edgecolor='none', zorder=10)
-                ax.add_patch(center_circle)
-                
-                # Carregar logo
-                logo_img = plt.imread(logo_file)
-                
-                # Criar um novo axes no centro - Tamanho menor e mais centralizado
-                # Posição relativa à figura: [left, bottom, width, height]
-                logo_ax = fig.add_axes([0.46, 0.46, 0.08, 0.08], zorder=100)
-                
-                # Mostrar logo e remover eixos
-                logo_ax.imshow(logo_img)
-                logo_ax.axis('off')
-                
-                print(f"Logo adicionado com sucesso ANTES da pizza")
-            else:
-                print(f"Arquivo de logo não encontrado: {logo_file}")
-        except Exception as e:
-            print(f"Erro ao adicionar logo: {str(e)}")
-            import traceback
-            print(traceback.format_exc())
+        # Removemos a adição do logo ANTES de criar a pizza
+        # O logo será adicionado DEPOIS do plot do gráfico para não ficar sobreposto
 
         # Criar pizza para jogador 1 (principal)
         values = values_p1
@@ -502,7 +473,36 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
         ax.set_xticks([])
         ax.set_yticks([])
 
-        # O logo já foi adicionado ANTES de criar a pizza, não precisamos adicionar de novo
+        # Adicionar logo do Vålerenga ao centro do gráfico APÓS criar a pizza
+        try:
+            print(f"Tentando adicionar logo do Vålerenga ao gráfico pizza (DEPOIS DO PLOT)")
+            
+            # Carregar o arquivo de imagem do Vålerenga diretamente
+            logo_file = "attached_assets/Vålerenga_Oslo_logo.svg.png"
+            
+            if os.path.exists(logo_file):
+                # Desenhar um círculo branco no centro para servir de fundo para o logo
+                center_circle = plt.Circle((0, 0), 0.08, facecolor='white', edgecolor='none', zorder=20)
+                ax.add_patch(center_circle)
+                
+                # Carregar logo
+                logo_img = plt.imread(logo_file)
+                
+                # Criar um novo axes no centro com tamanho apropriado
+                # Posição relativa à figura: [left, bottom, width, height]
+                logo_ax = fig.add_axes([0.46, 0.46, 0.08, 0.08], zorder=30)
+                
+                # Mostrar logo e remover eixos
+                logo_ax.imshow(logo_img)
+                logo_ax.axis('off')
+                
+                print(f"Logo adicionado com sucesso DEPOIS da pizza")
+            else:
+                print(f"Arquivo de logo não encontrado: {logo_file}")
+        except Exception as e:
+            print(f"Erro ao adicionar logo: {str(e)}")
+            import traceback
+            print(traceback.format_exc())
 
         # Adicionar legenda se necessário
         if values_p2 is not None or values_avg is not None:
