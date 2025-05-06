@@ -1626,6 +1626,10 @@ if selected_leagues:
 
         # Predefined metric groups for pizza charts
         pizza_metric_groups = {
+            "Overall": ['Progressive runs per 90', 'Progressive passes per 90', 'Deep completions per 90', 'Key passes per 90', 
+                        'Accurate passes, %', 'Accurate crosses, %', 'xA per 90', 'Defensive duels won, %', 
+                        'Aerial duels won, %', 'PAdj Interceptions', 'PAdj Sliding tackles', 'npxG per 90', 
+                        'npxG per Shot', 'Goal conversion, %', 'Shots on target, %'],
             "Offensive": ['Goals per 90', 'Shots per 90', 'xG per 90', 'npxG', 'G-xG', 'npxG per Shot', 'Box Efficiency', 'Shots on target per 90', 'Successful dribbles per 90', 'Progressive runs per 90'],
             "Passing": ['Passes per 90', 'Accurate passes, %', 'Forward passes per 90', 'Progressive passes per 90', 'Key passes per 90', 'Assists per 90', 'xA per 90'],
             "Defensive": ['Interceptions per 90', 'Tackles per 90', 'Defensive duels per 90', 'Aerial duels won per 90', 'Recoveries per 90'],
@@ -2165,6 +2169,10 @@ if selected_leagues:
 
             # Predefined metric groups for easy selection - always using per 90 metrics
             metric_groups = {
+                "Overall": ['Progressive runs per 90', 'Progressive passes per 90', 'Deep completions per 90', 'Key passes per 90', 
+                          'Accurate passes, %', 'Accurate crosses, %', 'xA per 90', 'Defensive duels won, %', 
+                          'Aerial duels won, %', 'PAdj Interceptions', 'PAdj Sliding tackles', 'npxG per 90', 
+                          'npxG per Shot', 'Goal conversion, %', 'Shots on target, %'],
                 "Offensive": ['Goals per 90', 'Shots per 90', 'xG per 90', 'npxG', 'G-xG', 'npxG per Shot', 'Box Efficiency', 'Shots on target per 90', 'Successful dribbles per 90', 'Progressive runs per 90'],
                 "Passing": ['Passes per 90', 'Accurate passes, %', 'Forward passes per 90', 'Progressive passes per 90', 'Key passes per 90', 'Assists per 90', 'xA per 90'],
                 "Defensive": ['Interceptions per 90', 'Tackles per 90', 'Defensive duels per 90', 'Aerial duels won per 90', 'Recoveries per 90'],
@@ -3044,6 +3052,10 @@ if selected_leagues:
             with col2:
                 # Definir presets de métricas para o profiler
                 profiler_metric_groups = {
+                    "Overall": ['Progressive runs per 90', 'Progressive passes per 90', 'Deep completions per 90', 'Key passes per 90', 
+                              'Accurate passes, %', 'Accurate crosses, %', 'xA per 90', 'Defensive duels won, %', 
+                              'Aerial duels won, %', 'PAdj Interceptions', 'PAdj Sliding tackles', 'npxG per 90', 
+                              'npxG per Shot', 'Goal conversion, %', 'Shots on target, %'],
                     "Offensive": ['Goals per 90', 'Shots per 90', 'xG per 90', 'npxG', 'G-xG', 'npxG per Shot', 'Shots on target per 90', 'Box Efficiency'],
                     "Passing": ['Passes per 90', 'Accurate passes, %', 'Forward passes per 90', 'Progressive passes per 90', 'Key passes per 90'],
                     "Defensive": ['Interceptions per 90', 'Tackles per 90', 'Defensive duels per 90', 'Aerial duels won per 90'],
