@@ -357,7 +357,7 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
             other_circle_color="#FFFFFF",   # linhas circulares brancas
             other_circle_lw=1.5,            # largura das linhas circulares
             other_circle_ls="-",            # linhas sólidas para círculos
-            inner_circle_size=15            # círculo interno menor
+            inner_circle_size=20            # círculo interno maior para dar espaço ao logo
         )
 
         # Criar a pizza para o jogador 1
@@ -448,25 +448,28 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
             # Caminho para o logo do Vålerenga
             logo_path = "assets/valeranga_logo.png"
             
+            # Imprimir detalhes do eixo para depuração
+            print(f"Figura retangular: {plt.gcf().get_size_inches()}")
+            print(f"Inner circle size: {baker.inner_circle_size}")
+            
             # Debug - imprimir no console para verificar
             print(f"Tentando carregar logo no gráfico simples: {logo_path}")
             print(f"Arquivo existe: {os.path.exists(logo_path)}")
 
             # Verificar se o arquivo existe
             if os.path.exists(logo_path):
-                # Adicionar círculo branco de fundo primeiro 
-                circle_size = 0.09  # Tamanho do círculo de fundo
-                circle_pos = [0.5 - circle_size/2, 0.5 - circle_size/2, circle_size, circle_size]
-                circle_ax = fig.add_axes(circle_pos, zorder=19)
-                circle = plt.Circle((0.5, 0.5), 0.5, facecolor='white', edgecolor='#CCCCCC', linewidth=0.5)
-                circle_ax.add_patch(circle)
-                circle_ax.axis('off')
-
-                # Criar uma nova figura de eixo para o logo (inset)
-                # O logo do Vålerenga é oval, então vamos ajustar para ficar bem dentro do círculo
-                logo_size = 0.07  # Tamanho do logo
+                # Não adicionamos círculo branco extra, pois usaremos o círculo interno já existente
+                
+                # Calcular tamanho do círculo interno da pizza para acomodar o logo
+                # Vamos usar o tamanho exato do círculo interno
+                inner_size = baker.inner_circle_size / 100.0  # O valor é em porcentagem
+                print(f"Tamanho do círculo interno da pizza: {inner_size}")
+                
+                # Criar uma nova figura de eixo para o logo que se encaixe exatamente no círculo interno
+                # O logo do Vålerenga é oval, então o ajustamos para ficar bem dentro do círculo
+                logo_size = inner_size * 0.8  # Ligeiramente menor que o círculo interno para ter margem
                 logo_position = [0.5 - logo_size/2, 0.5 - logo_size/2, logo_size, logo_size]
-                logo_ax = fig.add_axes(logo_position, zorder=20)
+                logo_ax = fig.add_axes(logo_position, zorder=1000)  # zorder alto para ficar acima de tudo
 
                 # Carregar e mostrar o logo
                 logo_img = plt.imread(logo_path)
