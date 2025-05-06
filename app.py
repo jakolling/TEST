@@ -1370,55 +1370,133 @@ with st.sidebar.expander("⚙️ Select Leagues", expanded=True):
 
     # Opção para carregar benchmark
     st.sidebar.subheader("Benchmark Database")
-    benchmark_file = st.sidebar.file_uploader(
-        "Upload benchmark Excel file (optional)",
-        type=["xlsx"],
-        help="Upload a separate database (e.g., Premier League) to use as a benchmark for comparison"
-    )
-
+    
     # Inicializar variáveis de estado para o benchmark
     if 'benchmark_loaded' not in st.session_state:
         st.session_state.benchmark_loaded = False
         st.session_state.benchmark_df = None
         st.session_state.benchmark_name = ""
-
-    # Se um arquivo de benchmark foi carregado
-    if benchmark_file:
-        benchmark_name = st.sidebar.text_input("Benchmark name (e.g., 'Premier League')", 
-                                     key="benchmark_name_input",
-                                     value="Benchmark League")
-
-        if st.sidebar.button("Load Benchmark"):
-            try:
-                with st.spinner("Loading benchmark data..."):
-                    # Carregar o arquivo de benchmark
-                    benchmark_df = pd.read_excel(benchmark_file)
-
-                    # Verificar e processar as colunas necessárias
-                    required_cols = ['Player', 'Team', 'Age', 'Position', 'Minutes played']
-                    if all(col in benchmark_df.columns for col in required_cols):
-                        # Processamento básico (o mesmo aplicado aos arquivos regulares)
-                        if 'Minutes per game' not in benchmark_df.columns and 'Matches played' in benchmark_df.columns:
-                            benchmark_df['Minutes per game'] = benchmark_df['Minutes played'] / benchmark_df['Matches played']
-
-                        # Limpeza básica
-                        benchmark_df = benchmark_df.fillna(0)
-
-                        # Calcular métricas ofensivas avançadas para o benchmark
-                        benchmark_df = calculate_offensive_metrics(benchmark_df)
-
-                        # Salvar no session_state
-                        st.session_state.benchmark_df = benchmark_df
-                        st.session_state.benchmark_loaded = True
-                        st.session_state.benchmark_name = benchmark_name
-
-                        st.sidebar.success(f"Benchmark '{benchmark_name}' loaded successfully with {len(benchmark_df)} players!")
-                    else:
-                        missing = [col for col in required_cols if col not in benchmark_df.columns]
-                        st.sidebar.error(f"Benchmark file is missing required columns: {', '.join(missing)}")
-            except Exception as e:
-                st.sidebar.error(f"Error loading benchmark: {str(e)}")
-
+    
+    # Abas para carregar benchmark de diferentes fontes
+    benchmark_source = st.sidebar.radio(
+        "Benchmark Source:",
+        ["From GitHub", "Upload File"],
+        help="Choose where to load the benchmark data from"
+    )
+    
+    if benchmark_source == "From GitHub":
+        # Opção similar ao carregamento principal
+        # Evitar escolher ligas que já estão na seleção principal
+        current_main_leagues = selected_leagues if selected_leagues else []
+        
+        # Filtrar ligas disponíveis para não duplicar com as já selecionadas
+        available_benchmark_leagues = [league for league in AVAILABLE_LEAGUES.keys() 
+                                     if league not in current_main_leagues]
+        
+        if available_benchmark_leagues:
+            benchmark_leagues = st.sidebar.multiselect(
+                "Select benchmark league(s)",
+                options=available_benchmark_leagues,
+                help="Select one or more leagues to use as benchmark"
+            )
+            
+            if st.sidebar.button("Load GitHub Benchmark"):
+                try:
+                    with st.spinner("Loading benchmark data..."):
+                        benchmark_dfs = []
+                        
+                        for league_name in benchmark_leagues:
+                            try:
+                                file_path = AVAILABLE_LEAGUES[league_name]
+                                df = pd.read_excel(file_path)
+                                df.dropna(how="all", inplace=True)
+                                df = df.loc[:, df.columns.notnull()]
+                                df.columns = [str(c).strip() for c in df.columns]
+                                df['Data Origin'] = league_name
+                                df['Season'] = "2023/2024"
+                                benchmark_dfs.append(df)
+                            except Exception as e:
+                                st.sidebar.error(f"Error loading {league_name}: {str(e)}")
+                        
+                        if benchmark_dfs:
+                            # Combinar os dataframes se houver mais de um
+                            benchmark_df = pd.concat(benchmark_dfs, ignore_index=True)
+                            
+                            # Verificar e processar as colunas necessárias
+                            required_cols = ['Player', 'Team', 'Age', 'Position', 'Minutes played']
+                            if all(col in benchmark_df.columns for col in required_cols):
+                                # Processamento básico
+                                if 'Minutes per game' not in benchmark_df.columns and 'Matches played' in benchmark_df.columns:
+                                    benchmark_df['Minutes per game'] = benchmark_df['Minutes played'] / benchmark_df['Matches played']
+                                
+                                # Limpeza básica
+                                benchmark_df = benchmark_df.fillna(0)
+                                
+                                # Calcular métricas ofensivas avançadas para o benchmark
+                                benchmark_df = calculate_offensive_metrics(benchmark_df)
+                                
+                                # Guardar no session_state
+                                st.session_state.benchmark_df = benchmark_df
+                                st.session_state.benchmark_loaded = True
+                                # Nome do benchmark combinado
+                                benchmark_name = " & ".join(benchmark_leagues)
+                                st.session_state.benchmark_name = benchmark_name
+                                
+                                st.sidebar.success(f"Benchmark '{benchmark_name}' loaded successfully with {len(benchmark_df)} players!")
+                            else:
+                                missing = [col for col in required_cols if col not in benchmark_df.columns]
+                                st.sidebar.error(f"Benchmark file is missing required columns: {', '.join(missing)}")
+                        else:
+                            st.sidebar.error("No benchmark data was loaded. Please select at least one league.")
+                except Exception as e:
+                    st.sidebar.error(f"Error loading benchmark: {str(e)}")
+        else:
+            st.sidebar.warning("All available leagues are already selected as main data. Please deselect some leagues from main data to use them as benchmark.")
+    
+    else:  # Upload File option
+        benchmark_file = st.sidebar.file_uploader(
+            "Upload benchmark Excel file",
+            type=["xlsx"],
+            help="Upload a separate database (e.g., Premier League) to use as a benchmark for comparison"
+        )
+        
+        # Se um arquivo de benchmark foi carregado
+        if benchmark_file:
+            benchmark_name = st.sidebar.text_input("Benchmark name (e.g., 'Premier League')", 
+                                         key="benchmark_name_input",
+                                         value="Benchmark League")
+            
+            if st.sidebar.button("Load File Benchmark"):
+                try:
+                    with st.spinner("Loading benchmark data..."):
+                        # Carregar o arquivo de benchmark
+                        benchmark_df = pd.read_excel(benchmark_file)
+                        
+                        # Verificar e processar as colunas necessárias
+                        required_cols = ['Player', 'Team', 'Age', 'Position', 'Minutes played']
+                        if all(col in benchmark_df.columns for col in required_cols):
+                            # Processamento básico (o mesmo aplicado aos arquivos regulares)
+                            if 'Minutes per game' not in benchmark_df.columns and 'Matches played' in benchmark_df.columns:
+                                benchmark_df['Minutes per game'] = benchmark_df['Minutes played'] / benchmark_df['Matches played']
+                            
+                            # Limpeza básica
+                            benchmark_df = benchmark_df.fillna(0)
+                            
+                            # Calcular métricas ofensivas avançadas para o benchmark
+                            benchmark_df = calculate_offensive_metrics(benchmark_df)
+                            
+                            # Guardar no session_state
+                            st.session_state.benchmark_df = benchmark_df
+                            st.session_state.benchmark_loaded = True
+                            st.session_state.benchmark_name = benchmark_name
+                            
+                            st.sidebar.success(f"Benchmark '{benchmark_name}' loaded successfully with {len(benchmark_df)} players!")
+                        else:
+                            missing = [col for col in required_cols if col not in benchmark_df.columns]
+                            st.sidebar.error(f"Benchmark file is missing required columns: {', '.join(missing)}")
+                except Exception as e:
+                    st.sidebar.error(f"Error loading benchmark: {str(e)}")
+    
     # Status do benchmark
     if st.session_state.benchmark_loaded:
         st.sidebar.info(f"Current benchmark: {st.session_state.benchmark_name} ({len(st.session_state.benchmark_df)} players)")
