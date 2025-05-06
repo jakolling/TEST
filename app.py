@@ -34,6 +34,35 @@ plt.rcParams['font.family'] = 'sans-serif'
 # =============================================
 # Helper Functions
 # =============================================
+# Dados das ligas disponíveis
+AVAILABLE_LEAGUES = {
+    "Austria 2.Liga": "attached_assets/Austria 2.Liga - WySC (1).xlsx",
+    "Austria Bundesliga": "attached_assets/Austria Bundesliga WySC.xlsx",
+    "Czech Chance Liga": "attached_assets/Czech Chance Liga WySC.xlsx",
+    "Netherlands Keuken Kampionen": "attached_assets/NED Keuken Kampionen.xlsx"
+}
+
+def load_league_data(selected_leagues):
+    """Carrega dados das ligas selecionadas"""
+    dfs = []
+    for league_name in selected_leagues:
+        try:
+            file_path = AVAILABLE_LEAGUES[league_name]
+            df = pd.read_excel(file_path)
+            df.dropna(how="all", inplace=True)
+            df = df.loc[:, df.columns.notnull()]
+            df.columns = [str(c).strip() for c in df.columns]
+            df['Data Origin'] = league_name
+            df['Season'] = "2023/2024"  # Você pode ajustar isso conforme necessário
+            dfs.append(df)
+        except Exception as e:
+            st.error(f"Erro ao carregar {league_name}: {str(e)}")
+    
+    if dfs:
+        combined_df = pd.concat(dfs, ignore_index=True)
+        return calculate_offensive_metrics(combined_df)
+    return pd.DataFrame()
+
 # Inicializar o session_state para manter os dados entre recargas
 if 'file_metadata' not in st.session_state:
     st.session_state.file_metadata = {}
@@ -1297,11 +1326,11 @@ with st.expander("📘 User Guide & Instructions", expanded=False):
 # Filtros da Barra Lateral
 # =============================================
 st.sidebar.header('Filters')
-with st.sidebar.expander("⚙️ Upload Data Files", expanded=True):
-    uploaded_files = st.file_uploader(
-        "Upload up to 15 Wyscout Excel files", 
-        type=["xlsx"], 
-        accept_multiple_files=True
+with st.sidebar.expander("⚙️ Select Leagues", expanded=True):
+    selected_leagues = st.multiselect(
+        "Select leagues to analyze",
+        options=list(AVAILABLE_LEAGUES.keys()),
+        default=[list(AVAILABLE_LEAGUES.keys())[0]]
     )
     
     # Separador visual
@@ -1370,33 +1399,9 @@ with st.sidebar.expander("⚙️ Upload Data Files", expanded=True):
 st.sidebar.markdown("---")
 st.sidebar.subheader("Dataframe Filters")
 
-if uploaded_files:
-    # Coleta de Metadados
-    new_files = [f for f in uploaded_files if f.name not in st.session_state.file_metadata]
-    
-    for file in new_files:
-        with st.form(key=f'metadata_{file.name}'):
-            st.subheader(f"Metadata for: {file.name}")
-            label = st.text_input("Data origin label (e.g., Bundesliga 2)", key=f"label_{file.name}")
-            
-            seasons = [f"{y}/{y+1}" for y in range(2020, 2026)] + [str(y) for y in range(2020, 2026)]
-            season = st.selectbox("Season", seasons, key=f"season_{file.name}")
-            
-            if st.form_submit_button("Confirm"):
-                st.session_state.file_metadata[file.name] = {'label': label, 'season': season}
-                st.rerun()
-
-    if missing_metadata := [f.name for f in uploaded_files if f.name not in st.session_state.file_metadata]:
-        st.warning("Please provide metadata for all uploaded files")
-        st.stop()
-
+if selected_leagues:
     try:
-        df = safe_operation(
-            load_and_clean, 
-            "Error loading and processing files",
-            pd.DataFrame(),
-            uploaded_files
-        )
+        df = load_league_data(selected_leagues)
         
         if df.empty:
             st.error("Failed to load data from uploaded files or no data available.")
