@@ -677,7 +677,38 @@ def create_comparison_pizza_chart(params, values_p1, values_p2=None, values_avg=
             edgecolor='#CCCCCC'
         )
         
-        # Logo foi removido do centro do gráfico de comparação conforme solicitado
+        # Adicionar logo no centro do gráfico
+            try:
+                # Caminho para o logo
+                logo_path = "vif_logo.png.jpg"
+                
+                # Verificar se o arquivo existe
+                if os.path.exists(logo_path):
+                    # Adicionar círculo branco de fundo primeiro
+                    circle_size = 0.075
+                    circle_pos = [0.5 - circle_size/2, 0.5 - circle_size/2, circle_size, circle_size]
+                    circle_ax = fig.add_axes(circle_pos, zorder=19)
+                    circle = plt.Circle((0.5, 0.5), 0.5, facecolor='white', edgecolor='#CCCCCC', linewidth=0.5)
+                    circle_ax.add_patch(circle)
+                    circle_ax.axis('off')
+                    
+                    # Criar uma nova figura de eixo para o logo
+                    logo_size = 0.06
+                    logo_position = [0.5 - logo_size/2, 0.5 - logo_size/2, logo_size, logo_size]
+                    logo_ax = fig.add_axes(logo_position, zorder=20)
+                    
+                    # Carregar e mostrar o logo
+                    logo_img = plt.imread(logo_path)
+                    logo_ax.imshow(logo_img)
+                    logo_ax.axis('off')
+                    
+                    # Melhorar proporção do logo
+                    logo_ax.set_aspect('equal')
+                    logo_ax.set_frame_on(False)
+                    logo_ax.set_position(logo_position)
+            except Exception as logo_err:
+                print(f"Erro ao adicionar logo: {str(logo_err)}")
+                pass
         
         # Adicionar créditos na parte inferior
         fig.text(
