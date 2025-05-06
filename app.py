@@ -882,134 +882,134 @@ def create_scatter_plot(df, x_metric, y_metric, title=None):
 
     return fig
 
-    def create_similarity_viz(selected_player, similar_players, metrics, df, method='pca_kmeans'):
-        """
-        Create player similarity visualization based on the model from the reference website.
-        Includes PCA visualization and radar charts in a single visualization.
+def create_similarity_viz(selected_player, similar_players, metrics, df, method='pca_kmeans'):
+    """
+    Create player similarity visualization based on the model from the reference website.
+    Includes PCA visualization and radar charts in a single visualization.
 
-        Args:
-            selected_player: Name of the reference player
-            similar_players: List of tuples (player_name, similarity_score)
-            metrics: List of metrics used for similarity calculation
-            df: DataFrame containing player data
-            method: Similarity method used ('pca_kmeans', 'cosine', or 'euclidean')
+    Args:
+        selected_player: Name of the reference player
+        similar_players: List of tuples (player_name, similarity_score)
+        metrics: List of metrics used for similarity calculation
+        df: DataFrame containing player data
+        method: Similarity method used ('pca_kmeans', 'cosine', or 'euclidean')
 
-        Returns:
-            matplotlib figure object
-        """
-        # Check if we have any similar players
-        if not similar_players:
-            # Create a simple figure with just a message
-            fig, ax = plt.subplots(figsize=(10, 6))
-            ax.text(0.5, 0.5, f"No similar players found for {selected_player} based on the selected metrics.",
-                   ha='center', va='center', fontsize=14)
-            ax.axis('off')
-            return fig
+    Returns:
+        matplotlib figure object
+    """
+    # Check if we have any similar players
+    if not similar_players:
+        # Create a simple figure with just a message
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.text(0.5, 0.5, f"No similar players found for {selected_player} based on the selected metrics.",
+               ha='center', va='center', fontsize=14)
+        ax.axis('off')
+        return fig
 
-        try:
-            # Definir cores consistentes com o resto da aplicação
-            player1_color = "#1A78CF"      # Azul real para jogador principal
-            player2_color = "#E41A1C"      # Vermelho para jogador similar
-            cluster_colors = [
-                "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
-                "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"
-            ]  # Cores para clusters
+    try:
+        # Definir cores consistentes com o resto da aplicação
+        player1_color = "#1A78CF"      # Azul real para jogador principal
+        player2_color = "#E41A1C"      # Vermelho para jogador similar
+        cluster_colors = [
+            "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
+            "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"
+        ]  # Cores para clusters
 
-            # Criar figura principal
-            fig = plt.figure(figsize=(15, 9))
+        # Criar figura principal
+        fig = plt.figure(figsize=(15, 9))
 
-            # Título principal
-            fig.suptitle(f"Player Similarity Analysis: {selected_player}", fontsize=18, y=0.98)
-            plt.figtext(0.5, 0.95, f"Based on {len(metrics)} metrics including: {', '.join(metrics[:5])}{'...' if len(metrics) > 5 else ''}", 
-                       ha='center', fontsize=10, fontstyle='italic')
+        # Título principal
+        fig.suptitle(f"Player Similarity Analysis: {selected_player}", fontsize=18, y=0.98)
+        plt.figtext(0.5, 0.95, f"Based on {len(metrics)} metrics including: {', '.join(metrics[:5])}{'...' if len(metrics) > 5 else ''}", 
+                   ha='center', fontsize=10, fontstyle='italic')
 
-            # Create grid layout for subplots
-            gs = fig.add_gridspec(3, 6, height_ratios=[2, 2, 1])
+        # Create grid layout for subplots
+        gs = fig.add_gridspec(3, 6, height_ratios=[2, 2, 1])
 
-            # Se estivermos usando o método PCA+K-Means, mostrar a visualização PCA
-            if method == 'pca_kmeans':
-                # Criar o dataframe PCA
-                pca_df = create_pca_kmeans_df(df, metrics)
+        # Se estivermos usando o método PCA+K-Means, mostrar a visualização PCA
+        if method == 'pca_kmeans':
+            # Criar o dataframe PCA
+            pca_df = create_pca_kmeans_df(df, metrics)
 
-                if pca_df is not None:
-                    # Grid para o plot PCA
-                    ax_pca = fig.add_subplot(gs[0:2, 0:3])
+            if pca_df is not None:
+                # Grid para o plot PCA
+                ax_pca = fig.add_subplot(gs[0:2, 0:3])
 
-                    # Plotar todos os jogadores em cores baseadas no cluster
-                    for cluster_id in pca_df['cluster'].unique():
-                        cluster_data = pca_df[pca_df['cluster'] == cluster_id]
-                        ax_pca.scatter(
-                            cluster_data['x'], cluster_data['y'],
-                            alpha=0.5, s=50, 
-                            c=cluster_colors[int(cluster_id) % len(cluster_colors)],
-                            label=f'Cluster {cluster_id+1}'
-                        )
-
-                    # Destacar o jogador principal
-                    player_point = pca_df[pca_df['Player'] == selected_player]
+                # Plotar todos os jogadores em cores baseadas no cluster
+                for cluster_id in pca_df['cluster'].unique():
+                    cluster_data = pca_df[pca_df['cluster'] == cluster_id]
                     ax_pca.scatter(
-                        player_point['x'], player_point['y'],
-                        s=150, c=player1_color, marker='*', 
-                        edgecolor='black', linewidth=1.5,
-                        label=selected_player
+                        cluster_data['x'], cluster_data['y'],
+                        alpha=0.5, s=50, 
+                        c=cluster_colors[int(cluster_id) % len(cluster_colors)],
+                        label=f'Cluster {cluster_id+1}'
                     )
 
-                    # Destacar jogadores similares
-                    similar_players_list = [p[0] for p in similar_players]
-                    similar_points = pca_df[pca_df['Player'].isin(similar_players_list)]
-                    ax_pca.scatter(
-                        similar_points['x'], similar_points['y'],
-                        s=100, c=player2_color, marker='o',
-                        edgecolor='black', linewidth=1,
-                        label='Similar Players'
-                    )
+                # Destacar o jogador principal
+                player_point = pca_df[pca_df['Player'] == selected_player]
+                ax_pca.scatter(
+                    player_point['x'], player_point['y'],
+                    s=150, c=player1_color, marker='*', 
+                    edgecolor='black', linewidth=1.5,
+                    label=selected_player
+                )
 
-                    # Adicionar textos para o jogador selecionado e similares
-                    for _, row in player_point.iterrows():
-                        ax_pca.annotate(
-                            row['Player'], 
-                            (row['x'], row['y']),
-                            xytext=(5, 5),
-                            textcoords='offset points',
-                            fontsize=12, fontweight='bold',
-                            color=player1_color,
-                            bbox=dict(
-                                facecolor='white', alpha=0.8,
-                                edgecolor=player1_color, boxstyle="round,pad=0.2"
-                            )
+                # Destacar jogadores similares
+                similar_players_list = [p[0] for p in similar_players]
+                similar_points = pca_df[pca_df['Player'].isin(similar_players_list)]
+                ax_pca.scatter(
+                    similar_points['x'], similar_points['y'],
+                    s=100, c=player2_color, marker='o',
+                    edgecolor='black', linewidth=1,
+                    label='Similar Players'
+                )
+
+                # Adicionar textos para o jogador selecionado e similares
+                for _, row in player_point.iterrows():
+                    ax_pca.annotate(
+                        row['Player'], 
+                        (row['x'], row['y']),
+                        xytext=(5, 5),
+                        textcoords='offset points',
+                        fontsize=12, fontweight='bold',
+                        color=player1_color,
+                        bbox=dict(
+                            facecolor='white', alpha=0.8,
+                            edgecolor=player1_color, boxstyle="round,pad=0.2"
                         )
+                    )
 
-                    for _, row in similar_points.iterrows():
-                        ax_pca.annotate(
-                            row['Player'], 
-                            (row['x'], row['y']),
-                            xytext=(5, 5),
-                            textcoords='offset points',
-                            fontsize=10,
-                            color=player2_color,
-                            bbox=dict(
-                                facecolor='white', alpha=0.8,
-                                edgecolor=player2_color, boxstyle="round,pad=0.2"
-                            )
+                for _, row in similar_points.iterrows():
+                    ax_pca.annotate(
+                        row['Player'], 
+                        (row['x'], row['y']),
+                        xytext=(5, 5),
+                        textcoords='offset points',
+                        fontsize=10,
+                        color=player2_color,
+                        bbox=dict(
+                            facecolor='white', alpha=0.8,
+                            edgecolor=player2_color, boxstyle="round,pad=0.2"
                         )
-
-                    # Configurações do plot PCA
-                    ax_pca.set_title('Player Similarity - PCA Visualization', fontsize=14)
-                    ax_pca.set_xlabel('Principal Component 1', fontsize=10)
-                    ax_pca.set_ylabel('Principal Component 2', fontsize=10)
-                    ax_pca.legend(loc='upper right', fontsize=8)
-                    ax_pca.grid(alpha=0.3)
-
-                    # Adicionar uma explicação sobre PCA
-                    explanation_text = (
-                        "Principal Component Analysis (PCA) reduces multiple metrics to two dimensions, "
-                        "allowing visualization of player similarity. Players closer together have more similar styles."
                     )
-                    ax_pca.text(
-                        0.5, -0.08, explanation_text, 
-                        transform=ax_pca.transAxes, fontsize=8, ha='center', va='center',
-                        bbox=dict(facecolor='white', alpha=0.8, boxstyle="round,pad=0.3")
-                    )
+
+                # Configurações do plot PCA
+                ax_pca.set_title('Player Similarity - PCA Visualization', fontsize=14)
+                ax_pca.set_xlabel('Principal Component 1', fontsize=10)
+                ax_pca.set_ylabel('Principal Component 2', fontsize=10)
+                ax_pca.legend(loc='upper right', fontsize=8)
+                ax_pca.grid(alpha=0.3)
+
+                # Adicionar uma explicação sobre PCA
+                explanation_text = (
+                    "Principal Component Analysis (PCA) reduces multiple metrics to two dimensions, "
+                    "allowing visualization of player similarity. Players closer together have more similar styles."
+                )
+                ax_pca.text(
+                    0.5, -0.08, explanation_text, 
+                    transform=ax_pca.transAxes, fontsize=8, ha='center', va='center',
+                    bbox=dict(facecolor='white', alpha=0.8, boxstyle="round,pad=0.3")
+                )
 
             # Top similar players table
             ax_table = fig.add_subplot(gs[0:2, 3:6])
