@@ -334,6 +334,38 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
         # Limitar o tamanho do gráfico (reduzir raio)
         ax.set_ylim(0, 0.9)  # Reduzir o raio máximo para 0.9 (ao invés de 1.0)
 
+        # Adicionar logo do Vålerenga ao centro do gráfico ANTES de criar a pizza
+        try:
+            # Vamos tentar uma abordagem bem diferente: adicionar o logo antes de criar a pizza
+            print(f"Tentando adicionar logo do Vålerenga ao gráfico pizza (ABORDAGEM NOVA)")
+            
+            # Carregar o arquivo de imagem do Vålerenga diretamente
+            logo_file = "attached_assets/Vålerenga_Oslo_logo.svg.png"
+            
+            if os.path.exists(logo_file):
+                # Desenhar um círculo branco no centro - maior para dar mais destaque
+                center_circle = plt.Circle((0, 0), 0.35, facecolor='white', edgecolor='none', zorder=10)
+                ax.add_patch(center_circle)
+                
+                # Carregar logo
+                logo_img = plt.imread(logo_file)
+                
+                # Criar um novo axes no centro - AUMENTANDO SIGNIFICATIVAMENTE o tamanho e ajustando para centralizar
+                # Posição relativa à figura: [left, bottom, width, height]
+                logo_ax = fig.add_axes([0.35, 0.35, 0.3, 0.3], zorder=100)
+                
+                # Mostrar logo e remover eixos
+                logo_ax.imshow(logo_img)
+                logo_ax.axis('off')
+                
+                print(f"Logo adicionado com sucesso ANTES da pizza")
+            else:
+                print(f"Arquivo de logo não encontrado: {logo_file}")
+        except Exception as e:
+            print(f"Erro ao adicionar logo: {str(e)}")
+            import traceback
+            print(traceback.format_exc())
+
         # Criar pizza para jogador 1 (principal)
         values = values_p1
 
@@ -348,7 +380,7 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
             ax.plot(np.linspace(0, 2*np.pi, 100), [circle] * 100, 
                     color='#AAAAAA', linestyle='-', linewidth=0.8, zorder=1, alpha=0.7)
 
-        # Fazer o plot principal com grid melhorado
+        # Fazer o plot principal com grid melhorado e círculo interno grande para o logo
         baker = PyPizza(
             params=params,                  # parâmetros
             min_range=min_values,           # valores mínimos
@@ -360,7 +392,7 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
             other_circle_color="#FFFFFF",   # linhas circulares brancas
             other_circle_lw=1.5,            # largura das linhas circulares
             other_circle_ls="-",            # linhas sólidas para círculos
-            inner_circle_size=20            # círculo interno maior para dar espaço ao logo
+            inner_circle_size=40            # círculo interno MUITO maior para o logo
         )
 
         # Criar a pizza para o jogador 1
@@ -446,47 +478,7 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
         ax.set_xticks([])
         ax.set_yticks([])
 
-        # Adicionar logo do Vålerenga no centro do gráfico
-        try:
-            # Debug - imprimir no console para verificar
-            print(f"Tentando adicionar logo do Vålerenga ao gráfico pizza")
-            
-            # Carregar o arquivo de imagem do Vålerenga
-            logo_file = "attached_assets/Vålerenga_Oslo_logo.svg.png"
-            
-            if os.path.exists(logo_file):
-                # Criar um círculo branco no centro para o logo
-                center_radius = baker.inner_circle_size/100  # O tamanho do círculo interno em fração do raio total
-                print(f"Tamanho do círculo interno: {center_radius}")
-                
-                # Criar área para inserir o logo
-                center = plt.Circle((0, 0), center_radius * 0.9, color='white', zorder=20)
-                ax.add_patch(center)
-                
-                # Usar abordagem bem mais simples colocando o logo diretamente na figura
-                # Carregar o logo
-                logo = plt.imread(logo_file)
-                
-                # Cálculo para tamanho proporcional ao círculo interno (em coordenadas de figura)
-                # Tamanho do logo em relação ao tamanho da figura
-                logo_display_size = 0.25  # 25% do tamanho da figura
-                
-                # Criar imshow como um novo axes na figura
-                logo_ax = fig.add_axes([0.5-logo_display_size/2, 0.5-logo_display_size/2, 
-                                       logo_display_size, logo_display_size], zorder=30)
-                
-                # Mostrar a imagem e desativar os eixos
-                logo_ax.imshow(logo)
-                logo_ax.axis('off')
-                
-                print(f"Logo do Vålerenga adicionado com sucesso")
-            else:
-                print(f"Arquivo do logo não encontrado: {logo_file}")
-        except Exception as logo_err:
-            # Se houver problema ao adicionar o logo, mostrar mensagem detalhada
-            print(f"Erro ao adicionar logo: {str(logo_err)}")
-            import traceback
-            print(traceback.format_exc())
+        # O logo já foi adicionado ANTES de criar a pizza, não precisamos adicionar de novo
 
         # Adicionar legenda se necessário
         if values_p2 is not None or values_avg is not None:
