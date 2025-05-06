@@ -1457,279 +1457,279 @@ if selected_leagues:
         minutes_range = st.sidebar.slider('Minutes Played', min_min, max_min, (min_min, max_min))
         df_minutes = df[df['Minutes played'].between(*minutes_range)].copy()
 
-            # Verificar se temos jogadores após o filtro
+        # Verificar se temos jogadores após o filtro
         if df_minutes.empty:
             st.warning("No players match the selected minutes range. Using all players.")
             df_minutes = df.copy()
             minutes_range = (min_min, max_min)
     except Exception as e:
-            st.error(f"Error filtering by minutes: {str(e)}")
-            df_minutes = df.copy()
-            minutes_range = (df['Minutes played'].min(), df['Minutes played'].max())
+        st.error(f"Error filtering by minutes: {str(e)}")
+        df_minutes = df.copy()
+        minutes_range = (df['Minutes played'].min(), df['Minutes played'].max())
 
-        # Calcular minutos por jogo com tratamento adequado para divisão por zero
-        try:
-            df_minutes['Minutes per game'] = df_minutes['Minutes played'] / df_minutes['Matches played'].replace(0, np.nan)
-            df_minutes['Minutes per game'] = df_minutes['Minutes per game'].fillna(0).clip(0, 120)
+    # Calcular minutos por jogo com tratamento adequado para divisão por zero
+    try:
+        df_minutes['Minutes per game'] = df_minutes['Minutes played'] / df_minutes['Matches played'].replace(0, np.nan)
+        df_minutes['Minutes per game'] = df_minutes['Minutes per game'].fillna(0).clip(0, 120)
 
-            min_mpg, max_mpg = int(df_minutes['Minutes per game'].min()), int(df_minutes['Minutes per game'].max())
-            mpg_range = st.sidebar.slider('Minutes per Game', min_mpg, max_mpg, (min_mpg, max_mpg))
-            df_filtered = df_minutes[df_minutes['Minutes per game'].between(*mpg_range)]
+        min_mpg, max_mpg = int(df_minutes['Minutes per game'].min()), int(df_minutes['Minutes per game'].max())
+        mpg_range = st.sidebar.slider('Minutes per Game', min_mpg, max_mpg, (min_mpg, max_mpg))
+        df_filtered = df_minutes[df_minutes['Minutes per game'].between(*mpg_range)]
 
-            # Verificar se ainda temos jogadores
-            if df_filtered.empty:
-                st.warning("No players match the selected minutes per game range. Using previous filter.")
-                df_filtered = df_minutes
-                mpg_range = (min_mpg, max_mpg)
-            else:
-                df_minutes = df_filtered
-        except Exception as e:
-            st.error(f"Error calculating minutes per game: {str(e)}")
-            mpg_range = (0, 120)
-
-        # Filtro de idade
-        try:
-            min_age, max_age = int(df_minutes['Age'].min()), int(df_minutes['Age'].max())
-            age_range = st.sidebar.slider('Age Range', min_age, max_age, (min_age, max_age))
-            df_filtered = df_minutes[df_minutes['Age'].between(*age_range)]
-
-            # Verificar se ainda temos jogadores
-            if df_filtered.empty:
-                st.warning("No players match the selected age range. Using previous filter.")
-                age_range = (min_age, max_age)
-            else:
-                df_minutes = df_filtered
-        except Exception as e:
-            st.error(f"Error filtering by age: {str(e)}")
-            age_range = (df_minutes['Age'].min(), df_minutes['Age'].max())
-
-        # Coleta posições
-        if 'Position' in df_minutes.columns:
-            df_minutes['Position_split'] = df_minutes['Position'].astype(str).apply(lambda x: [p.strip() for p in x.split(',')])
-            all_pos = sorted({p for lst in df_minutes['Position_split'] for p in lst})
-            sel_pos = st.sidebar.multiselect('Positions', all_pos, default=all_pos)
+        # Verificar se ainda temos jogadores
+        if df_filtered.empty:
+            st.warning("No players match the selected minutes per game range. Using previous filter.")
+            df_filtered = df_minutes
+            mpg_range = (min_mpg, max_mpg)
         else:
-            sel_pos = []
+            df_minutes = df_filtered
+    except Exception as e:
+        st.error(f"Error calculating minutes per game: {str(e)}")
+        mpg_range = (0, 120)
 
-        # Cria dataframe para cálculos de grupo
-        if 'Position_split' in df_minutes.columns and sel_pos:
-            df_group = df_minutes[df_minutes['Position_split'].apply(lambda x: any(pos in x for pos in sel_pos))]
+    # Filtro de idade
+    try:
+        min_age, max_age = int(df_minutes['Age'].min()), int(df_minutes['Age'].max())
+        age_range = st.sidebar.slider('Age Range', min_age, max_age, (min_age, max_age))
+        df_filtered = df_minutes[df_minutes['Age'].between(*age_range)]
+
+        # Verificar se ainda temos jogadores
+        if df_filtered.empty:
+            st.warning("No players match the selected age range. Using previous filter.")
+            age_range = (min_age, max_age)
         else:
-            df_group = df_minutes.copy()
+            df_minutes = df_filtered
+    except Exception as e:
+        st.error(f"Error filtering by age: {str(e)}")
+        age_range = (df_minutes['Age'].min(), df_minutes['Age'].max())
 
-        context = get_context_info(df_minutes, minutes_range, mpg_range, age_range, sel_pos)
-        players = sorted(df_minutes['Player'].unique())
+    # Coleta posições
+    if 'Position' in df_minutes.columns:
+        df_minutes['Position_split'] = df_minutes['Position'].astype(str).apply(lambda x: [p.strip() for p in x.split(',')])
+        all_pos = sorted({p for lst in df_minutes['Position_split'] for p in lst})
+        sel_pos = st.sidebar.multiselect('Positions', all_pos, default=all_pos)
+    else:
+        sel_pos = []
 
-        # Get numeric columns for metrics
-        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-        # Remove some columns that aren't player metrics
-        exclude_cols = ['Age', 'Minutes played', 'Matches played', 'Minutes per game']
-        metric_cols = [col for col in numeric_cols if col not in exclude_cols]
+    # Cria dataframe para cálculos de grupo
+    if 'Position_split' in df_minutes.columns and sel_pos:
+        df_group = df_minutes[df_minutes['Position_split'].apply(lambda x: any(pos in x for pos in sel_pos))]
+    else:
+        df_group = df_minutes.copy()
 
-        # Create tabs for different analyses
-        tabs = st.tabs(['Pizza Chart', 'Bars', 'Scatter', 'Similarity', 'Correlation', 'Composite Index (PCA)', 'Profiler'])
+    context = get_context_info(df_minutes, minutes_range, mpg_range, age_range, sel_pos)
+    players = sorted(df_minutes['Player'].unique())
 
-        # =============================================
-        # Pizza Chart (Aba 1) - Estilo Sofyan Amrabat
-        # =============================================
-        with tabs[0]:
-            st.header('Pizza Chart')
+    # Get numeric columns for metrics
+    numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+    # Remove some columns that aren't player metrics
+    exclude_cols = ['Age', 'Minutes played', 'Matches played', 'Minutes per game']
+    metric_cols = [col for col in numeric_cols if col not in exclude_cols]
 
-            # Verificar se temos um benchmark carregado
-            benchmark_available = st.session_state.benchmark_loaded and st.session_state.benchmark_df is not None
+    # Create tabs for different analyses
+    tabs = st.tabs(['Pizza Chart', 'Bars', 'Scatter', 'Similarity', 'Correlation', 'Composite Index (PCA)', 'Profiler'])
 
-            # Primeiramente, decidir se queremos usar o benchmark ou não
-            if benchmark_available:
-                use_benchmark = st.checkbox("Use benchmark for comparison", value=False, 
-                                         help="When enabled, you can compare a player from your dataset with players from the benchmark league")
-            else:
-                use_benchmark = False
+    # =============================================
+    # Pizza Chart (Aba 1) - Estilo Sofyan Amrabat
+    # =============================================
+    with tabs[0]:
+        st.header('Pizza Chart')
 
-            col1, col2 = st.columns(2)
-            with col1:
-                p1 = st.selectbox('Select Player 1', players)
+        # Verificar se temos um benchmark carregado
+        benchmark_available = st.session_state.benchmark_loaded and st.session_state.benchmark_df is not None
 
-            # A seleção do segundo jogador depende se estamos usando benchmark ou não
-            with col2:
-                if use_benchmark:
-                    # Filtrar o benchmark com os mesmos filtros aplicados à base principal
-                    filtered_benchmark = apply_benchmark_filter(
-                        st.session_state.benchmark_df,
-                        minutes_range,
-                        mpg_range,
-                        age_range,
-                        sel_pos
-                    )
+        # Primeiramente, decidir se queremos usar o benchmark ou não
+        if benchmark_available:
+            use_benchmark = st.checkbox("Use benchmark for comparison", value=False, 
+                                     help="When enabled, you can compare a player from your dataset with players from the benchmark league")
+        else:
+            use_benchmark = False
 
-                    if filtered_benchmark is not None and not filtered_benchmark.empty:
-                        benchmark_players = sorted(filtered_benchmark['Player'].unique())
-                        p2 = st.selectbox('Select Benchmark Player', benchmark_players)
+        col1, col2 = st.columns(2)
+        with col1:
+            p1 = st.selectbox('Select Player 1', players)
 
-                        # Exibir informações do jogador benchmark selecionado
-                        st.info(f"Benchmark: {p2} from {st.session_state.benchmark_name}")
-                    else:
-                        st.warning("No benchmark players match the applied filters")
-                        p2 = None
-                        use_benchmark = False
+        # A seleção do segundo jogador depende se estamos usando benchmark ou não
+        with col2:
+            if use_benchmark:
+                # Filtrar o benchmark com os mesmos filtros aplicados à base principal
+                filtered_benchmark = apply_benchmark_filter(
+                    st.session_state.benchmark_df,
+                    minutes_range,
+                    mpg_range,
+                    age_range,
+                    sel_pos
+                )
+
+                if filtered_benchmark is not None and not filtered_benchmark.empty:
+                    benchmark_players = sorted(filtered_benchmark['Player'].unique())
+                    p2 = st.selectbox('Select Benchmark Player', benchmark_players)
+
+                    # Exibir informações do jogador benchmark selecionado
+                    st.info(f"Benchmark: {p2} from {st.session_state.benchmark_name}")
                 else:
-                    # Seleção normal do segundo jogador da mesma base
-                    p2 = st.selectbox('Select Player 2', [p for p in players if p != p1])
+                    st.warning("No benchmark players match the applied filters")
+                    p2 = None
+                    use_benchmark = False
+            else:
+                # Seleção normal do segundo jogador da mesma base
+                p2 = st.selectbox('Select Player 2', [p for p in players if p != p1])
 
-            # Predefined metric groups for pizza charts
-            pizza_metric_groups = {
-                "Offensive": ['Goals per 90', 'Shots per 90', 'xG per 90', 'npxG', 'G-xG', 'npxG per Shot', 'Box Efficiency', 'Shots on target per 90', 'Successful dribbles per 90', 'Progressive runs per 90'],
-                "Passing": ['Passes per 90', 'Accurate passes, %', 'Forward passes per 90', 'Progressive passes per 90', 'Key passes per 90', 'Assists per 90', 'xA per 90'],
-                "Defensive": ['Interceptions per 90', 'Tackles per 90', 'Defensive duels per 90', 'Aerial duels won per 90', 'Recoveries per 90'],
-                "Physical": ['Accelerations per 90', 'Sprint distance per 90', 'Distance covered per 90'],
-                "Advanced Metrics": ['npxG', 'G-xG', 'npxG per Shot', 'Box Efficiency']  # Incluindo Box Efficiency nas métricas avançadas
-            }
+        # Predefined metric groups for pizza charts
+        pizza_metric_groups = {
+            "Offensive": ['Goals per 90', 'Shots per 90', 'xG per 90', 'npxG', 'G-xG', 'npxG per Shot', 'Box Efficiency', 'Shots on target per 90', 'Successful dribbles per 90', 'Progressive runs per 90'],
+            "Passing": ['Passes per 90', 'Accurate passes, %', 'Forward passes per 90', 'Progressive passes per 90', 'Key passes per 90', 'Assists per 90', 'xA per 90'],
+            "Defensive": ['Interceptions per 90', 'Tackles per 90', 'Defensive duels per 90', 'Aerial duels won per 90', 'Recoveries per 90'],
+            "Physical": ['Accelerations per 90', 'Sprint distance per 90', 'Distance covered per 90'],
+            "Advanced Metrics": ['npxG', 'G-xG', 'npxG per Shot', 'Box Efficiency']  # Incluindo Box Efficiency nas métricas avançadas
+        }
 
-            # Let user select metric selection mode
-            metric_selection_mode = st.radio(
-                "Metric Selection Mode", 
-                ["Custom (Select Individual Metrics)", "Use Metric Presets"],
-                horizontal=True,
-                key="pizza_metric_selection_mode"  # Adicionando chave única
+        # Let user select metric selection mode
+        metric_selection_mode = st.radio(
+            "Metric Selection Mode", 
+            ["Custom (Select Individual Metrics)", "Use Metric Presets"],
+            horizontal=True,
+            key="pizza_metric_selection_mode"  # Adicionando chave única
+        )
+
+        if metric_selection_mode == "Use Metric Presets":
+            selected_groups = st.multiselect(
+                "Select Metric Groups", 
+                list(pizza_metric_groups.keys()),
+                default=["Offensive", "Passing"],
+                key="pizza_preset_groups"  # Adicionando chave única
             )
 
-            if metric_selection_mode == "Use Metric Presets":
-                selected_groups = st.multiselect(
-                    "Select Metric Groups", 
-                    list(pizza_metric_groups.keys()),
-                    default=["Offensive", "Passing"],
-                    key="pizza_preset_groups"  # Adicionando chave única
-                )
+            # Combine all metrics from selected groups
+            preset_metrics = []
+            for group in selected_groups:
+                # Only add metrics that exist in the dataframe
+                available_metrics = [m for m in pizza_metric_groups[group] if m in metric_cols]
+                preset_metrics.extend(available_metrics)
 
-                # Combine all metrics from selected groups
-                preset_metrics = []
-                for group in selected_groups:
-                    # Only add metrics that exist in the dataframe
-                    available_metrics = [m for m in pizza_metric_groups[group] if m in metric_cols]
-                    preset_metrics.extend(available_metrics)
+            # Allow further customization
+            sel = st.multiselect(
+                'Add or Remove Individual Metrics (6-15 recommended)', 
+                metric_cols,
+                default=preset_metrics,
+                key="pizza_preset_metrics"  # Adicionando chave única
+            )
+        else:
+            # Let user select metrics manually
+            sel = st.multiselect('Metrics for Pizza Chart (6-15)', metric_cols, default=metric_cols[:9], key="pizza_custom_metrics")
 
-                # Allow further customization
-                sel = st.multiselect(
-                    'Add or Remove Individual Metrics (6-15 recommended)', 
-                    metric_cols,
-                    default=preset_metrics,
-                    key="pizza_preset_metrics"  # Adicionando chave única
-                )
+        if 6 <= len(sel) <= 15:
+            # Dados do jogador 1 (sempre da base principal)
+            d1 = df_minutes[df_minutes['Player']==p1].iloc[0]
+
+            # Dados do jogador 2 (pode ser do benchmark ou da base principal)
+            if use_benchmark and p2 is not None:
+                # Obter dados do benchmark
+                d2 = filtered_benchmark[filtered_benchmark['Player']==p2].iloc[0]
+
+                # Calcular percentis - o jogador 1 usa a base principal e o jogador 2 usa o benchmark
+                p1pct = [calc_percentile(df_minutes[m], d1[m])*100 for m in sel]
+
+                # Para o jogador 2, calcular os percentis em relação ao benchmark
+                p2pct = [calc_percentile(filtered_benchmark[m], d2[m])*100 for m in sel]
+
+                # A média do grupo é a média do benchmark para comparação consistente
+                gm = {m: filtered_benchmark[m].mean() for m in sel}
+                gmpct = [calc_percentile(filtered_benchmark[m], gm[m])*100 for m in sel]
+
+                # Texto especial para o subtítulo
+                benchmark_text = f" | Benchmark: {st.session_state.benchmark_name}"
             else:
-                # Let user select metrics manually
-                sel = st.multiselect('Metrics for Pizza Chart (6-15)', metric_cols, default=metric_cols[:9], key="pizza_custom_metrics")
+                # Fluxo normal - ambos jogadores da base principal
+                d2 = df_minutes[df_minutes['Player']==p2].iloc[0]
 
-            if 6 <= len(sel) <= 15:
-                # Dados do jogador 1 (sempre da base principal)
-                d1 = df_minutes[df_minutes['Player']==p1].iloc[0]
+                p1pct = [calc_percentile(df_minutes[m], d1[m])*100 for m in sel]
+                p2pct = [calc_percentile(df_minutes[m], d2[m])*100 for m in sel]
 
-                # Dados do jogador 2 (pode ser do benchmark ou da base principal)
-                if use_benchmark and p2 is not None:
-                    # Obter dados do benchmark
-                    d2 = filtered_benchmark[filtered_benchmark['Player']==p2].iloc[0]
+                # Group average da base principal
+                gm = {m: df_group[m].mean() for m in sel}
+                gmpct = [calc_percentile(df_minutes[m], gm[m])*100 for m in sel]
 
-                    # Calcular percentis - o jogador 1 usa a base principal e o jogador 2 usa o benchmark
-                    p1pct = [calc_percentile(df_minutes[m], d1[m])*100 for m in sel]
+                benchmark_text = ""
 
-                    # Para o jogador 2, calcular os percentis em relação ao benchmark
-                    p2pct = [calc_percentile(filtered_benchmark[m], d2[m])*100 for m in sel]
+            # Controle de visualização modificado para limitar a 2 elementos
+            st.subheader("Display Options")
 
-                    # A média do grupo é a média do benchmark para comparação consistente
-                    gm = {m: filtered_benchmark[m].mean() for m in sel}
-                    gmpct = [calc_percentile(filtered_benchmark[m], gm[m])*100 for m in sel]
+            # Sempre mostrar jogador 1 por padrão
+            show_p1 = True
 
-                    # Texto especial para o subtítulo
-                    benchmark_text = f" | Benchmark: {st.session_state.benchmark_name}"
-                else:
-                    # Fluxo normal - ambos jogadores da base principal
-                    d2 = df_minutes[df_minutes['Player']==p2].iloc[0]
+            # Opções de comparação (exclusivas)
+            # Se estamos usando benchmark, forçar a comparação jogador vs jogador
+            if use_benchmark and p2 is not None:
+                comparison_option = f"Player vs Benchmark Player ({p1} vs {p2})"
+                show_p2 = True
+                show_avg = False
+                title = f"{p1} vs {p2} (Benchmark)"
+            else:
+                # Opções normais
+                comparison_option = st.radio(
+                    "Compare with:", 
+                    [f"No comparison (only {p1})", 
+                     f"Player vs Player ({p1} vs {p2})", 
+                     f"Player vs Group Average ({p1} vs Avg)"],
+                    index=0,
+                    key="pizza_comparison_options"  # Adicionando chave única
+                )
 
-                    p1pct = [calc_percentile(df_minutes[m], d1[m])*100 for m in sel]
-                    p2pct = [calc_percentile(df_minutes[m], d2[m])*100 for m in sel]
-
-                    # Group average da base principal
-                    gm = {m: df_group[m].mean() for m in sel}
-                    gmpct = [calc_percentile(df_minutes[m], gm[m])*100 for m in sel]
-
-                    benchmark_text = ""
-
-                # Controle de visualização modificado para limitar a 2 elementos
-                st.subheader("Display Options")
-
-                # Sempre mostrar jogador 1 por padrão
-                show_p1 = True
-
-                # Opções de comparação (exclusivas)
-                # Se estamos usando benchmark, forçar a comparação jogador vs jogador
-                if use_benchmark and p2 is not None:
-                    comparison_option = f"Player vs Benchmark Player ({p1} vs {p2})"
+                # Configurar valores com base na opção selecionada
+                if comparison_option == f"No comparison (only {p1})":
+                    show_p2 = False
+                    show_avg = False
+                    title = f"{p1}"
+                elif comparison_option == f"Player vs Player ({p1} vs {p2})":
                     show_p2 = True
                     show_avg = False
-                    title = f"{p1} vs {p2} (Benchmark)"
-                else:
-                    # Opções normais
-                    comparison_option = st.radio(
-                        "Compare with:", 
-                        [f"No comparison (only {p1})", 
-                         f"Player vs Player ({p1} vs {p2})", 
-                         f"Player vs Group Average ({p1} vs Avg)"],
-                        index=0,
-                        key="pizza_comparison_options"  # Adicionando chave única
-                    )
+                    title = f"{p1} vs {p2}"
+                else:  # Player vs Group Average
+                    show_p2 = False
+                    show_avg = True
+                    title = f"{p1} vs Group Average"
 
-                    # Configurar valores com base na opção selecionada
-                    if comparison_option == f"No comparison (only {p1})":
-                        show_p2 = False
-                        show_avg = False
-                        title = f"{p1}"
-                    elif comparison_option == f"Player vs Player ({p1} vs {p2})":
-                        show_p2 = True
-                        show_avg = False
-                        title = f"{p1} vs {p2}"
-                    else:  # Player vs Group Average
-                        show_p2 = False
-                        show_avg = True
-                        title = f"{p1} vs Group Average"
+            subtitle = (f"Percentile Rank | {context['leagues']} | "
+                      f"{context['min_min']}+ mins | Position: {context['positions']}{benchmark_text}")
 
-                subtitle = (f"Percentile Rank | {context['leagues']} | "
-                          f"{context['min_min']}+ mins | Position: {context['positions']}{benchmark_text}")
+            # Preparar dados conforme seleção
+            values_p1_arg = p1pct if show_p1 else None
+            values_p2_arg = p2pct if show_p2 else None
+            values_avg_arg = gmpct if show_avg else None
+            # Flag para usar o chart comparativo para comparações entre jogadores ou jogador vs média
+            use_comparison_chart = False
+            if show_p1 and (show_p2 or show_avg):
+                use_comparison_chart = True
 
-                # Preparar dados conforme seleção
-                values_p1_arg = p1pct if show_p1 else None
-                values_p2_arg = p2pct if show_p2 else None
-                values_avg_arg = gmpct if show_avg else None
-                # Flag para usar o chart comparativo para comparações entre jogadores ou jogador vs média
-                use_comparison_chart = False
-                if show_p1 and (show_p2 or show_avg):
-                    use_comparison_chart = True
+            # Criar o Pizza Chart de acordo com a escolha
+            if use_comparison_chart:
+                # Usar o chart comparativo (para dois jogadores ou jogador vs média)
+                fig = create_comparison_pizza_chart(
+                    params=sel,
+                    values_p1=values_p1_arg, 
+                    values_p2=values_p2_arg,
+                    values_avg=values_avg_arg,
+                    title=title,
+                    subtitle=subtitle,
+                    p1_name=p1,
+                    p2_name=p2
+                )
+            else:
+                # Usar o chart padrão para casos com média ou apenas um jogador
+                fig = create_pizza_chart(
+                    params=sel,
+                    values_p1=values_p1_arg, 
+                    values_p2=values_p2_arg,
+                    values_avg=values_avg_arg,
+                    title=title,
+                    subtitle=subtitle,
+                    p1_name=p1,
+                    p2_name=p2
+                )
 
-                # Criar o Pizza Chart de acordo com a escolha
-                if use_comparison_chart:
-                    # Usar o chart comparativo (para dois jogadores ou jogador vs média)
-                    fig = create_comparison_pizza_chart(
-                        params=sel,
-                        values_p1=values_p1_arg, 
-                        values_p2=values_p2_arg,
-                        values_avg=values_avg_arg,
-                        title=title,
-                        subtitle=subtitle,
-                        p1_name=p1,
-                        p2_name=p2
-                    )
-                else:
-                    # Usar o chart padrão para casos com média ou apenas um jogador
-                    fig = create_pizza_chart(
-                        params=sel,
-                        values_p1=values_p1_arg, 
-                        values_p2=values_p2_arg,
-                        values_avg=values_avg_arg,
-                        title=title,
-                        subtitle=subtitle,
-                        p1_name=p1,
-                        p2_name=p2
-                    )
-
-                # Display pizza chart
-                st.pyplot(fig)
+            # Display pizza chart
+            st.pyplot(fig)
 
                 # Display nominal values table
                 st.markdown("**Nominal Values**")
