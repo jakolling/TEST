@@ -343,16 +343,16 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
             logo_file = "attached_assets/Vålerenga_Oslo_logo.svg.png"
             
             if os.path.exists(logo_file):
-                # Desenhar um círculo branco no centro - maior para dar mais destaque
-                center_circle = plt.Circle((0, 0), 0.35, facecolor='white', edgecolor='none', zorder=10)
+                # Desenhar um círculo branco no centro - MENOR para não ocupar tanto espaço
+                center_circle = plt.Circle((0, 0), 0.15, facecolor='white', edgecolor='none', zorder=10)
                 ax.add_patch(center_circle)
                 
                 # Carregar logo
                 logo_img = plt.imread(logo_file)
                 
-                # Criar um novo axes no centro - AUMENTANDO SIGNIFICATIVAMENTE o tamanho e ajustando para centralizar
+                # Criar um novo axes no centro - Tamanho menor e mais centralizado
                 # Posição relativa à figura: [left, bottom, width, height]
-                logo_ax = fig.add_axes([0.35, 0.35, 0.3, 0.3], zorder=100)
+                logo_ax = fig.add_axes([0.425, 0.425, 0.15, 0.15], zorder=100)
                 
                 # Mostrar logo e remover eixos
                 logo_ax.imshow(logo_img)
@@ -380,7 +380,7 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
             ax.plot(np.linspace(0, 2*np.pi, 100), [circle] * 100, 
                     color='#AAAAAA', linestyle='-', linewidth=0.8, zorder=1, alpha=0.7)
 
-        # Fazer o plot principal com grid melhorado e círculo interno grande para o logo
+        # Fazer o plot principal com grid melhorado e círculo interno de tamanho adequado
         baker = PyPizza(
             params=params,                  # parâmetros
             min_range=min_values,           # valores mínimos
@@ -392,7 +392,7 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
             other_circle_color="#FFFFFF",   # linhas circulares brancas
             other_circle_lw=1.5,            # largura das linhas circulares
             other_circle_ls="-",            # linhas sólidas para círculos
-            inner_circle_size=40            # círculo interno MUITO maior para o logo
+            inner_circle_size=20            # círculo interno MENOR (20% do raio total)
         )
 
         # Criar a pizza para o jogador 1
