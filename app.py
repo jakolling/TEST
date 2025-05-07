@@ -4531,14 +4531,14 @@ if selected_leagues:
 
                     # Permitir personalização adicional
                     profile_metrics = st.multiselect(
-                        'Add or Remove Individual Metrics (1-5 recommended)',
+                        'Add or Remove Individual Metrics (1-15 recommended)',
                         metric_cols,
                         default=preset_metrics[:min(5, len(preset_metrics))],
                         key="profiler_preset_metrics")
                 else:
                     # Seleção manual de métricas
                     profile_metrics = st.multiselect(
-                        'Select metrics for profiling (1-5)',
+                        'Select metrics for profiling (1-15)',
                         metric_cols,
                         default=metric_cols[:min(3, len(metric_cols))],
                         key="profiler_metrics")
@@ -4547,7 +4547,7 @@ if selected_leagues:
                 percentile_filters = {}
                 for metric in profile_metrics:
                     if len(profile_metrics
-                           ) <= 5:  # Limitar para evitar interface poluída
+                           ) <= 15:  # Permitir até 15 métricas com sliders individuais
                         min_percentile = st.slider(
                             f"Minimum percentile for {metric}",
                             0,
