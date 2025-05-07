@@ -29,11 +29,79 @@ st.set_page_config(page_title='Football Analytics',
 # Set up consistent fonts for mplsoccer
 plt.rcParams['font.family'] = 'sans-serif'
 
-# Inicializar variáveis de estado globais
-if 'data_source' not in st.session_state:
-    st.session_state.data_source = 'skillcorner'
-if 'selected_leagues' not in st.session_state:
-    st.session_state.selected_leagues = []
+# Definir uma função para inicializar variáveis de sessão (declarada aqui para evitar erro de ordem)
+def initialize_session_state():
+    """Inicializar variáveis de sessão para preservar seleções entre mudanças de filtro"""
+    # Variáveis para fonte de dados
+    if 'data_source' not in st.session_state:
+        st.session_state.data_source = 'skillcorner'
+    if 'selected_leagues_skillcorner' not in st.session_state:
+        st.session_state.selected_leagues_skillcorner = []
+    if 'selected_leagues_wyscout' not in st.session_state:
+        st.session_state.selected_leagues_wyscout = []
+        
+    # Variáveis para filtros de jogadores
+    if 'last_minutes_range' not in st.session_state:
+        st.session_state.last_minutes_range = [0, 5000]
+    if 'last_mpg_range' not in st.session_state:
+        st.session_state.last_mpg_range = [0, 100]
+    if 'last_age_range' not in st.session_state:
+        st.session_state.last_age_range = [15, 40]  # Usar 15 como mínimo para incluir jovens como Lamine Yamal
+    if 'last_positions' not in st.session_state:
+        st.session_state.last_positions = []
+        
+    # Variáveis para Pizza Chart
+    if 'saved_pizza_p1' not in st.session_state:
+        st.session_state.saved_pizza_p1 = None
+    if 'saved_pizza_p2' not in st.session_state:
+        st.session_state.saved_pizza_p2 = None
+    if 'saved_pizza_metrics' not in st.session_state:
+        st.session_state.saved_pizza_metrics = []
+    if 'saved_pizza_comparison_option' not in st.session_state:
+        st.session_state.saved_pizza_comparison_option = 0
+    if 'pizza_selected_groups' not in st.session_state:
+        st.session_state.pizza_selected_groups = []
+
+    # Variáveis para Bar Chart
+    if 'saved_bar_p1' not in st.session_state:
+        st.session_state.saved_bar_p1 = None
+    if 'saved_bar_p2' not in st.session_state:
+        st.session_state.saved_bar_p2 = None
+    if 'saved_bar_metrics' not in st.session_state:
+        st.session_state.saved_bar_metrics = []
+
+    # Variáveis para Scatter Plot
+    if 'saved_scatter_x_metric' not in st.session_state:
+        st.session_state.saved_scatter_x_metric = None
+    if 'saved_scatter_y_metric' not in st.session_state:
+        st.session_state.saved_scatter_y_metric = None
+
+    # Variáveis para Similarity
+    if 'saved_similarity_player' not in st.session_state:
+        st.session_state.saved_similarity_player = None
+    if 'saved_similarity_metrics' not in st.session_state:
+        st.session_state.saved_similarity_metrics = []
+    if 'saved_similarity_method' not in st.session_state:
+        st.session_state.saved_similarity_method = 'pca_kmeans'
+
+    # Variáveis legadas (compatibilidade)
+    if 'bar_p1' not in st.session_state:
+        st.session_state.bar_p1 = st.session_state.saved_bar_p1
+    if 'bar_p2' not in st.session_state:
+        st.session_state.bar_p2 = st.session_state.saved_bar_p2
+    if 'bar_metrics' not in st.session_state:
+        st.session_state.bar_metrics = st.session_state.saved_bar_metrics
+    if 'scatter_x_metric' not in st.session_state:
+        st.session_state.scatter_x_metric = st.session_state.saved_scatter_x_metric
+    if 'scatter_y_metric' not in st.session_state:
+        st.session_state.scatter_y_metric = st.session_state.saved_scatter_y_metric
+    if 'similarity_player' not in st.session_state:
+        st.session_state.similarity_player = st.session_state.saved_similarity_player
+    if 'similarity_method' not in st.session_state:
+        st.session_state.similarity_method = st.session_state.saved_similarity_method
+
+# Inicializar estados de sessão
+initialize_session_state()
 
 
 # =============================================
@@ -1741,60 +1809,7 @@ def compute_player_similarity(df, player, metrics, n=5, method='pca_kmeans'):
 # =============================================
 
 
-# Inicialização de variáveis de sessão para manter seleções entre mudanças de filtros
-def initialize_session_state():
-    """Inicializar variáveis de sessão para preservar seleções entre mudanças de filtro"""
-    # Variáveis para Pizza Chart
-    if 'saved_pizza_p1' not in st.session_state:
-        st.session_state.saved_pizza_p1 = None
-    if 'saved_pizza_p2' not in st.session_state:
-        st.session_state.saved_pizza_p2 = None
-    if 'saved_pizza_metrics' not in st.session_state:
-        st.session_state.saved_pizza_metrics = []
-    if 'saved_pizza_comparison_option' not in st.session_state:
-        st.session_state.saved_pizza_comparison_option = 0
-
-    # Variáveis para Bar Chart
-    if 'saved_bar_p1' not in st.session_state:
-        st.session_state.saved_bar_p1 = None
-    if 'saved_bar_p2' not in st.session_state:
-        st.session_state.saved_bar_p2 = None
-    if 'saved_bar_metrics' not in st.session_state:
-        st.session_state.saved_bar_metrics = []
-
-    # Variáveis para Scatter Plot
-    if 'saved_scatter_x_metric' not in st.session_state:
-        st.session_state.saved_scatter_x_metric = None
-    if 'saved_scatter_y_metric' not in st.session_state:
-        st.session_state.saved_scatter_y_metric = None
-
-    # Variáveis para Similarity
-    if 'saved_similarity_player' not in st.session_state:
-        st.session_state.saved_similarity_player = None
-    if 'saved_similarity_metrics' not in st.session_state:
-        st.session_state.saved_similarity_metrics = []
-    if 'saved_similarity_method' not in st.session_state:
-        st.session_state.saved_similarity_method = 'pca_kmeans'
-
-    # Variáveis legadas (compatibilidade)
-    if 'bar_p1' not in st.session_state:
-        st.session_state.bar_p1 = st.session_state.saved_bar_p1
-    if 'bar_p2' not in st.session_state:
-        st.session_state.bar_p2 = st.session_state.saved_bar_p2
-    if 'bar_metrics' not in st.session_state:
-        st.session_state.bar_metrics = st.session_state.saved_bar_metrics
-    if 'scatter_x_metric' not in st.session_state:
-        st.session_state.scatter_x_metric = st.session_state.saved_scatter_x_metric
-    if 'scatter_y_metric' not in st.session_state:
-        st.session_state.scatter_y_metric = st.session_state.saved_scatter_y_metric
-    if 'similarity_player' not in st.session_state:
-        st.session_state.similarity_player = st.session_state.saved_similarity_player
-    if 'similarity_method' not in st.session_state:
-        st.session_state.similarity_method = st.session_state.saved_similarity_method
-
-
-# Inicializar estados de sessão
-initialize_session_state()
+# Não precisamos chamar initialize_session_state novamente aqui, já foi chamado no início
 
 # Cabeçalho com logo
 col1, col2, col3 = st.columns([1, 3, 1])
@@ -1850,12 +1865,20 @@ if data_source:
         st.session_state.data_source = 'wyscout'
         # Recarregar as ligas disponíveis
         AVAILABLE_LEAGUES = load_available_leagues('wyscout')
+        # Limpar os filtros avançados ao mudar de fonte para evitar inconsistências
+        st.session_state.last_players = []
+        st.session_state.saved_pizza_p1 = None
+        st.session_state.saved_pizza_p2 = None
 else:
     # Checkbox desmarcado = SkillCorner
     if st.session_state.data_source != 'skillcorner':
         st.session_state.data_source = 'skillcorner'
         # Recarregar as ligas disponíveis
         AVAILABLE_LEAGUES = load_available_leagues('skillcorner')
+        # Limpar os filtros avançados ao mudar de fonte para evitar inconsistências
+        st.session_state.last_players = []
+        st.session_state.saved_pizza_p1 = None
+        st.session_state.saved_pizza_p2 = None
 
 # Criar a pasta para dados WyScout se ela não existir
 if st.session_state.data_source == 'wyscout':
@@ -1891,31 +1914,47 @@ with st.sidebar.expander("⚙️ Select Leagues", expanded=True):
             st.info(
                 "Please add your SkillCorner Excel files to the 'attached_assets' folder."
             )
-        st.session_state.selected_leagues = []
-        selected_leagues = []
+        
+        # Atualizar a variável de seleção específica da fonte atual
+        if st.session_state.data_source == 'wyscout':
+            st.session_state.selected_leagues_wyscout = []
+            selected_leagues = []
+        else:
+            st.session_state.selected_leagues_skillcorner = []
+            selected_leagues = []
     else:
         # Verificar se há ligas disponíveis que não estão mais na lista de opções
         # para limpar seleções inválidas
         valid_leagues = list(AVAILABLE_LEAGUES.keys())
-        if st.session_state.selected_leagues:
-            st.session_state.selected_leagues = [
-                league for league in st.session_state.selected_leagues
-                if league in valid_leagues
-            ]
+        
+        # Obter a seleção anterior específica para a fonte de dados atual
+        if st.session_state.data_source == 'wyscout':
+            previous_selection = st.session_state.selected_leagues_wyscout
+        else:
+            previous_selection = st.session_state.selected_leagues_skillcorner
+            
+        # Filtrar para manter apenas ligas válidas
+        filtered_selection = [
+            league for league in previous_selection
+            if league in valid_leagues
+        ]
         
         # Se não houver seleção válida, definir o padrão para a primeira liga disponível
-        default_selection = st.session_state.selected_leagues
+        default_selection = filtered_selection
         if not default_selection and AVAILABLE_LEAGUES:
             default_selection = [list(AVAILABLE_LEAGUES.keys())[0]]
         
-        # Usar st.multiselect com o valor salvo no session_state
+        # Usar st.multiselect com o valor salvo específico para a fonte atual
         selected_leagues = st.multiselect(
             "Select leagues to analyze",
             options=valid_leagues,
             default=default_selection)
         
-        # Atualizar a seleção no session_state
-        st.session_state.selected_leagues = selected_leagues
+        # Atualizar a seleção específica da fonte atual no session_state
+        if st.session_state.data_source == 'wyscout':
+            st.session_state.selected_leagues_wyscout = selected_leagues
+        else:
+            st.session_state.selected_leagues_skillcorner = selected_leagues
 
     # Opção para escolher como calcular os percentis
     if 'combine_leagues' not in st.session_state:
@@ -2210,8 +2249,10 @@ if selected_leagues:
 
     # Filtro de idade
     try:
-        min_age, max_age = int(df_minutes['Age'].min()), int(
-            df_minutes['Age'].max())
+        # Forçar mínimo de 15 anos para incluir jovens como Lamine Yamal
+        data_min_age = int(df_minutes['Age'].min())
+        min_age = min(data_min_age, 15)  # Usa 15 ou o valor mínimo dos dados, o que for menor
+        max_age = int(df_minutes['Age'].max())
             
         # Usar valores salvos no session_state se estiverem dentro do intervalo válido
         default_age = st.session_state.last_age_range
@@ -2235,7 +2276,7 @@ if selected_leagues:
         st.session_state.last_age_range = age_range
     except Exception as e:
         st.error(f"Error filtering by age: {str(e)}")
-        age_range = (df_minutes['Age'].min(), df_minutes['Age'].max())
+        age_range = (15, 40)  # Valores padrão seguros
         st.session_state.last_age_range = age_range
 
     # Coleta posições
