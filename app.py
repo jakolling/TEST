@@ -1891,13 +1891,13 @@ if selected_leagues:
                 # Configurar valores com base na opção selecionada
                 # Obter posição e idade do jogador 1
                 p1_position = d1['Position']
-                p1_age = d1['Age']
+                p1_age = int(d1['Age']) if isinstance(d1['Age'], (int, float)) else d1['Age']
                 p1_display = f"{p1} ({p1_position}, {p1_age})"
                 
                 # Obter posição e idade do jogador 2 se estiver disponível
                 if p2 is not None:
                     p2_position = d2['Position']
-                    p2_age = d2['Age']
+                    p2_age = int(d2['Age']) if isinstance(d2['Age'], (int, float)) else d2['Age']
                     p2_display = f"{p2} ({p2_position}, {p2_age})"
                 else:
                     p2_display = p2
