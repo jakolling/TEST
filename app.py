@@ -29,6 +29,10 @@ st.set_page_config(page_title='Football Analytics',
 # Set up consistent fonts for mplsoccer
 plt.rcParams['font.family'] = 'sans-serif'
 
+# Inicializar variáveis de estado globais
+if 'data_source' not in st.session_state:
+    st.session_state.data_source = 'skillcorner'
+
 
 # =============================================
 # Helper Functions
@@ -98,8 +102,8 @@ def load_available_leagues(data_source='skillcorner'):
     return leagues_dict
 
 
-# Carregar ligas disponíveis automaticamente
-AVAILABLE_LEAGUES = load_available_leagues()
+# Carregar ligas disponíveis automaticamente conforme a fonte de dados atual
+AVAILABLE_LEAGUES = load_available_leagues(st.session_state.data_source)
 
 
 def load_league_data(selected_leagues):
@@ -1824,12 +1828,17 @@ with st.expander("📘 User Guide & Instructions", expanded=False):
 # =============================================
 st.sidebar.header('Filters')
 
+# Inicializar a fonte de dados no session_state, se não existir
+if 'data_source' not in st.session_state:
+    st.session_state.data_source = 'skillcorner'
+
 # Opção para escolher a fonte de dados (SkillCorner ou WyScout)
 data_source = st.sidebar.checkbox(
     "Use WyScout data",
-    value=False,
+    value=True if st.session_state.data_source == 'wyscout' else False,
+    key="source_checkbox",
     help=
-    "When checked, the application will load WyScout data. When unchecked, it will use SkillCorner Integrated data."
+    "When checked, the application will load WyScout data from the 'wyscout_data' folder. When unchecked, it will use SkillCorner Integrated data from 'attached_assets'."
 )
 
 # Atualizar a fonte de dados no estado da sessão
