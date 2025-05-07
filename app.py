@@ -34,34 +34,93 @@ plt.rcParams['font.family'] = 'sans-serif'
 # =============================================
 # Helper Functions
 # =============================================
-# Função para detectar automaticamente todos os arquivos Excel na pasta attached_assets
-def load_available_leagues():
+# Função para detectar automaticamente todos os arquivos Excel com base na fonte de dados
+def load_available_leagues(data_source='skillcorner'):
     """
-    Detecta automaticamente todos os arquivos Excel (.xlsx) na pasta attached_assets
+    Detecta automaticamente todos os arquivos Excel (.xlsx) de uma fonte específica
     e os adiciona como ligas disponíveis.
+    
+    Args:
+        data_source: 'skillcorner' para os dados integrados SkillCorner, 
+                    'wyscout' para os dados WyScout do GitHub
     """
     leagues_dict = {}
-    assets_dir = "attached_assets"
     
-    # Verificar se a pasta existe
-    if os.path.exists(assets_dir) and os.path.isdir(assets_dir):
-        for filename in os.listdir(assets_dir):
-            if filename.endswith(".xlsx"):
-                # Usar o nome do arquivo (sem extensão) como nome da liga
-                league_name = os.path.splitext(filename)[0]
-                # Remover sufixos comuns como "WySC" ou números de versão para deixar o nome mais limpo
-                league_name = league_name.replace(" - WySC", "").replace(" WySC", "")
-                league_name = league_name.split(" (")[0]  # Remover qualquer coisa após "(" como "(1)"
+    if data_source == 'skillcorner':
+        # Buscar arquivos locais na pasta attached_assets (SkillCorner Integrated)
+        assets_dir = "attached_assets"
+        
+        # Verificar se a pasta existe
+        if os.path.exists(assets_dir) and os.path.isdir(assets_dir):
+            for filename in os.listdir(assets_dir):
+                if filename.endswith(".xlsx"):
+                    # Usar o nome do arquivo (sem extensão) como nome da liga
+                    league_name = os.path.splitext(filename)[0]
+                    # Remover sufixos comuns como "WySC" ou números de versão para deixar o nome mais limpo
+                    league_name = league_name.replace(" - WySC", "").replace(" WySC", "")
+                    league_name = league_name.split(" (")[0]  # Remover qualquer coisa após "(" como "(1)"
+                    
+                    # Adicionar ao dicionário
+                    leagues_dict[league_name] = os.path.join(assets_dir, filename)
+        
+        # Caso não encontre nenhum arquivo, usar valores padrão
+        if not leagues_dict:
+            leagues_dict = {
+                "Austria 2.Liga": "attached_assets/Austria 2.Liga - WySC (1).xlsx"
+            }
+            print("Aviso: Nenhum arquivo Excel encontrado na pasta attached_assets. Usando valores padrão.")
+    
+    elif data_source == 'wyscout':
+        # Primeiro verificar se temos uma pasta local para dados WyScout
+        wyscout_dir = "wyscout_data"
+        github_data_loaded = False
+        
+        # Verificar se temos uma pasta local para dados WyScout
+        if os.path.exists(wyscout_dir) and os.path.isdir(wyscout_dir):
+            for filename in os.listdir(wyscout_dir):
+                if filename.endswith(".xlsx"):
+                    # Usar o nome do arquivo como nome da liga para WyScout
+                    league_name = os.path.splitext(filename)[0]
+                    
+                    # Adicionar ao dicionário
+                    leagues_dict[league_name] = os.path.join(wyscout_dir, filename)
+        
+        # Se houver configuração para GitHub, tentar carregar dados de lá
+        if 'github_user' in st.session_state and 'github_repo' in st.session_state:
+            try:
+                import requests
+                github_user = st.session_state.github_user
+                github_repo = st.session_state.github_repo
+                github_path = st.session_state.get('github_path', 'wyscout_data')  # Pasta padrão: wyscout_data
                 
-                # Adicionar ao dicionário
-                leagues_dict[league_name] = os.path.join(assets_dir, filename)
-    
-    # Caso não encontre nenhum arquivo, usar valores padrão
-    if not leagues_dict:
-        leagues_dict = {
-            "Austria 2.Liga": "attached_assets/Austria 2.Liga - WySC (1).xlsx"
-        }
-        print("Aviso: Nenhum arquivo Excel encontrado na pasta attached_assets. Usando valores padrão.")
+                # URL da API do GitHub para listar arquivos em um diretório
+                api_url = f"https://api.github.com/repos/{github_user}/{github_repo}/contents/{github_path}"
+                
+                # Fazer a requisição
+                response = requests.get(api_url)
+                
+                if response.status_code == 200:
+                    github_data_loaded = True
+                    files = response.json()
+                    
+                    for file in files:
+                        if file['name'].endswith('.xlsx'):
+                            league_name = os.path.splitext(file['name'])[0]
+                            # Usamos a URL de download como caminho
+                            leagues_dict[league_name] = file['download_url']
+                            print(f"Arquivo WyScout encontrado no GitHub: {file['name']}")
+                else:
+                    print(f"Erro ao acessar GitHub: {response.status_code} - {response.text}")
+            except Exception as e:
+                print(f"Erro ao tentar carregar dados do GitHub: {str(e)}")
+        
+        # Caso não encontre nenhum arquivo WyScout, informar ao usuário
+        if not leagues_dict:
+            if not github_data_loaded:
+                print("Aviso: Nenhum arquivo WyScout encontrado localmente ou no GitHub.")
+                print("Por favor, adicione arquivos .xlsx na pasta wyscout_data ou configure o repositório GitHub.")
+            else:
+                print("Aviso: Nenhum arquivo WyScout encontrado no GitHub configurado.")
     
     return leagues_dict
 
@@ -73,6 +132,7 @@ def load_league_data(selected_leagues):
     Carrega dados das ligas selecionadas.
     Se st.session_state.combine_leagues for True, combina todas as ligas em um único dataframe.
     Se False, processa cada liga separadamente para cálculo de percentis.
+    Suporta carregamento de arquivos locais ou diretamente do GitHub.
     """
     dfs = []
     league_dfs = {}  # Para armazenar cada dataframe separadamente por liga
@@ -81,7 +141,28 @@ def load_league_data(selected_leagues):
     for league_name in selected_leagues:
         try:
             file_path = AVAILABLE_LEAGUES[league_name]
-            df = pd.read_excel(file_path)
+            
+            # Verificar se o caminho é uma URL (GitHub) ou caminho local
+            if file_path.startswith('http'):
+                # Carregar diretamente da URL do GitHub
+                import requests
+                from io import BytesIO
+                
+                # Baixar o arquivo
+                st.info(f"Baixando dados de {league_name} do GitHub...")
+                response = requests.get(file_path)
+                
+                if response.status_code == 200:
+                    # Carregar em um dataframe a partir dos bytes da resposta
+                    df = pd.read_excel(BytesIO(response.content))
+                else:
+                    st.error(f"Erro ao baixar {league_name} do GitHub: {response.status_code}")
+                    continue
+            else:
+                # Caminho local
+                df = pd.read_excel(file_path)
+            
+            # Processamento comum para ambos os casos
             df.dropna(how="all", inplace=True)
             df = df.loc[:, df.columns.notnull()]
             df.columns = [str(c).strip() for c in df.columns]
@@ -93,6 +174,8 @@ def load_league_data(selected_leagues):
             
             dfs.append(df)
             league_dfs[league_name] = df
+            
+            st.success(f"Dados de {league_name} carregados com sucesso! ({len(df)} jogadores)")
         except Exception as e:
             st.error(f"Erro ao carregar {league_name}: {str(e)}")
 
@@ -375,8 +458,7 @@ def fig_to_bytes(fig):
     return buf
 
 def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=None, 
-                       title=None, subtitle=None, p1_name="Player 1", p2_name="Player 2", 
-                       is_percentile=True):
+                       title=None, subtitle=None, p1_name="Player 1", p2_name="Player 2"):
     """
     Cria um pizza chart profissional usando o mesmo estilo do gráfico comparativo.
     Usa o PyPizza da mesma maneira que o gráfico de comparação para garantir consistência visual.
@@ -407,28 +489,9 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
         if values_p1 is not None and len(params) != len(values_p1):
             raise ValueError(f"Número de parâmetros ({len(params)}) não corresponde ao número de valores ({len(values_p1)})")
 
-        # Armazenar os valores originais para uso nos rótulos quando is_percentile=False
         # Estamos sempre usando percentis para a visualização
-        original_values_p1 = None
-        original_values_p2 = None
-        original_values_avg = None
-        
-        # Se temos valores de sessão para exibição, usamos eles
-        if not is_percentile:
-            if 'display_values_p1' in st.session_state and st.session_state.display_values_p1:
-                original_values_p1 = st.session_state.display_values_p1
-            if 'display_values_p2' in st.session_state and st.session_state.display_values_p2:
-                original_values_p2 = st.session_state.display_values_p2
-            if 'display_values_avg' in st.session_state and st.session_state.display_values_avg:
-                original_values_avg = st.session_state.display_values_avg
-        
-        # Se não temos valores na sessão (caso raro), usamos os valores originais
-        if original_values_p1 is None:
-            original_values_p1 = values_p1
-        if original_values_p2 is None:
-            original_values_p2 = values_p2
-        if original_values_avg is None:
-            original_values_avg = values_avg
+        # Não precisamos mais do código de valores originais, pois simplificamos
+        # para usar apenas percentis conforme solicitado pelo usuário
         
         # Para esta função, SEMPRE usamos os percentis para visualização
         # Ou seja, não fazemos normalização aqui - já que estamos sempre trabalhando com percentis
@@ -678,8 +741,7 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
     return fig
 
 def create_comparison_pizza_chart(params, values_p1, values_p2=None, values_avg=None,
-                       title=None, subtitle=None, p1_name="Player 1", p2_name="Player 2",
-                       is_percentile=True):
+                       title=None, subtitle=None, p1_name="Player 1", p2_name="Player 2"):
     """
     Cria um pizza chart para comparação entre dois jogadores ou jogador vs média,
     usando o estilo do gráfico padrão mas com sobreposição direta das fatias.
@@ -702,28 +764,12 @@ def create_comparison_pizza_chart(params, values_p1, values_p2=None, values_avg=
         if compare_values is None:
             raise ValueError("Valores de comparação não fornecidos (Player 2 ou Group Average)")
 
-        # Armazenar os valores originais para uso nos rótulos quando is_percentile=False
         # Estamos sempre usando percentis para a visualização
-        original_values_p1 = None
-        original_values_compare = None
-        
-        # Se temos valores de sessão para exibição, usamos eles
-        if not is_percentile:
-            if 'display_values_p1' in st.session_state and st.session_state.display_values_p1:
-                original_values_p1 = st.session_state.display_values_p1
-            if 'display_values_p2' in st.session_state and st.session_state.display_values_p2:
-                original_values_compare = st.session_state.display_values_p2
-            elif 'display_values_avg' in st.session_state and st.session_state.display_values_avg:
-                original_values_compare = st.session_state.display_values_avg
-        
-        # Se não temos valores na sessão (caso raro), usamos os valores originais
-        if original_values_p1 is None:
-            original_values_p1 = values_p1
-        if original_values_compare is None:
-            original_values_compare = compare_values
+        # Não precisamos mais do código de valores originais, pois simplificamos
+        # para usar apenas percentis conforme solicitado pelo usuário
             
         # Para esta função, SEMPRE usamos os percentis para visualização
-        # Ou seja, não fazemos normalização aqui - já que estamos sempre trabalhando com percentis
+        # Removemos o parâmetro is_percentile pois sempre usamos percentis para consistência
         
         # Arredondar valores para inteiros (tanto percentis quanto valores normalizados)
         values_p1 = [round(v) for v in values_p1]
@@ -1540,6 +1586,10 @@ st.header('Technical Scouting Department')
 st.subheader('Football Analytics Dashboard')
 st.caption("Created by João Alberto Kolling | Enhanced Player Analysis System v4.0")
 
+# Inicializar variável de sessão para fonte de dados
+if 'data_source' not in st.session_state:
+    st.session_state.data_source = 'skillcorner'
+
 # Guia do Usuário
 with st.expander("📘 User Guide & Instructions", expanded=False):
     st.markdown("""
@@ -1558,12 +1608,105 @@ with st.expander("📘 User Guide & Instructions", expanded=False):
 # Filtros da Barra Lateral
 # =============================================
 st.sidebar.header('Filters')
+
+# Opção para escolher a fonte de dados (SkillCorner ou WyScout)
+data_source = st.sidebar.checkbox(
+    "Use WyScout data",
+    value=False,
+    help="When checked, the application will load WyScout data. When unchecked, it will use SkillCorner Integrated data."
+)
+
+# Atualizar a fonte de dados no estado da sessão
+if data_source:
+    # Checkbox marcado = WyScout
+    if st.session_state.data_source != 'wyscout':
+        st.session_state.data_source = 'wyscout'
+        # Recarregar as ligas disponíveis
+        AVAILABLE_LEAGUES = load_available_leagues('wyscout')
+else:
+    # Checkbox desmarcado = SkillCorner
+    if st.session_state.data_source != 'skillcorner':
+        st.session_state.data_source = 'skillcorner'
+        # Recarregar as ligas disponíveis
+        AVAILABLE_LEAGUES = load_available_leagues('skillcorner')
+
+# Criar a pasta para dados WyScout se ela não existir
+if st.session_state.data_source == 'wyscout':
+    wyscout_dir = "wyscout_data"
+    if not os.path.exists(wyscout_dir):
+        os.makedirs(wyscout_dir)
+        st.sidebar.info(f"Created directory {wyscout_dir} for WyScout data. Please add your Excel files there.")
+    
+    # Expandir opções para mostrar configuração do GitHub
+    with st.sidebar.expander("GitHub WyScout Data", expanded=False):
+        st.markdown("**Configure GitHub Repository for WyScout Data**")
+        
+        # Inicializar variáveis de sessão para GitHub se não existirem
+        if 'github_user' not in st.session_state:
+            st.session_state.github_user = ""
+        if 'github_repo' not in st.session_state:
+            st.session_state.github_repo = ""
+        if 'github_path' not in st.session_state:
+            st.session_state.github_path = "wyscout_data"
+        
+        # Coletar informações do GitHub
+        github_user = st.text_input("GitHub Username", value=st.session_state.github_user,
+                                    help="Username of the GitHub account that hosts the data")
+        
+        github_repo = st.text_input("GitHub Repository", value=st.session_state.github_repo,
+                                   help="Name of the repository containing WyScout data files")
+        
+        github_path = st.text_input("Path within Repository", value=st.session_state.github_path,
+                                   help="Path to the folder containing the Excel files, e.g., 'data/wyscout'")
+        
+        # Atualizar o estado da sessão quando os valores mudam
+        if github_user != st.session_state.github_user:
+            st.session_state.github_user = github_user
+        if github_repo != st.session_state.github_repo:
+            st.session_state.github_repo = github_repo
+        if github_path != st.session_state.github_path:
+            st.session_state.github_path = github_path
+        
+        # Botão para recarregar os dados do GitHub
+        if st.button("Load GitHub Data"):
+            if github_user and github_repo:
+                st.success(f"Attempting to load WyScout data from GitHub repository: {github_user}/{github_repo}/{github_path}")
+                # Recarregar as ligas disponíveis usando a fonte WyScout
+                AVAILABLE_LEAGUES = load_available_leagues('wyscout')
+                if AVAILABLE_LEAGUES:
+                    st.success(f"Successfully found {len(AVAILABLE_LEAGUES)} leagues in the GitHub repository!")
+                else:
+                    st.error("No WyScout data files (.xlsx) found in the specified GitHub repository and path.")
+            else:
+                st.error("Please enter GitHub username and repository name.")
+        
+        # Instruções para o usuário
+        st.markdown("""
+        **Instructions:**
+        1. Create a GitHub repository with your WyScout Excel files
+        2. Make sure the repository is public
+        3. Enter the repository details above
+        4. Click 'Load GitHub Data' to access your files
+        """)
+
 with st.sidebar.expander("⚙️ Select Leagues", expanded=True):
-    selected_leagues = st.multiselect(
-        "Select leagues to analyze",
-        options=list(AVAILABLE_LEAGUES.keys()),
-        default=[list(AVAILABLE_LEAGUES.keys())[0]]
-    )
+    current_source_text = "WyScout" if st.session_state.data_source == 'wyscout' else "SkillCorner Integrated"
+    st.markdown(f"**Current data source: {current_source_text}**")
+    
+    if len(AVAILABLE_LEAGUES) == 0:
+        st.warning(f"No {current_source_text} data files found. Please add data files to the appropriate folder.")
+        # Mostrar mensagem específica para fonte de dados
+        if st.session_state.data_source == 'wyscout':
+            st.info("Please add your WyScout Excel files to the 'wyscout_data' folder.")
+        else:
+            st.info("Please add your SkillCorner Excel files to the 'attached_assets' folder.")
+        selected_leagues = []
+    else:
+        selected_leagues = st.multiselect(
+            "Select leagues to analyze",
+            options=list(AVAILABLE_LEAGUES.keys()),
+            default=[list(AVAILABLE_LEAGUES.keys())[0]] if AVAILABLE_LEAGUES else []
+        )
     
     # Opção para escolher como calcular os percentis
     if 'combine_leagues' not in st.session_state:
@@ -2169,8 +2312,7 @@ if selected_leagues:
                     title=title,
                     subtitle=subtitle,
                     p1_name=p1,
-                    p2_name=p2,
-                    is_percentile=not show_nominal_values
+                    p2_name=p2
                 )
             else:
                 # Usar o chart padrão para casos com média ou apenas um jogador
@@ -2182,8 +2324,7 @@ if selected_leagues:
                     title=title,
                     subtitle=subtitle,
                     p1_name=p1,
-                    p2_name=p2,
-                    is_percentile=not show_nominal_values
+                    p2_name=p2
                 )
 
             # Display pizza chart
