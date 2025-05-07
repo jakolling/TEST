@@ -237,6 +237,22 @@ def calc_percentile(series, value, benchmark_series=None):
     Returns:
         Percentile rank on 0-1 scale
     """
+    # Se o valor é zero e assumimos que a métrica não pode ser negativa, 
+    # retornamos 0 como percentil, a menos que TODOS os valores sejam 0
+    if value == 0:
+        # Determine a série a ser usada para verificação
+        check_series = benchmark_series if benchmark_series is not None else series
+        check_series = check_series.dropna()
+        
+        # Se todos os valores são zero, retorna 0.5 (média)
+        if len(check_series) > 0 and check_series.max() == 0:
+            return 0.5
+        
+        # Se existem valores maiores que zero, e este valor é zero, retorna 0
+        elif len(check_series) > 0 and check_series.max() > 0:
+            return 0.0
+    
+    # Para todos os outros casos, siga o cálculo regular
     # Se foi fornecida uma série de benchmark, use-a ao invés da série principal
     calc_series = benchmark_series if benchmark_series is not None else series
 
