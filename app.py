@@ -1399,6 +1399,60 @@ def compute_player_similarity(df, player, metrics, n=5, method='pca_kmeans'):
 # Main Application
 # =============================================
 
+# Inicialização de variáveis de sessão para manter seleções entre mudanças de filtros
+def initialize_session_state():
+    """Inicializar variáveis de sessão para preservar seleções entre mudanças de filtro"""
+    # Variáveis para Pizza Chart
+    if 'saved_pizza_p1' not in st.session_state:
+        st.session_state.saved_pizza_p1 = None
+    if 'saved_pizza_p2' not in st.session_state:
+        st.session_state.saved_pizza_p2 = None
+    if 'saved_pizza_metrics' not in st.session_state:
+        st.session_state.saved_pizza_metrics = []
+    if 'saved_pizza_comparison_option' not in st.session_state:
+        st.session_state.saved_pizza_comparison_option = 0
+        
+    # Variáveis para Bar Chart
+    if 'saved_bar_p1' not in st.session_state:
+        st.session_state.saved_bar_p1 = None
+    if 'saved_bar_p2' not in st.session_state:
+        st.session_state.saved_bar_p2 = None
+    if 'saved_bar_metrics' not in st.session_state:
+        st.session_state.saved_bar_metrics = []
+        
+    # Variáveis para Scatter Plot
+    if 'saved_scatter_x_metric' not in st.session_state:
+        st.session_state.saved_scatter_x_metric = None
+    if 'saved_scatter_y_metric' not in st.session_state:
+        st.session_state.saved_scatter_y_metric = None
+        
+    # Variáveis para Similarity
+    if 'saved_similarity_player' not in st.session_state:
+        st.session_state.saved_similarity_player = None
+    if 'saved_similarity_metrics' not in st.session_state:
+        st.session_state.saved_similarity_metrics = []
+    if 'saved_similarity_method' not in st.session_state:
+        st.session_state.saved_similarity_method = 'pca_kmeans'
+        
+    # Variáveis legadas (compatibilidade)
+    if 'bar_p1' not in st.session_state:
+        st.session_state.bar_p1 = st.session_state.saved_bar_p1
+    if 'bar_p2' not in st.session_state:
+        st.session_state.bar_p2 = st.session_state.saved_bar_p2
+    if 'bar_metrics' not in st.session_state:
+        st.session_state.bar_metrics = st.session_state.saved_bar_metrics
+    if 'scatter_x_metric' not in st.session_state:
+        st.session_state.scatter_x_metric = st.session_state.saved_scatter_x_metric
+    if 'scatter_y_metric' not in st.session_state:
+        st.session_state.scatter_y_metric = st.session_state.saved_scatter_y_metric
+    if 'similarity_player' not in st.session_state:
+        st.session_state.similarity_player = st.session_state.saved_similarity_player
+    if 'similarity_method' not in st.session_state:
+        st.session_state.similarity_method = st.session_state.saved_similarity_method
+
+# Inicializar estados de sessão
+initialize_session_state()
+
 # Cabeçalho com logo
 col1, col2, col3 = st.columns([1, 3, 1])
 with col2:
@@ -1708,7 +1762,16 @@ if selected_leagues:
 
         col1, col2 = st.columns(2)
         with col1:
-            p1 = st.selectbox('Select Player 1', players)
+            # Verificar se o jogador anteriormente selecionado ainda está disponível
+            player_index = 0
+            if st.session_state.saved_pizza_p1 in players:
+                player_index = players.index(st.session_state.saved_pizza_p1)
+                
+            # Usar o index para manter a seleção anterior quando possível
+            p1 = st.selectbox('Select Player 1', players, index=player_index, key='pizza_p1')
+            
+            # Atualizar nossa variável de armazenamento (não o widget diretamente)
+            st.session_state.saved_pizza_p1 = p1
 
         # A seleção do segundo jogador depende se estamos usando benchmark ou não
         with col2:
@@ -1724,7 +1787,16 @@ if selected_leagues:
 
                 if filtered_benchmark is not None and not filtered_benchmark.empty:
                     benchmark_players = sorted(filtered_benchmark['Player'].unique())
-                    p2 = st.selectbox('Select Benchmark Player', benchmark_players)
+                    
+                    # Verificar se o jogador anteriormente selecionado ainda está disponível
+                    benchmark_index = 0
+                    if st.session_state.saved_pizza_p2 in benchmark_players:
+                        benchmark_index = benchmark_players.index(st.session_state.saved_pizza_p2)
+                        
+                    p2 = st.selectbox('Select Benchmark Player', benchmark_players, index=benchmark_index, key='pizza_p2_benchmark')
+                    
+                    # Atualizar nossa variável de armazenamento (não o widget diretamente)
+                    st.session_state.saved_pizza_p2 = p2
 
                     # Exibir informações do jogador benchmark selecionado
                     st.info(f"Benchmark: {p2} from {st.session_state.benchmark_name}")
@@ -1733,8 +1805,23 @@ if selected_leagues:
                     p2 = None
                     use_benchmark = False
             else:
-                # Seleção normal do segundo jogador da mesma base
-                p2 = st.selectbox('Select Player 2', [p for p in players if p != p1])
+                # Filtrar jogadores para não incluir o jogador 1
+                remaining_players = [p for p in players if p != p1]
+                
+                if remaining_players:
+                    # Verificar se o jogador anteriormente selecionado ainda está disponível
+                    player2_index = 0
+                    if st.session_state.saved_pizza_p2 in remaining_players:
+                        player2_index = remaining_players.index(st.session_state.saved_pizza_p2)
+                    
+                    # Usar o index para manter a seleção anterior quando possível
+                    p2 = st.selectbox('Select Player 2', remaining_players, index=player2_index, key='pizza_p2')
+                    
+                    # Atualizar nossa variável de armazenamento (não o widget diretamente)
+                    st.session_state.saved_pizza_p2 = p2
+                else:
+                    st.warning("No second player available")
+                    p2 = None
 
         # Predefined metric groups for pizza charts
         pizza_metric_groups = {
@@ -1758,12 +1845,23 @@ if selected_leagues:
         )
 
         if metric_selection_mode == "Use Metric Presets":
+            # Definir valores padrão para grupos de métricas se não houver seleção prévia
+            if 'pizza_selected_groups' not in st.session_state or not st.session_state.pizza_selected_groups:
+                default_groups = ["Offensive", "Passing"]
+            else:
+                # Filtrar para manter apenas grupos que ainda existem
+                valid_groups = [g for g in st.session_state.pizza_selected_groups if g in pizza_metric_groups.keys()]
+                default_groups = valid_groups if valid_groups else ["Offensive", "Passing"]
+                
             selected_groups = st.multiselect(
                 "Select Metric Groups", 
                 list(pizza_metric_groups.keys()),
-                default=["Offensive", "Passing"],
+                default=default_groups,
                 key="pizza_preset_groups"  # Adicionando chave única
             )
+            
+            # Guardar a seleção de grupos na session_state
+            st.session_state.pizza_selected_groups = selected_groups
 
             # Combine all metrics from selected groups
             preset_metrics = []
@@ -1771,17 +1869,41 @@ if selected_leagues:
                 # Only add metrics that exist in the dataframe
                 available_metrics = [m for m in pizza_metric_groups[group] if m in metric_cols]
                 preset_metrics.extend(available_metrics)
+                
+            # Definir valores padrão para métricas com base na sessão ou presets calculados
+            if 'saved_pizza_metrics' in st.session_state and st.session_state.saved_pizza_metrics:
+                # Filtrar para manter apenas métricas que ainda existem no dataframe
+                valid_metrics = [m for m in st.session_state.saved_pizza_metrics if m in metric_cols]
+                default_metrics = valid_metrics if valid_metrics else preset_metrics
+            else:
+                default_metrics = preset_metrics
 
             # Allow further customization
             sel = st.multiselect(
                 'Add or Remove Individual Metrics (6-15 recommended)', 
                 metric_cols,
-                default=preset_metrics,
+                default=default_metrics,
                 key="pizza_preset_metrics"  # Adicionando chave única
             )
         else:
+            # Definir valores padrão para métricas com base na sessão ou primeiras 9 métricas
+            if 'saved_pizza_metrics' in st.session_state and st.session_state.saved_pizza_metrics:
+                # Filtrar para manter apenas métricas que ainda existem no dataframe
+                valid_metrics = [m for m in st.session_state.saved_pizza_metrics if m in metric_cols]
+                default_metrics = valid_metrics if valid_metrics else metric_cols[:9]
+            else:
+                default_metrics = metric_cols[:9]
+                
             # Let user select metrics manually
-            sel = st.multiselect('Metrics for Pizza Chart (6-15)', metric_cols, default=metric_cols[:9], key="pizza_custom_metrics")
+            sel = st.multiselect(
+                'Metrics for Pizza Chart (6-15)', 
+                metric_cols, 
+                default=default_metrics, 
+                key="pizza_custom_metrics"
+            )
+            
+        # Guardar as métricas selecionadas na session_state para uso futuro
+        st.session_state.saved_pizza_metrics = sel
 
         if 6 <= len(sel) <= 15:
             # Dados do jogador 1 (sempre da base principal)
@@ -2009,10 +2131,16 @@ if selected_leagues:
 
             col1, col2 = st.columns(2)
             with col1:
-                if 'p1' not in locals():
-                    p1 = st.selectbox('Select Player 1', players, key='bar_p1')
-                else:
-                    p1 = st.selectbox('Select Player 1', players, index=players.index(p1), key='bar_p1')
+                # Verificar se o jogador anteriormente selecionado ainda está disponível
+                player_index = 0
+                if st.session_state.saved_bar_p1 in players:
+                    player_index = players.index(st.session_state.saved_bar_p1)
+                    
+                # Usar o index para manter a seleção anterior quando possível
+                p1 = st.selectbox('Select Player 1', players, index=player_index, key='bar_p1')
+                
+                # Atualizar nossa variável de armazenamento (não o widget diretamente)
+                st.session_state.saved_bar_p1 = p1
 
             # A seleção do segundo jogador depende se estamos usando benchmark ou não
             with col2:
@@ -2028,7 +2156,16 @@ if selected_leagues:
 
                     if filtered_benchmark is not None and not filtered_benchmark.empty:
                         benchmark_players = sorted(filtered_benchmark['Player'].unique())
-                        p2 = st.selectbox('Select Benchmark Player', benchmark_players, key='bar_p2_benchmark')
+                        
+                        # Verificar se o jogador anteriormente selecionado ainda está disponível
+                        benchmark_index = 0
+                        if st.session_state.saved_bar_p2 in benchmark_players:
+                            benchmark_index = benchmark_players.index(st.session_state.saved_bar_p2)
+                            
+                        p2 = st.selectbox('Select Benchmark Player', benchmark_players, index=benchmark_index, key='bar_p2_benchmark')
+                        
+                        # Atualizar nossa variável de armazenamento (não o widget diretamente)
+                        st.session_state.saved_bar_p2 = p2
 
                         # Exibir informações do jogador benchmark selecionado
                         st.info(f"Benchmark: {p2} from {st.session_state.benchmark_name}")
@@ -2038,18 +2175,36 @@ if selected_leagues:
                         use_benchmark = False
                 else:
                     # Seleção normal do segundo jogador da mesma base
-                    if 'p2' not in locals():
-                        p2 = st.selectbox('Select Player 2', [p for p in players if p != p1], key='bar_p2')
+                    remaining_players = [p for p in players if p != p1]
+                    
+                    if remaining_players:
+                        # Verificar se o jogador anteriormente selecionado ainda está disponível
+                        player2_index = 0
+                        if st.session_state.saved_bar_p2 in remaining_players:
+                            player2_index = remaining_players.index(st.session_state.saved_bar_p2)
+                        
+                        # Usar o index para manter a seleção anterior quando possível
+                        p2 = st.selectbox('Select Player 2', remaining_players, index=player2_index, key='bar_p2')
+                        
+                        # Atualizar nossa variável de armazenamento (não o widget diretamente)
+                        st.session_state.saved_bar_p2 = p2
                     else:
-                        remaining_players = [p for p in players if p != p1]
-                        if p2 in remaining_players:
-                            p2 = st.selectbox('Select Player 2', remaining_players, 
-                                             index=remaining_players.index(p2), key='bar_p2')
-                        else:
-                            p2 = st.selectbox('Select Player 2', remaining_players, key='bar_p2')
-
+                        st.warning("No second player available")
+                        p2 = None
+                        
+            # Definir métricas padrão com base na session_state ou primeiras métricas
+            if 'saved_bar_metrics' in st.session_state and st.session_state.saved_bar_metrics:
+                # Filtrar para manter apenas métricas que ainda existem no dataframe
+                valid_metrics = [m for m in st.session_state.saved_bar_metrics if m in metric_cols]
+                default_metrics = valid_metrics if valid_metrics else metric_cols[:1]
+            else:
+                default_metrics = metric_cols[:1]
+                
             selected_metrics = st.multiselect('Select metrics (max 5)', metric_cols, 
-                                            default=metric_cols[:1], key='bar_metrics')
+                                            default=default_metrics, key='bar_metrics')
+                                            
+            # Guardar as métricas selecionadas na session_state para uso futuro
+            st.session_state.saved_bar_metrics = selected_metrics
 
             if len(selected_metrics) > 5:
                 st.error("Maximum 5 metrics allowed!")
@@ -2128,9 +2283,28 @@ if selected_leagues:
 
             col1, col2 = st.columns(2)
             with col1:
-                x_metric = st.selectbox('X-Axis Metric', metric_cols, index=0)
+                # Verificar se a métrica X anteriormente selecionada ainda está disponível
+                x_index = 0
+                if st.session_state.saved_scatter_x_metric in metric_cols:
+                    x_index = metric_cols.index(st.session_state.saved_scatter_x_metric)
+                
+                # Selecionar métrica X mantendo a seleção anterior quando possível
+                x_metric = st.selectbox('X-Axis Metric', metric_cols, index=x_index, key='scatter_x')
+                
+                # Atualizar nossa variável de armazenamento (não o widget diretamente)
+                st.session_state.saved_scatter_x_metric = x_metric
+                
             with col2:
-                y_metric = st.selectbox('Y-Axis Metric', metric_cols, index=min(1, len(metric_cols)-1))
+                # Verificar se a métrica Y anteriormente selecionada ainda está disponível
+                y_index = min(1, len(metric_cols)-1)  # Valor padrão
+                if st.session_state.saved_scatter_y_metric in metric_cols:
+                    y_index = metric_cols.index(st.session_state.saved_scatter_y_metric)
+                
+                # Selecionar métrica Y mantendo a seleção anterior quando possível
+                y_metric = st.selectbox('Y-Axis Metric', metric_cols, index=y_index, key='scatter_y')
+                
+                # Atualizar nossa variável de armazenamento (não o widget diretamente)
+                st.session_state.saved_scatter_y_metric = y_metric
 
             # Configurar o título base
             title = f"Scatter Analysis: {x_metric} vs {y_metric}"
@@ -2325,13 +2499,37 @@ if selected_leagues:
                         is_benchmark_player = False
                 else:
                     # Regular selection from main dataset
-                    sim_player = st.selectbox('Select Reference Player', players, key='sim_player')
+                    # Verificar se o jogador anteriormente selecionado ainda está disponível
+                    player_index = 0
+                    if st.session_state.saved_similarity_player in players:
+                        player_index = players.index(st.session_state.saved_similarity_player)
+                        
+                    # Usar o index para manter a seleção anterior quando possível
+                    sim_player = st.selectbox('Select Reference Player', players, index=player_index, key='sim_player')
+                    
+                    # Atualizar nossa variável de armazenamento (não o widget diretamente)
+                    st.session_state.saved_similarity_player = sim_player
                     is_benchmark_player = False
 
             with col2:
-                similarity_method = st.selectbox('Similarity Method', 
-                                            ['PCA + K-Means (Recommended)', 'Cosine Similarity', 'Euclidean Distance'], 
-                                            index=0)
+                # Verificar se o método anteriormente selecionado ainda está disponível
+                sim_methods = ['PCA + K-Means (Recommended)', 'Cosine Similarity', 'Euclidean Distance']
+                method_index = 0  # Padrão para PCA + K-Means
+                
+                # Mapear o método interno para o nome de exibição
+                method_display_mapping = {
+                    'pca_kmeans': 'PCA + K-Means (Recommended)',
+                    'cosine': 'Cosine Similarity',
+                    'euclidean': 'Euclidean Distance'
+                }
+                
+                # Se temos um método salvo e ele é válido, use-o como padrão
+                if st.session_state.saved_similarity_method in method_display_mapping.keys():
+                    display_method = method_display_mapping[st.session_state.saved_similarity_method]
+                    if display_method in sim_methods:
+                        method_index = sim_methods.index(display_method)
+                
+                similarity_method = st.selectbox('Similarity Method', sim_methods, index=method_index)
 
             # Map the displayed method name to internal method identifier
             method_mapping = {
@@ -2340,6 +2538,9 @@ if selected_leagues:
                 'Euclidean Distance': 'euclidean'
             }
             method = method_mapping[similarity_method]
+            
+            # Salvar nossa escolha para preservar entre mudanças de filtro
+            st.session_state.saved_similarity_method = method
 
             # Select metrics for similarity calculation
             st.subheader("Select Metrics for Similarity Calculation")
