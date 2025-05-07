@@ -2,6 +2,11 @@
 # Player Comparison and Similarity Analysis System - v4.0
 
 import streamlit as st
+# Deve ser a primeira chamada Streamlit
+st.set_page_config(page_title='Football Analytics',
+                   layout='wide',
+                   page_icon="⚽")
+
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -22,92 +27,15 @@ import base64
 # =============================================
 # Configuration
 # =============================================
-st.set_page_config(page_title='Football Analytics',
-                   layout='wide',
-                   page_icon="⚽")
 
 # Set up consistent fonts for mplsoccer
 plt.rcParams['font.family'] = 'sans-serif'
-
-# Definir uma função para inicializar variáveis de sessão (declarada aqui para evitar erro de ordem)
-def initialize_session_state():
-    """Inicializar variáveis de sessão para preservar seleções entre mudanças de filtro"""
-    # Variáveis para fonte de dados
-    if 'data_source' not in st.session_state:
-        st.session_state.data_source = 'skillcorner'
-    if 'selected_leagues_skillcorner' not in st.session_state:
-        st.session_state.selected_leagues_skillcorner = []
-    if 'selected_leagues_wyscout' not in st.session_state:
-        st.session_state.selected_leagues_wyscout = []
-        
-    # Variáveis para filtros de jogadores
-    if 'last_minutes_range' not in st.session_state:
-        st.session_state.last_minutes_range = [0, 5000]
-    if 'last_mpg_range' not in st.session_state:
-        st.session_state.last_mpg_range = [0, 100]
-    if 'last_age_range' not in st.session_state:
-        st.session_state.last_age_range = [15, 40]  # Usar 15 como mínimo para incluir jovens como Lamine Yamal
-    if 'last_positions' not in st.session_state:
-        st.session_state.last_positions = []
-        
-    # Variáveis para Pizza Chart
-    if 'saved_pizza_p1' not in st.session_state:
-        st.session_state.saved_pizza_p1 = None
-    if 'saved_pizza_p2' not in st.session_state:
-        st.session_state.saved_pizza_p2 = None
-    if 'saved_pizza_metrics' not in st.session_state:
-        st.session_state.saved_pizza_metrics = []
-    if 'saved_pizza_comparison_option' not in st.session_state:
-        st.session_state.saved_pizza_comparison_option = 0
-    if 'pizza_selected_groups' not in st.session_state:
-        st.session_state.pizza_selected_groups = []
-
-    # Variáveis para Bar Chart
-    if 'saved_bar_p1' not in st.session_state:
-        st.session_state.saved_bar_p1 = None
-    if 'saved_bar_p2' not in st.session_state:
-        st.session_state.saved_bar_p2 = None
-    if 'saved_bar_metrics' not in st.session_state:
-        st.session_state.saved_bar_metrics = []
-
-    # Variáveis para Scatter Plot
-    if 'saved_scatter_x_metric' not in st.session_state:
-        st.session_state.saved_scatter_x_metric = None
-    if 'saved_scatter_y_metric' not in st.session_state:
-        st.session_state.saved_scatter_y_metric = None
-
-    # Variáveis para Similarity
-    if 'saved_similarity_player' not in st.session_state:
-        st.session_state.saved_similarity_player = None
-    if 'saved_similarity_metrics' not in st.session_state:
-        st.session_state.saved_similarity_metrics = []
-    if 'saved_similarity_method' not in st.session_state:
-        st.session_state.saved_similarity_method = 'pca_kmeans'
-
-    # Variáveis legadas (compatibilidade)
-    if 'bar_p1' not in st.session_state:
-        st.session_state.bar_p1 = st.session_state.saved_bar_p1
-    if 'bar_p2' not in st.session_state:
-        st.session_state.bar_p2 = st.session_state.saved_bar_p2
-    if 'bar_metrics' not in st.session_state:
-        st.session_state.bar_metrics = st.session_state.saved_bar_metrics
-    if 'scatter_x_metric' not in st.session_state:
-        st.session_state.scatter_x_metric = st.session_state.saved_scatter_x_metric
-    if 'scatter_y_metric' not in st.session_state:
-        st.session_state.scatter_y_metric = st.session_state.saved_scatter_y_metric
-    if 'similarity_player' not in st.session_state:
-        st.session_state.similarity_player = st.session_state.saved_similarity_player
-    if 'similarity_method' not in st.session_state:
-        st.session_state.similarity_method = st.session_state.saved_similarity_method
-
-# Inicializar estados de sessão
-initialize_session_state()
-
 
 # =============================================
 # Helper Functions
 # =============================================
 # Função para detectar automaticamente todos os arquivos Excel com base na fonte de dados
+@st.cache_data(ttl=300)  # Cache por 5 minutos
 def load_available_leagues(data_source='skillcorner'):
     """
     Detecta automaticamente todos os arquivos Excel (.xlsx) de uma fonte específica
@@ -172,10 +100,19 @@ def load_available_leagues(data_source='skillcorner'):
     return leagues_dict
 
 
+# Inicializar variáveis de sessão necessárias
+if 'data_source' not in st.session_state:
+    st.session_state.data_source = 'skillcorner'
+if 'selected_leagues_skillcorner' not in st.session_state:
+    st.session_state.selected_leagues_skillcorner = []
+if 'selected_leagues_wyscout' not in st.session_state:
+    st.session_state.selected_leagues_wyscout = []
+
 # Carregar ligas disponíveis automaticamente conforme a fonte de dados atual
 AVAILABLE_LEAGUES = load_available_leagues(st.session_state.data_source)
 
 
+@st.cache_data(ttl=300)  # Cache por 5 minutos
 def load_league_data(selected_leagues):
     """
     Carrega dados das ligas selecionadas.
@@ -217,7 +154,9 @@ def load_league_data(selected_leagues):
         return pd.DataFrame()
 
     # Verificar o modo de processamento
-    combine_leagues = st.session_state.get('combine_leagues', True)
+    if 'combine_leagues' not in st.session_state:
+        st.session_state.combine_leagues = True
+    combine_leagues = st.session_state.combine_leagues
 
     if combine_leagues:
         # Modo padrão: combinar todas as ligas e calcular percentis globalmente
@@ -282,6 +221,76 @@ if 'last_age_range' not in st.session_state:
 if 'last_positions' not in st.session_state:
     st.session_state.last_positions = []
 
+# Variáveis para Pizza Chart
+if 'saved_pizza_p1' not in st.session_state:
+    st.session_state.saved_pizza_p1 = None
+if 'saved_pizza_p2' not in st.session_state:
+    st.session_state.saved_pizza_p2 = None
+if 'saved_pizza_metrics' not in st.session_state:
+    st.session_state.saved_pizza_metrics = []
+if 'saved_pizza_comparison_option' not in st.session_state:
+    st.session_state.saved_pizza_comparison_option = 0
+if 'pizza_selected_groups' not in st.session_state:
+    st.session_state.pizza_selected_groups = []
+
+# Variáveis para Bar Chart
+if 'saved_bar_p1' not in st.session_state:
+    st.session_state.saved_bar_p1 = None
+if 'saved_bar_p2' not in st.session_state:
+    st.session_state.saved_bar_p2 = None
+if 'saved_bar_metrics' not in st.session_state:
+    st.session_state.saved_bar_metrics = []
+
+# Variáveis para Scatter Plot
+if 'saved_scatter_x_metric' not in st.session_state:
+    st.session_state.saved_scatter_x_metric = None
+if 'saved_scatter_y_metric' not in st.session_state:
+    st.session_state.saved_scatter_y_metric = None
+
+# Variáveis para Similarity
+if 'saved_similarity_player' not in st.session_state:
+    st.session_state.saved_similarity_player = None
+if 'saved_similarity_metrics' not in st.session_state:
+    st.session_state.saved_similarity_metrics = []
+if 'saved_similarity_method' not in st.session_state:
+    st.session_state.saved_similarity_method = 'pca_kmeans'
+
+# Variáveis de persistência na UI
+if 'df' not in st.session_state:
+    st.session_state.df = None
+if 'filtered_df' not in st.session_state:
+    st.session_state.filtered_df = None 
+if 'players' not in st.session_state:
+    st.session_state.players = []
+if 'metrics' not in st.session_state:
+    st.session_state.metrics = []
+if 'selected_p1' not in st.session_state:
+    st.session_state.selected_p1 = None
+if 'selected_p2' not in st.session_state:
+    st.session_state.selected_p2 = None
+
+# Variáveis legadas (compatibilidade)
+if 'bar_p1' not in st.session_state:
+    st.session_state.bar_p1 = st.session_state.saved_bar_p1
+if 'bar_p2' not in st.session_state:
+    st.session_state.bar_p2 = st.session_state.saved_bar_p2
+if 'bar_metrics' not in st.session_state:
+    st.session_state.bar_metrics = st.session_state.saved_bar_metrics
+if 'scatter_x_metric' not in st.session_state:
+    st.session_state.scatter_x_metric = st.session_state.saved_scatter_x_metric
+if 'scatter_y_metric' not in st.session_state:
+    st.session_state.scatter_y_metric = st.session_state.saved_scatter_y_metric
+if 'similarity_player' not in st.session_state:
+    st.session_state.similarity_player = st.session_state.saved_similarity_player
+if 'similarity_method' not in st.session_state:
+    st.session_state.similarity_method = st.session_state.saved_similarity_method
+    
+# Variáveis de salto direto para menus
+if 'jump_to_pizza' not in st.session_state:
+    st.session_state.jump_to_pizza = False
+if 'jump_to_sim' not in st.session_state:
+    st.session_state.jump_to_sim = False
+
 
 # Função para tratamento de erros/exceções de forma centralizada
 def safe_operation(func, error_msg, fallback=None, *args, **kwargs):
@@ -293,6 +302,7 @@ def safe_operation(func, error_msg, fallback=None, *args, **kwargs):
         return fallback
 
 
+@st.cache_data
 def calculate_offensive_metrics(df):
     """
     Calculate advanced offensive metrics:
@@ -518,6 +528,7 @@ def fig_to_bytes(fig):
     return buf
 
 
+@st.cache_data
 def create_pizza_chart(params=None,
                        values_p1=None,
                        values_p2=None,
@@ -865,6 +876,7 @@ def create_pizza_chart(params=None,
     return fig
 
 
+@st.cache_data
 def create_comparison_pizza_chart(params,
                                   values_p1,
                                   values_p2=None,
@@ -1088,6 +1100,7 @@ def create_comparison_pizza_chart(params,
         return fig
 
 
+@st.cache_data
 def create_bar_chart(metrics,
                      p1_name,
                      p1_values,
@@ -1198,6 +1211,7 @@ def create_bar_chart(metrics,
     return fig
 
 
+@st.cache_data
 def create_scatter_plot(df, x_metric, y_metric, title=None):
     """Create scatter plot using matplotlib with player names and hover annotations"""
     fig, ax = plt.subplots(figsize=(12, 8))
@@ -1282,6 +1296,7 @@ def create_scatter_plot(df, x_metric, y_metric, title=None):
     return fig
 
 
+@st.cache_data
 def create_similarity_viz(selected_player,
                           similar_players,
                           metrics,
@@ -1610,6 +1625,7 @@ def create_similarity_viz(selected_player,
         return fig
 
 
+@st.cache_data
 def create_pca_kmeans_df(df, metrics, n_clusters=8):
     """
     Create a PCA and K-Means clustering model for player similarity.
@@ -2452,7 +2468,14 @@ if selected_leagues:
             ],
             "Advanced Metrics":
             ['npxG', 'G-xG', 'npxG per Shot', 'Box Efficiency'
-             ]  # Incluindo Box Efficiency nas métricas avançadas
+             ],  # Incluindo Box Efficiency nas métricas avançadas
+            "Pedri Metrics": [
+                'Smart passes per 90', 'Key passes per 90', 'Shot assists per 90', 'xA per 90',
+                'Passes per 90', 'Progressive passes per 90', 'Passes to final third per 90', 'Through passes per 90',
+                'Progressive runs per 90', 'Dribbles per 90', 'Successful dribbles, %',
+                'Interceptions per 90', 'Defensive duels per 90', 'Defensive duels won, %',
+                'Received passes per 90'
+            ]
         }
 
         # Let user select metric selection mode
@@ -3361,7 +3384,14 @@ if selected_leagues:
                 ],
                 "Advanced Metrics":
                 ['npxG', 'G-xG', 'npxG per Shot', 'Box Efficiency'
-                 ]  # Incluindo Box Efficiency nas métricas avançadas
+                 ],  # Incluindo Box Efficiency nas métricas avançadas
+                "Pedri Metrics": [
+                    'Smart passes per 90', 'Key passes per 90', 'Shot assists per 90', 'xA per 90',
+                    'Passes per 90', 'Progressive passes per 90', 'Passes to final third per 90', 'Through passes per 90',
+                    'Progressive runs per 90', 'Dribbles per 90', 'Successful dribbles, %',
+                    'Interceptions per 90', 'Defensive duels per 90', 'Defensive duels won, %',
+                    'Received passes per 90'
+                ]
             }
 
             # Let user first select a preset group or custom
@@ -4540,7 +4570,7 @@ if selected_leagues:
                     profile_metrics = st.multiselect(
                         'Add or Remove Individual Metrics (1-15 recommended)',
                         metric_cols,
-                        default=preset_metrics[:min(5, len(preset_metrics))],
+                        default=preset_metrics,  # Carrega todas as métricas do grupo sem limitação
                         key="profiler_preset_metrics")
                 else:
                     # Seleção manual de métricas
