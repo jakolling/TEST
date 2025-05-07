@@ -512,8 +512,7 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
             inner_circle_size=10            # círculo interno BEM MENOR (10% do raio total)
         )
 
-        # Criar a pizza para o jogador 1, mas NÃO MOSTRAR OS VALORES AUTOMÁTICOS
-        # Iremos adicionar os valores manualmente após o plot para poder controlar exatamente o que é mostrado
+        # Criar a pizza para o jogador 1
         baker.make_pizza(
             values,                          # valores
             ax=ax,                           # axis
@@ -536,33 +535,6 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
                 )
             )
         )
-        
-        # Adicionar os rótulos manualmente para jogador 1
-        # Escolher entre valores nominais ou percentis conforme seleção do usuário
-        for i, value in enumerate(values):
-            angle = (i / len(params)) * 2 * np.pi
-            radius = value / 100  # Normalizar para o raio
-            
-            # Determinar qual valor mostrar: percentil ou nominal
-            if not is_percentile and original_values_p1 is not None:
-                # Usar valor nominal (formatar conforme magnitude)
-                orig_value = original_values_p1[i]
-                if orig_value >= 100:
-                    value_text = f"{orig_value:.0f}"
-                elif orig_value >= 10:
-                    value_text = f"{orig_value:.1f}"
-                else:
-                    value_text = f"{orig_value:.2f}"
-            else:
-                # Usar percentil (sempre inteiro)
-                value_text = f"{value:.0f}"
-                
-            # Adicionar o texto na posição correta
-            if value > 5:  # Mostrar apenas valores relevantes
-                ax.text(angle, radius + 0.05, value_text, color='#FF0000', 
-                        fontsize=9, ha='center', va='center', fontweight='bold',
-                        bbox=dict(boxstyle="round,pad=0.2", facecolor='#FFFFFF', 
-                                alpha=0.9, edgecolor='#000000', linewidth=1))
 
         # Adicionar jogador 2 se fornecido
         if values_p2 is not None:
@@ -575,25 +547,10 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
                 ax.plot([angle, angle], [0, value/100], color=player2_color, 
                         linewidth=2.5, linestyle='-', zorder=10)
 
-                # Adicionar valor em caixa para o jogador 2
-                # Determinar qual valor mostrar: percentil ou nominal
-                if not is_percentile and original_values_p2 is not None:
-                    # Usar valor nominal (formatar conforme magnitude)
-                    orig_value = original_values_p2[i]
-                    if orig_value >= 100:
-                        value_text = f"{orig_value:.0f}"
-                    elif orig_value >= 10:
-                        value_text = f"{orig_value:.1f}"
-                    else:
-                        value_text = f"{orig_value:.2f}"
-                else:
-                    # Usar percentil (sempre inteiro)
-                    value_text = f"{value:.0f}"
-                
-                # Adicionar o texto na posição correta
+                # Adicionar valor em caixa para o jogador 2 (fundo branco e texto vermelho)
                 if value > 25:  # Mostrar apenas valores relevantes
                     radius = value / 100
-                    ax.text(angle, radius + 0.05, value_text, color='#FF0000', 
+                    ax.text(angle, radius + 0.05, f"{value}", color='#FF0000', 
                             fontsize=9, ha='center', va='center', fontweight='bold',
                             bbox=dict(boxstyle="round,pad=0.2", facecolor='#FFFFFF', 
                                     alpha=0.9, edgecolor='#000000', linewidth=1))
@@ -806,7 +763,7 @@ def create_comparison_pizza_chart(params, values_p1, values_p2=None, values_avg=
         )
 
         # Usar o método make_pizza do PyPizza, que aceita compare_values diretamente
-        # Mas desativamos os labels automáticos para adicionar manualmente
+        # Isso criará automaticamente um gráfico com os dois jogadores sobrepostos
         fig, ax = baker.make_pizza(
             values_p1,                     # valores do jogador 1
             compare_values=compare_values, # valores do jogador 2 ou média
@@ -840,95 +797,6 @@ def create_comparison_pizza_chart(params, values_p1, values_p2=None, values_avg=
                 )
             )
         )
-        
-        # Adicionar os rótulos manualmente para jogador 1 e comparação
-        # para permitir escolher entre valores nominais ou percentis
-        for i, (val_p1, val_compare) in enumerate(zip(values_p1, compare_values)):
-            angle = (i / len(params)) * 2 * np.pi
-            
-            # Rótulos para jogador 1
-            if val_p1 > 5:  # Mostrar apenas valores relevantes
-                # Determinar qual valor mostrar: percentil ou nominal
-                if not is_percentile and original_values_p1 is not None:
-                    # Usar valor nominal (formatar conforme magnitude)
-                    orig_value = original_values_p1[i] if i < len(original_values_p1) else val_p1
-                    if orig_value >= 100:
-                        value_text = f"{orig_value:.0f}"
-                    elif orig_value >= 10:
-                        value_text = f"{orig_value:.1f}"
-                    else:
-                        value_text = f"{orig_value:.2f}"
-                else:
-                    # Usar percentil (sempre inteiro)
-                    value_text = f"{val_p1:.0f}"
-                
-                # Calcular a posição do rótulo
-                rads = np.pi/180 * (i / len(params) * 360)
-                pad = 20 # padding em pixels
-                if 0 <= rads <= np.pi/2:
-                    ha, offset = 'left', (+pad, +pad)
-                elif np.pi/2 < rads <= np.pi:
-                    ha, offset = 'right', (-pad, +pad)
-                elif np.pi < rads <= 3*np.pi/2:
-                    ha, offset = 'right', (-pad, -pad)
-                else:
-                    ha, offset = 'left', (+pad, -pad)
-                
-                baker.ax.text(
-                    angle, val_p1/100, value_text,
-                    ha=ha,
-                    va='center',
-                    color=player1_color,
-                    fontsize=10,
-                    fontweight='bold',
-                    zorder=10,
-                    bbox=dict(
-                        edgecolor="#000000", facecolor="#FFFFFF",
-                        boxstyle="round,pad=0.2", lw=1, alpha=0.9
-                    )
-                )
-            
-            # Rótulos para jogador 2 / comparação
-            if val_compare > 5:  # Mostrar apenas valores relevantes
-                # Determinar qual valor mostrar: percentil ou nominal
-                if not is_percentile and original_values_compare is not None:
-                    # Usar valor nominal (formatar conforme magnitude)
-                    orig_value = original_values_compare[i] if i < len(original_values_compare) else val_compare
-                    if orig_value >= 100:
-                        value_text = f"{orig_value:.0f}"
-                    elif orig_value >= 10:
-                        value_text = f"{orig_value:.1f}"
-                    else:
-                        value_text = f"{orig_value:.2f}"
-                else:
-                    # Usar percentil (sempre inteiro)
-                    value_text = f"{val_compare:.0f}"
-                
-                # Calcular a posição do rótulo
-                rads = np.pi/180 * (i / len(params) * 360)
-                pad = 20 # padding em pixels
-                if 0 <= rads <= np.pi/2:
-                    ha, offset = 'left', (+pad, +pad)
-                elif np.pi/2 < rads <= np.pi:
-                    ha, offset = 'right', (-pad, +pad)
-                elif np.pi < rads <= 3*np.pi/2:
-                    ha, offset = 'right', (-pad, -pad)
-                else:
-                    ha, offset = 'left', (+pad, -pad)
-                
-                baker.ax.text(
-                    angle, val_compare/100, value_text,
-                    ha=ha,
-                    va='center',
-                    color=compare_color,
-                    fontsize=10,
-                    fontweight='bold',
-                    zorder=10,
-                    bbox=dict(
-                        edgecolor="#000000", facecolor="#FFFFFF",
-                        boxstyle="round,pad=0.2", lw=1, alpha=0.9
-                    )
-                )
 
         # Ajustar os textos para evitar sobreposição (como no script de exemplo)
         params_offset = [True] * len(params)
