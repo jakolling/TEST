@@ -32,6 +32,8 @@ plt.rcParams['font.family'] = 'sans-serif'
 # Inicializar variáveis de estado globais
 if 'data_source' not in st.session_state:
     st.session_state.data_source = 'skillcorner'
+if 'selected_leagues' not in st.session_state:
+    st.session_state.selected_leagues = []
 
 
 # =============================================
@@ -1889,13 +1891,31 @@ with st.sidebar.expander("⚙️ Select Leagues", expanded=True):
             st.info(
                 "Please add your SkillCorner Excel files to the 'attached_assets' folder."
             )
+        st.session_state.selected_leagues = []
         selected_leagues = []
     else:
+        # Verificar se há ligas disponíveis que não estão mais na lista de opções
+        # para limpar seleções inválidas
+        valid_leagues = list(AVAILABLE_LEAGUES.keys())
+        if st.session_state.selected_leagues:
+            st.session_state.selected_leagues = [
+                league for league in st.session_state.selected_leagues
+                if league in valid_leagues
+            ]
+        
+        # Se não houver seleção válida, definir o padrão para a primeira liga disponível
+        default_selection = st.session_state.selected_leagues
+        if not default_selection and AVAILABLE_LEAGUES:
+            default_selection = [list(AVAILABLE_LEAGUES.keys())[0]]
+        
+        # Usar st.multiselect com o valor salvo no session_state
         selected_leagues = st.multiselect(
             "Select leagues to analyze",
-            options=list(AVAILABLE_LEAGUES.keys()),
-            default=[list(AVAILABLE_LEAGUES.keys())[0]]
-            if AVAILABLE_LEAGUES else [])
+            options=valid_leagues,
+            default=default_selection)
+        
+        # Atualizar a seleção no session_state
+        st.session_state.selected_leagues = selected_leagues
 
     # Opção para escolher como calcular os percentis
     if 'combine_leagues' not in st.session_state:
@@ -2124,8 +2144,14 @@ if selected_leagues:
     try:
         min_min, max_min = int(df['Minutes played'].min()), int(
             df['Minutes played'].max())
+        
+        # Usar valores salvos no session_state se estiverem dentro do intervalo válido
+        default_minutes = st.session_state.last_minutes_range
+        if default_minutes[0] < min_min or default_minutes[1] > max_min:
+            default_minutes = (min_min, max_min)
+        
         minutes_range = st.sidebar.slider('Minutes Played', min_min, max_min,
-                                          (min_min, max_min))
+                                          default_minutes)
         df_minutes = df[df['Minutes played'].between(*minutes_range)].copy()
 
         # Verificar se temos jogadores após o filtro
@@ -2135,11 +2161,14 @@ if selected_leagues:
             )
             df_minutes = df.copy()
             minutes_range = (min_min, max_min)
+        
+        # Salvar a seleção atual no session_state
+        st.session_state.last_minutes_range = minutes_range
     except Exception as e:
         st.error(f"Error filtering by minutes: {str(e)}")
         df_minutes = df.copy()
-        minutes_range = (df['Minutes played'].min(),
-                         df['Minutes played'].max())
+        minutes_range = (min_min, max_min)
+        st.session_state.last_minutes_range = minutes_range
 
     # Calcular minutos por jogo com tratamento adequado para divisão por zero
     try:
@@ -2151,8 +2180,14 @@ if selected_leagues:
 
         min_mpg, max_mpg = int(df_minutes['Minutes per game'].min()), int(
             df_minutes['Minutes per game'].max())
+        
+        # Usar valores salvos no session_state se estiverem dentro do intervalo válido
+        default_mpg = st.session_state.last_mpg_range
+        if default_mpg[0] < min_mpg or default_mpg[1] > max_mpg:
+            default_mpg = (min_mpg, max_mpg)
+            
         mpg_range = st.sidebar.slider('Minutes per Game', min_mpg, max_mpg,
-                                      (min_mpg, max_mpg))
+                                      default_mpg)
         df_filtered = df_minutes[df_minutes['Minutes per game'].between(
             *mpg_range)]
 
@@ -2165,16 +2200,26 @@ if selected_leagues:
             mpg_range = (min_mpg, max_mpg)
         else:
             df_minutes = df_filtered
+            
+        # Salvar a seleção atual no session_state
+        st.session_state.last_mpg_range = mpg_range
     except Exception as e:
         st.error(f"Error calculating minutes per game: {str(e)}")
         mpg_range = (0, 120)
+        st.session_state.last_mpg_range = mpg_range
 
     # Filtro de idade
     try:
         min_age, max_age = int(df_minutes['Age'].min()), int(
             df_minutes['Age'].max())
+            
+        # Usar valores salvos no session_state se estiverem dentro do intervalo válido
+        default_age = st.session_state.last_age_range
+        if default_age[0] < min_age or default_age[1] > max_age:
+            default_age = (min_age, max_age)
+            
         age_range = st.sidebar.slider('Age Range', min_age, max_age,
-                                      (min_age, max_age))
+                                      default_age)
         df_filtered = df_minutes[df_minutes['Age'].between(*age_range)]
 
         # Verificar se ainda temos jogadores
@@ -2185,9 +2230,13 @@ if selected_leagues:
             age_range = (min_age, max_age)
         else:
             df_minutes = df_filtered
+            
+        # Salvar a seleção atual no session_state
+        st.session_state.last_age_range = age_range
     except Exception as e:
         st.error(f"Error filtering by age: {str(e)}")
         age_range = (df_minutes['Age'].min(), df_minutes['Age'].max())
+        st.session_state.last_age_range = age_range
 
     # Coleta posições
     if 'Position' in df_minutes.columns:
@@ -2197,9 +2246,20 @@ if selected_leagues:
             {p
              for lst in df_minutes['Position_split']
              for p in lst})
-        sel_pos = st.sidebar.multiselect('Positions', all_pos, default=all_pos)
+             
+        # Verificar se há posições salvas e se elas ainda são válidas
+        if st.session_state.last_positions and all(pos in all_pos for pos in st.session_state.last_positions):
+            default_positions = st.session_state.last_positions
+        else:
+            default_positions = all_pos
+            
+        sel_pos = st.sidebar.multiselect('Positions', all_pos, default=default_positions)
+        
+        # Salvar a seleção atual no session_state
+        st.session_state.last_positions = sel_pos
     else:
         sel_pos = []
+        st.session_state.last_positions = []
 
     # Cria dataframe para cálculos de grupo
     if 'Position_split' in df_minutes.columns and sel_pos:
