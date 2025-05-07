@@ -34,13 +34,39 @@ plt.rcParams['font.family'] = 'sans-serif'
 # =============================================
 # Helper Functions
 # =============================================
-# Dados das ligas disponíveis
-AVAILABLE_LEAGUES = {
-    "Austria 2.Liga": "attached_assets/Austria 2.Liga - WySC (1).xlsx",
-    "Austria Bundesliga": "attached_assets/Austria Bundesliga WySC.xlsx",
-    "Czech Chance Liga": "attached_assets/Czech Chance Liga WySC.xlsx",
-    "Netherlands Keuken Kampionen": "attached_assets/NED Keuken Kampionen.xlsx"
-}
+# Função para detectar automaticamente todos os arquivos Excel na pasta attached_assets
+def load_available_leagues():
+    """
+    Detecta automaticamente todos os arquivos Excel (.xlsx) na pasta attached_assets
+    e os adiciona como ligas disponíveis.
+    """
+    leagues_dict = {}
+    assets_dir = "attached_assets"
+    
+    # Verificar se a pasta existe
+    if os.path.exists(assets_dir) and os.path.isdir(assets_dir):
+        for filename in os.listdir(assets_dir):
+            if filename.endswith(".xlsx"):
+                # Usar o nome do arquivo (sem extensão) como nome da liga
+                league_name = os.path.splitext(filename)[0]
+                # Remover sufixos comuns como "WySC" ou números de versão para deixar o nome mais limpo
+                league_name = league_name.replace(" - WySC", "").replace(" WySC", "")
+                league_name = league_name.split(" (")[0]  # Remover qualquer coisa após "(" como "(1)"
+                
+                # Adicionar ao dicionário
+                leagues_dict[league_name] = os.path.join(assets_dir, filename)
+    
+    # Caso não encontre nenhum arquivo, usar valores padrão
+    if not leagues_dict:
+        leagues_dict = {
+            "Austria 2.Liga": "attached_assets/Austria 2.Liga - WySC (1).xlsx"
+        }
+        print("Aviso: Nenhum arquivo Excel encontrado na pasta attached_assets. Usando valores padrão.")
+    
+    return leagues_dict
+
+# Carregar ligas disponíveis automaticamente
+AVAILABLE_LEAGUES = load_available_leagues()
 
 def load_league_data(selected_leagues):
     """
