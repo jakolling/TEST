@@ -4550,42 +4550,16 @@ if selected_leagues:
                         default=metric_cols[:min(3, len(metric_cols))],
                         key="profiler_metrics")
 
-                # Definir percentis predefinidos para o grupo "Pedri Metrics"
-                pedri_metrics_percentiles = {
-                    'Smart passes per 90': 70,
-                    'Key passes per 90': 70,
-                    'Shot assists per 90': 65,
-                    'xA per 90': 60,
-                    'Passes per 90': 80,
-                    'Progressive passes per 90': 75,
-                    'Passes to final third per 90': 70,
-                    'Through passes per 90': 60,
-                    'Progressive runs per 90': 65,
-                    'Dribbles per 90': 60,
-                    'Successful dribbles, %': 60,
-                    'Interceptions per 90': 60,
-                    'Defensive duels per 90': 55,
-                    'Defensive duels won, %': 55,
-                    'Received passes per 90': 80
-                }
-                
-                # Verificar se o Pedri Metrics está selecionado para usar os percentis predefinidos
-                using_pedri_metrics = metric_selection == "Use Metric Presets" and "Pedri Metrics" in selected_groups
-                
                 # Para cada métrica selecionada, adicionar um slider para o percentil mínimo
                 percentile_filters = {}
                 for metric in profile_metrics:
-                    if len(profile_metrics) <= 15:  # Permitir até 15 métricas com sliders individuais
-                        # Definir valor padrão com base no dicionário de Pedri Metrics se aplicável
-                        default_percentile = pedri_metrics_percentiles.get(metric, 65) if using_pedri_metrics else 65
-                        
-                        min_percentile = st.slider(
-                            f"Minimum percentile for {metric}",
-                            0,
-                            100,
-                            default_percentile,  # Usar valor predefinido para Pedri Metrics se aplicável
-                            key=f"percentile_{metric}")
-                        percentile_filters[metric] = min_percentile
+                    min_percentile = st.slider(
+                        f"Minimum percentile for {metric}",
+                        0,
+                        100,
+                        65,  # Padrão em 65º percentil
+                        key=f"percentile_{metric}")
+                    percentile_filters[metric] = min_percentile
 
             # Aplicar filtros
             if not profile_metrics:
