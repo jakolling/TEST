@@ -2695,19 +2695,21 @@ if selected_leagues:
                 )
 
                 # Configurar valores com base na opção selecionada
-                # Obter posição e idade do jogador 1
+                # Obter posição, time e idade do jogador 1
                 p1_position = d1['Position']
+                p1_team = d1['Team']
                 p1_age = int(d1['Age']) if isinstance(d1['Age'],
                                                       (int,
                                                        float)) else d1['Age']
-                p1_display = f"{p1} ({p1_position}, {p1_age})"
+                p1_display = f"{p1} ({p1_team}, {p1_position}, {p1_age})"
 
-                # Obter posição e idade do jogador 2 se estiver disponível
+                # Obter posição, time e idade do jogador 2 se estiver disponível
                 if p2 is not None:
                     p2_position = d2['Position']
+                    p2_team = d2['Team']
                     p2_age = int(d2['Age']) if isinstance(
                         d2['Age'], (int, float)) else d2['Age']
-                    p2_display = f"{p2} ({p2_position}, {p2_age})"
+                    p2_display = f"{p2} ({p2_team}, {p2_position}, {p2_age})"
                 else:
                     p2_display = p2
 
@@ -2965,6 +2967,12 @@ if selected_leagues:
                 # Valores nominais para os jogadores
                 p1_values = [d1[m] for m in selected_metrics]
                 p2_values = [d2[m] for m in selected_metrics]
+                
+                # Formatação dos nomes com os times
+                p1_team = d1['Team']
+                p2_team = d2['Team']
+                p1_display = f"{p1} ({p1_team})"
+                p2_display = f"{p2} ({p2_team})"
 
                 title = "Metric Comparison"
                 subtitle = (
@@ -2973,9 +2981,9 @@ if selected_leagues:
                 )
 
                 fig = create_bar_chart(metrics=selected_metrics,
-                                       p1_name=p1,
+                                       p1_name=p1_display,
                                        p1_values=p1_values,
-                                       p2_name=p2,
+                                       p2_name=p2_display,
                                        p2_values=p2_values,
                                        avg_values=avg_values,
                                        title=title,
