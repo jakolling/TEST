@@ -537,33 +537,7 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
             size=8, ha="right", color="#666666", style='italic'
         )
         
-        # Adicionar valores nominais próximos aos percentis se disponíveis 
-        try:
-            # Obter os valores nominais da sessão de estado se disponíveis
-            if hasattr(st.session_state, 'nominal_values_p1') and st.session_state.nominal_values_p1 is not None:
-                nominal_values = st.session_state.nominal_values_p1
-                # Adicionar valores nominais ao gráfico
-                for i, (param, nom_value) in enumerate(zip(params, nominal_values)):
-                    angle = (i / len(params)) * 2 * np.pi
-                    # Calcular a posição radial (um pouco além do valor percentil)
-                    radius = values_p1[i] / 100 * 0.85  # Usar 85% do raio máximo
-                    
-                    # Formatação concisa do valor nominal
-                    if isinstance(nom_value, float):
-                        formatted_value = f"{nom_value:.1f}"
-                    else:
-                        formatted_value = f"{nom_value}"
-                        
-                    # Adicionar texto com o valor nominal
-                    ax.text(
-                        np.cos(angle) * (radius + 0.08), np.sin(angle) * (radius + 0.08),
-                        formatted_value,
-                        color='darkgreen', fontsize=7, ha='center', va='center',
-                        bbox=dict(facecolor='#EEFFEE', alpha=0.8, edgecolor='darkgreen', pad=1, boxstyle='round'),
-                        zorder=15
-                    )
-        except Exception as e:
-            print(f"Erro ao adicionar valores nominais: {str(e)}")
+        # Valores nominais foram removidos conforme solicitado
 
         # Remover grade e ticks
         ax.grid(False)
@@ -1915,18 +1889,31 @@ if selected_leagues:
                 )
 
                 # Configurar valores com base na opção selecionada
+                # Obter posição e idade do jogador 1
+                p1_position = d1['Position']
+                p1_age = d1['Age']
+                p1_display = f"{p1} ({p1_position}, {p1_age})"
+                
+                # Obter posição e idade do jogador 2 se estiver disponível
+                if p2 is not None:
+                    p2_position = d2['Position']
+                    p2_age = d2['Age']
+                    p2_display = f"{p2} ({p2_position}, {p2_age})"
+                else:
+                    p2_display = p2
+                
                 if comparison_option == f"No comparison (only {p1})":
                     show_p2 = False
                     show_avg = False
-                    title = f"{p1}"
+                    title = f"{p1_display}"
                 elif comparison_option == f"Player vs Player ({p1} vs {p2})":
                     show_p2 = True
                     show_avg = False
-                    title = f"{p1} vs {p2}"
+                    title = f"{p1_display} vs {p2_display}"
                 else:  # Player vs Group Average
                     show_p2 = False
                     show_avg = True
-                    title = f"{p1} vs Group Average"
+                    title = f"{p1_display} vs Group Average"
 
             subtitle = (f"Percentile Rank | {context['leagues']} | "
                       f"{context['min_min']}+ mins | Position: {context['positions']}{benchmark_text}")
