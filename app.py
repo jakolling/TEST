@@ -407,47 +407,31 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
         if values_p1 is not None and len(params) != len(values_p1):
             raise ValueError(f"Número de parâmetros ({len(params)}) não corresponde ao número de valores ({len(values_p1)})")
 
-        # Normalizar valores se não forem percentis
-        if not is_percentile and values_p1 is not None and values_p2 is not None:
-            # Para valores nominais, precisamos normalizar para a escala 0-100
-            all_values = []
-            if values_p1 is not None:
-                all_values.extend(values_p1)
-            if values_p2 is not None:
-                all_values.extend(values_p2)
-            if values_avg is not None:
-                all_values.extend(values_avg)
-                
-            # Encontrar min e max para cada parâmetro para normalização
-            max_values_per_param = {}
-            for i, param in enumerate(params):
-                param_values = []
-                if values_p1 is not None and i < len(values_p1):
-                    param_values.append(values_p1[i])
-                if values_p2 is not None and i < len(values_p2):
-                    param_values.append(values_p2[i])
-                if values_avg is not None and i < len(values_avg):
-                    param_values.append(values_avg[i])
-                
-                # Garantir que temos valores para normalizar
-                if param_values:
-                    # Usar max como referência para cada parâmetro
-                    max_values_per_param[param] = max(param_values)
-                else:
-                    max_values_per_param[param] = 1.0  # Evitar divisão por zero
-            
-            # Normalizar valores para escala 0-100
-            if values_p1 is not None:
-                values_p1 = [round((v / max_values_per_param[params[i]]) * 100) if max_values_per_param[params[i]] > 0 else 0 
-                             for i, v in enumerate(values_p1)]
-                
-            if values_p2 is not None:
-                values_p2 = [round((v / max_values_per_param[params[i]]) * 100) if max_values_per_param[params[i]] > 0 else 0 
-                             for i, v in enumerate(values_p2)]
-                
-            if values_avg is not None:
-                values_avg = [round((v / max_values_per_param[params[i]]) * 100) if max_values_per_param[params[i]] > 0 else 0 
-                              for i, v in enumerate(values_avg)]
+        # Armazenar os valores originais para uso nos rótulos quando is_percentile=False
+        # Estamos sempre usando percentis para a visualização
+        original_values_p1 = None
+        original_values_p2 = None
+        original_values_avg = None
+        
+        # Se temos valores de sessão para exibição, usamos eles
+        if not is_percentile:
+            if 'display_values_p1' in st.session_state and st.session_state.display_values_p1:
+                original_values_p1 = st.session_state.display_values_p1
+            if 'display_values_p2' in st.session_state and st.session_state.display_values_p2:
+                original_values_p2 = st.session_state.display_values_p2
+            if 'display_values_avg' in st.session_state and st.session_state.display_values_avg:
+                original_values_avg = st.session_state.display_values_avg
+        
+        # Se não temos valores na sessão (caso raro), usamos os valores originais
+        if original_values_p1 is None:
+            original_values_p1 = values_p1
+        if original_values_p2 is None:
+            original_values_p2 = values_p2
+        if original_values_avg is None:
+            original_values_avg = values_avg
+        
+        # Para esta função, SEMPRE usamos os percentis para visualização
+        # Ou seja, não fazemos normalização aqui - já que estamos sempre trabalhando com percentis
         
         # Arredondar valores para inteiros (tanto percentis quanto valores normalizados)
         if values_p1 is not None:
@@ -718,35 +702,28 @@ def create_comparison_pizza_chart(params, values_p1, values_p2=None, values_avg=
         if compare_values is None:
             raise ValueError("Valores de comparação não fornecidos (Player 2 ou Group Average)")
 
-        # Normalizar valores se não forem percentis
+        # Armazenar os valores originais para uso nos rótulos quando is_percentile=False
+        # Estamos sempre usando percentis para a visualização
+        original_values_p1 = None
+        original_values_compare = None
+        
+        # Se temos valores de sessão para exibição, usamos eles
         if not is_percentile:
-            # Para valores nominais, precisamos normalizar para a escala 0-100
-            all_values = []
-            all_values.extend(values_p1)
-            all_values.extend(compare_values)
-                
-            # Encontrar min e max para cada parâmetro para normalização
-            max_values_per_param = {}
-            for i, param in enumerate(params):
-                param_values = []
-                if i < len(values_p1):
-                    param_values.append(values_p1[i])
-                if i < len(compare_values):
-                    param_values.append(compare_values[i])
-                
-                # Garantir que temos valores para normalizar
-                if param_values:
-                    # Usar max como referência para cada parâmetro
-                    max_values_per_param[param] = max(param_values)
-                else:
-                    max_values_per_param[param] = 1.0  # Evitar divisão por zero
+            if 'display_values_p1' in st.session_state and st.session_state.display_values_p1:
+                original_values_p1 = st.session_state.display_values_p1
+            if 'display_values_p2' in st.session_state and st.session_state.display_values_p2:
+                original_values_compare = st.session_state.display_values_p2
+            elif 'display_values_avg' in st.session_state and st.session_state.display_values_avg:
+                original_values_compare = st.session_state.display_values_avg
+        
+        # Se não temos valores na sessão (caso raro), usamos os valores originais
+        if original_values_p1 is None:
+            original_values_p1 = values_p1
+        if original_values_compare is None:
+            original_values_compare = compare_values
             
-            # Normalizar valores para escala 0-100
-            values_p1 = [round((v / max_values_per_param[params[i]]) * 100) if max_values_per_param[params[i]] > 0 else 0 
-                         for i, v in enumerate(values_p1)]
-                
-            compare_values = [round((v / max_values_per_param[params[i]]) * 100) if max_values_per_param[params[i]] > 0 else 0 
-                              for i, v in enumerate(compare_values)]
+        # Para esta função, SEMPRE usamos os percentis para visualização
+        # Ou seja, não fazemos normalização aqui - já que estamos sempre trabalhando com percentis
         
         # Arredondar valores para inteiros (tanto percentis quanto valores normalizados)
         values_p1 = [round(v) for v in values_p1]
@@ -2089,10 +2066,10 @@ if selected_leagues:
             # Controle de visualização modificado para limitar a 2 elementos
             st.subheader("Display Options")
             
-            # Opção para mostrar valores nominais em vez de percentis
-            show_nominal_values = st.checkbox("Show nominal values instead of percentiles", 
+            # Opção para mostrar valores nominais nos rótulos (mantendo visualização em percentil)
+            show_nominal_values = st.checkbox("Show nominal values in labels (visualization remains percentile-based)", 
                                            value=False, 
-                                           help="When checked, the pizza chart will show the actual values instead of percentile ranks")
+                                           help="When checked, the chart labels will show actual metric values instead of percentile ranks, but chart visualization will still use percentiles")
 
             # Sempre mostrar jogador 1 por padrão
             show_p1 = True
@@ -2150,21 +2127,31 @@ if selected_leagues:
                 subtitle = (f"Percentile Rank | {context['leagues']} | "
                           f"{context['min_min']}+ mins | Position: {context['positions']}{benchmark_text}")
 
-            # Preparar dados conforme seleção
-            # Se mostrar valores nominais, usar os valores reais, senão usar percentis
-            if show_nominal_values:
-                values_p1_arg = [d1[m] for m in sel] if show_p1 else None
-                values_p2_arg = [d2[m] for m in sel] if show_p2 else None
-                # Para a média, sempre usar valores nominais
-                values_avg_arg = [gm[m] for m in sel] if show_avg else None
-            else:
-                values_p1_arg = p1pct if show_p1 else None
-                values_p2_arg = p2pct if show_p2 else None
-                values_avg_arg = gmpct if show_avg else None
+            # Armazenar os valores originais para uso posterior
+            original_values_p1 = [d1[m] for m in sel] if show_p1 else None
+            original_values_p2 = [d2[m] for m in sel] if show_p2 else None
+            original_values_avg = [gm[m] for m in sel] if show_avg else None
+            
+            # Para a visualização, SEMPRE usamos percentis para manter consistência
+            # independentemente da opção de exibição de valores
+            values_p1_arg = p1pct if show_p1 else None
+            values_p2_arg = p2pct if show_p2 else None
+            values_avg_arg = gmpct if show_avg else None
             
             # Armazenar os valores nominais na sessão para uso no gráfico
-            st.session_state.nominal_values_p1 = [d1[m] for m in sel] if show_p1 else None
-            st.session_state.nominal_values_p2 = [d2[m] for m in sel] if show_p2 else None
+            st.session_state.nominal_values_p1 = original_values_p1
+            st.session_state.nominal_values_p2 = original_values_p2
+            
+            # Guardar os valores originais para exibição condicional nos rótulos
+            # Se show_nominal_values é True, a função de plotagem usará esses valores nos rótulos
+            if show_nominal_values:
+                st.session_state.display_values_p1 = original_values_p1
+                st.session_state.display_values_p2 = original_values_p2
+                st.session_state.display_values_avg = original_values_avg
+            else:
+                st.session_state.display_values_p1 = values_p1_arg
+                st.session_state.display_values_p2 = values_p2_arg
+                st.session_state.display_values_avg = values_avg_arg
             
             # Flag para usar o chart comparativo para comparações entre jogadores ou jogador vs média
             use_comparison_chart = False
