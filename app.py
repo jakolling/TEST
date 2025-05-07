@@ -4540,7 +4540,7 @@ if selected_leagues:
                     profile_metrics = st.multiselect(
                         'Add or Remove Individual Metrics (1-15 recommended)',
                         metric_cols,
-                        default=preset_metrics[:min(5, len(preset_metrics))],
+                        default=preset_metrics,  # Carrega todas as métricas do grupo sem limitação
                         key="profiler_preset_metrics")
                 else:
                     # Seleção manual de métricas
