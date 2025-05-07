@@ -4504,10 +4504,15 @@ if selected_leagues:
                     "Advanced Metrics":
                     ['npxG', 'G-xG', 'npxG per Shot', 'Box Efficiency'],
                     "Pedri Metrics": [
+                        # 🧠 Visão e criação
                         'Smart passes per 90', 'Key passes per 90', 'Shot assists per 90', 'xA per 90',
+                        # 🎯 Passe e progressão
                         'Passes per 90', 'Progressive passes per 90', 'Passes to final third per 90', 'Through passes per 90',
+                        # 🕹️ Condução e movimentação
                         'Progressive runs per 90', 'Dribbles per 90', 'Successful dribbles, %',
+                        # ⚔️ Ações defensivas
                         'Interceptions per 90', 'Defensive duels per 90', 'Defensive duels won, %',
+                        # 🏃‍♂️ Participação no jogo
                         'Received passes per 90'
                     ]
                 }
