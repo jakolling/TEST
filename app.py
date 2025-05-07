@@ -22,14 +22,13 @@ import base64
 # =============================================
 # Configuration
 # =============================================
-st.set_page_config(
-    page_title='Football Analytics',
-    layout='wide',
-    page_icon="⚽"
-)
+st.set_page_config(page_title='Football Analytics',
+                   layout='wide',
+                   page_icon="⚽")
 
 # Set up consistent fonts for mplsoccer
 plt.rcParams['font.family'] = 'sans-serif'
+
 
 # =============================================
 # Helper Functions
@@ -41,15 +40,15 @@ def load_available_leagues(data_source='skillcorner'):
     e os adiciona como ligas disponíveis.
     
     Args:
-        data_source: 'skillcorner' para os dados integrados SkillCorner, 
-                    'wyscout' para os dados WyScout do GitHub
+        data_source: 'skillcorner' para os dados integrados SkillCorner da pasta attached_assets, 
+                    'wyscout' para os dados WyScout da pasta wyscout_data
     """
     leagues_dict = {}
-    
+
     if data_source == 'skillcorner':
         # Buscar arquivos locais na pasta attached_assets (SkillCorner Integrated)
         assets_dir = "attached_assets"
-        
+
         # Verificar se a pasta existe
         if os.path.exists(assets_dir) and os.path.isdir(assets_dir):
             for filename in os.listdir(assets_dir):
@@ -57,134 +56,95 @@ def load_available_leagues(data_source='skillcorner'):
                     # Usar o nome do arquivo (sem extensão) como nome da liga
                     league_name = os.path.splitext(filename)[0]
                     # Remover sufixos comuns como "WySC" ou números de versão para deixar o nome mais limpo
-                    league_name = league_name.replace(" - WySC", "").replace(" WySC", "")
-                    league_name = league_name.split(" (")[0]  # Remover qualquer coisa após "(" como "(1)"
-                    
+                    league_name = league_name.replace(" - WySC",
+                                                      "").replace(" WySC", "")
+                    league_name = league_name.split(" (")[
+                        0]  # Remover qualquer coisa após "(" como "(1)"
+
                     # Adicionar ao dicionário
-                    leagues_dict[league_name] = os.path.join(assets_dir, filename)
-        
+                    leagues_dict[league_name] = os.path.join(
+                        assets_dir, filename)
+
         # Caso não encontre nenhum arquivo, usar valores padrão
         if not leagues_dict:
             leagues_dict = {
-                "Austria 2.Liga": "attached_assets/Austria 2.Liga - WySC (1).xlsx"
+                "Austria 2.Liga":
+                "attached_assets/Austria 2.Liga - WySC (1).xlsx"
             }
-            print("Aviso: Nenhum arquivo Excel encontrado na pasta attached_assets. Usando valores padrão.")
-    
+            print(
+                "Aviso: Nenhum arquivo Excel encontrado na pasta attached_assets. Usando valores padrão."
+            )
+
     elif data_source == 'wyscout':
-        # Primeiro verificar se temos uma pasta local para dados WyScout
+        # Buscar arquivos locais na pasta wyscout_data
         wyscout_dir = "wyscout_data"
-        github_data_loaded = False
-        
-        # Verificar se temos uma pasta local para dados WyScout
+
+        # Verificar se a pasta existe
         if os.path.exists(wyscout_dir) and os.path.isdir(wyscout_dir):
             for filename in os.listdir(wyscout_dir):
                 if filename.endswith(".xlsx"):
                     # Usar o nome do arquivo como nome da liga para WyScout
                     league_name = os.path.splitext(filename)[0]
-                    
+
                     # Adicionar ao dicionário
-                    leagues_dict[league_name] = os.path.join(wyscout_dir, filename)
-        
-        # Se houver configuração para GitHub, tentar carregar dados de lá
-        if 'github_user' in st.session_state and 'github_repo' in st.session_state:
-            try:
-                import requests
-                github_user = st.session_state.github_user
-                github_repo = st.session_state.github_repo
-                github_path = st.session_state.get('github_path', 'wyscout_data')  # Pasta padrão: wyscout_data
-                
-                # URL da API do GitHub para listar arquivos em um diretório
-                api_url = f"https://api.github.com/repos/{github_user}/{github_repo}/contents/{github_path}"
-                
-                # Fazer a requisição
-                response = requests.get(api_url)
-                
-                if response.status_code == 200:
-                    github_data_loaded = True
-                    files = response.json()
-                    
-                    for file in files:
-                        if file['name'].endswith('.xlsx'):
-                            league_name = os.path.splitext(file['name'])[0]
-                            # Usamos a URL de download como caminho
-                            leagues_dict[league_name] = file['download_url']
-                            print(f"Arquivo WyScout encontrado no GitHub: {file['name']}")
-                else:
-                    print(f"Erro ao acessar GitHub: {response.status_code} - {response.text}")
-            except Exception as e:
-                print(f"Erro ao tentar carregar dados do GitHub: {str(e)}")
+                    leagues_dict[league_name] = os.path.join(
+                        wyscout_dir, filename)
         
         # Caso não encontre nenhum arquivo WyScout, informar ao usuário
         if not leagues_dict:
-            if not github_data_loaded:
-                print("Aviso: Nenhum arquivo WyScout encontrado localmente ou no GitHub.")
-                print("Por favor, adicione arquivos .xlsx na pasta wyscout_data ou configure o repositório GitHub.")
-            else:
-                print("Aviso: Nenhum arquivo WyScout encontrado no GitHub configurado.")
-    
+            print("Aviso: Nenhum arquivo WyScout encontrado na pasta wyscout_data.")
+            print("Por favor, adicione arquivos .xlsx na pasta wyscout_data.")
+
     return leagues_dict
+
 
 # Carregar ligas disponíveis automaticamente
 AVAILABLE_LEAGUES = load_available_leagues()
+
 
 def load_league_data(selected_leagues):
     """
     Carrega dados das ligas selecionadas.
     Se st.session_state.combine_leagues for True, combina todas as ligas em um único dataframe.
     Se False, processa cada liga separadamente para cálculo de percentis.
-    Suporta carregamento de arquivos locais ou diretamente do GitHub.
+    Carrega dados de arquivos locais da pasta attached_assets (SkillCorner) ou wyscout_data (WyScout).
     """
     dfs = []
     league_dfs = {}  # Para armazenar cada dataframe separadamente por liga
-    
+
     # Carregar cada liga selecionada
     for league_name in selected_leagues:
         try:
             file_path = AVAILABLE_LEAGUES[league_name]
             
-            # Verificar se o caminho é uma URL (GitHub) ou caminho local
-            if file_path.startswith('http'):
-                # Carregar diretamente da URL do GitHub
-                import requests
-                from io import BytesIO
-                
-                # Baixar o arquivo
-                st.info(f"Baixando dados de {league_name} do GitHub...")
-                response = requests.get(file_path)
-                
-                if response.status_code == 200:
-                    # Carregar em um dataframe a partir dos bytes da resposta
-                    df = pd.read_excel(BytesIO(response.content))
-                else:
-                    st.error(f"Erro ao baixar {league_name} do GitHub: {response.status_code}")
-                    continue
-            else:
-                # Caminho local
-                df = pd.read_excel(file_path)
-            
+            # Carregar do arquivo local
+            df = pd.read_excel(file_path)
+
             # Processamento comum para ambos os casos
             df.dropna(how="all", inplace=True)
             df = df.loc[:, df.columns.notnull()]
             df.columns = [str(c).strip() for c in df.columns]
             df['Data Origin'] = league_name
             df['Season'] = "2023/2024"
-            
+
             # Calcular métricas ofensivas para cada liga
             df = calculate_offensive_metrics(df)
-            
+
             dfs.append(df)
             league_dfs[league_name] = df
-            
-            st.success(f"Dados de {league_name} carregados com sucesso! ({len(df)} jogadores)")
+
+            st.success(
+                f"Dados de {league_name} carregados com sucesso! ({len(df)} jogadores)"
+            )
         except Exception as e:
             st.error(f"Erro ao carregar {league_name}: {str(e)}")
 
     if not dfs:
         return pd.DataFrame()
-    
+
     # Verificar o modo de processamento
     combine_leagues = st.session_state.get('combine_leagues', True)
-    
+
     if combine_leagues:
         # Modo padrão: combinar todas as ligas e calcular percentis globalmente
         combined_df = pd.concat(dfs, ignore_index=True)
@@ -192,31 +152,39 @@ def load_league_data(selected_leagues):
     else:
         # Modo novo: calcular percentis separadamente para cada liga e depois combinar
         processed_dfs = []
-        
+
         # Identificar todas as colunas métricas (excluindo colunas categóricas/identificadoras)
         # Assumindo que o primeiro dataframe tem todas as colunas que queremos processar
         first_df = dfs[0]
-        metric_cols = [col for col in first_df.columns if col not in 
-                      ['Player', 'Team', 'Position', 'Data Origin', 'Season']]
-        
+        metric_cols = [
+            col for col in first_df.columns if col not in
+            ['Player', 'Team', 'Position', 'Data Origin', 'Season']
+        ]
+
         # Processar cada liga separadamente
         for league_name, league_df in league_dfs.items():
             # Para cada métrica no dataframe, calcular percentil dentro de cada liga
             for col in metric_cols:
-                if col in league_df.columns and league_df[col].dtype in [np.float64, np.int64]:
+                if col in league_df.columns and league_df[col].dtype in [
+                        np.float64, np.int64
+                ]:
                     # Criar nova coluna com percentis
                     col_percentile = f"{col}_percentile_in_{league_name}"
-                    league_df[col_percentile] = league_df[col].rank(pct=True) * 100
-            
+                    league_df[col_percentile] = league_df[col].rank(
+                        pct=True) * 100
+
             processed_dfs.append(league_df)
-        
+
         # Combinar todos os dataframes processados
         combined_df = pd.concat(processed_dfs, ignore_index=True)
-        
+
         # Exibir informação sobre o modo de processamento
-        st.info("Percentiles calculated separately within each league. Check new columns with '_percentile_in_' suffix for league-specific percentiles.")
-        
+        st.info(
+            "Percentiles calculated separately within each league. Check new columns with '_percentile_in_' suffix for league-specific percentiles."
+        )
+
         return combined_df
+
 
 # Inicializar o session_state para manter os dados entre recargas
 if 'file_metadata' not in st.session_state:
@@ -240,6 +208,7 @@ if 'last_age_range' not in st.session_state:
 if 'last_positions' not in st.session_state:
     st.session_state.last_positions = []
 
+
 # Função para tratamento de erros/exceções de forma centralizada
 def safe_operation(func, error_msg, fallback=None, *args, **kwargs):
     """Execute uma função e capture exceções com uma mensagem amigável"""
@@ -248,6 +217,7 @@ def safe_operation(func, error_msg, fallback=None, *args, **kwargs):
     except Exception as e:
         st.error(f"{error_msg}: {str(e)}")
         return fallback
+
 
 def calculate_offensive_metrics(df):
     """
@@ -268,7 +238,10 @@ def calculate_offensive_metrics(df):
     df_copy = df.copy()
 
     # Check if required columns exist
-    required_cols = ['xG', 'Penalties taken', 'Goals', 'Shots', 'Minutes played', 'xA per 90', 'Touches in box per 90']
+    required_cols = [
+        'xG', 'Penalties taken', 'Goals', 'Shots', 'Minutes played',
+        'xA per 90', 'Touches in box per 90'
+    ]
     missing_cols = [col for col in required_cols if col not in df_copy.columns]
 
     # Replace missing columns with zeros to allow calculation
@@ -289,7 +262,7 @@ def calculate_offensive_metrics(df):
         df_copy['npxG'] / shots_minus_penalties,
         0  # Default value when denominator is zero
     )
-    
+
     # Calculate npxG per 90 minutes
     df_copy['npxG per 90'] = np.where(
         df_copy['Minutes played'] > 0,
@@ -305,11 +278,13 @@ def calculate_offensive_metrics(df):
     # Avoid division by zero
     df_copy['Box Efficiency'] = np.where(
         df_copy[touches_box_col] > 0,
-        (df_copy['npxG per 90'] + df_copy[xa_per_90_col]) / df_copy[touches_box_col],
+        (df_copy['npxG per 90'] + df_copy[xa_per_90_col]) /
+        df_copy[touches_box_col],
         0  # Default value when denominator is zero
     )
 
     return df_copy
+
 
 def load_and_clean(files):
     """Load and preprocess Excel files"""
@@ -333,6 +308,7 @@ def load_and_clean(files):
 
     return combined_df
 
+
 @st.cache_data
 def calc_percentile(series, value, benchmark_series=None):
     """
@@ -346,21 +322,21 @@ def calc_percentile(series, value, benchmark_series=None):
     Returns:
         Percentile rank on 0-1 scale
     """
-    # Se o valor é zero e assumimos que a métrica não pode ser negativa, 
+    # Se o valor é zero e assumimos que a métrica não pode ser negativa,
     # retornamos 0 como percentil, a menos que TODOS os valores sejam 0
     if value == 0:
         # Determine a série a ser usada para verificação
         check_series = benchmark_series if benchmark_series is not None else series
         check_series = check_series.dropna()
-        
+
         # Se todos os valores são zero, retorna 0.5 (média)
         if len(check_series) > 0 and check_series.max() == 0:
             return 0.5
-        
+
         # Se existem valores maiores que zero, e este valor é zero, retorna 0
         elif len(check_series) > 0 and check_series.max() > 0:
             return 0.0
-    
+
     # Para todos os outros casos, siga o cálculo regular
     # Se foi fornecida uma série de benchmark, use-a ao invés da série principal
     calc_series = benchmark_series if benchmark_series is not None else series
@@ -375,7 +351,12 @@ def calc_percentile(series, value, benchmark_series=None):
     # Calcular o percentil (escala 0-1)
     return (calc_series <= value).sum() / len(calc_series)
 
-def apply_benchmark_filter(benchmark_df, minutes_range, mpg_range=None, age_range=None, positions=None):
+
+def apply_benchmark_filter(benchmark_df,
+                           minutes_range,
+                           mpg_range=None,
+                           age_range=None,
+                           positions=None):
     """
     Apply the same filters to benchmark database as applied to main database
 
@@ -394,11 +375,13 @@ def apply_benchmark_filter(benchmark_df, minutes_range, mpg_range=None, age_rang
             return None
 
         # Apply minutes played filter
-        filtered_df = benchmark_df[benchmark_df['Minutes played'].between(*minutes_range)].copy()
+        filtered_df = benchmark_df[benchmark_df['Minutes played'].between(
+            *minutes_range)].copy()
 
         # Apply minutes per game filter if provided
         if mpg_range and 'Minutes per game' in filtered_df.columns:
-            filtered_df = filtered_df[filtered_df['Minutes per game'].between(*mpg_range)]
+            filtered_df = filtered_df[filtered_df['Minutes per game'].between(
+                *mpg_range)]
 
         # Apply age filter if provided
         if age_range and 'Age' in filtered_df.columns:
@@ -413,6 +396,7 @@ def apply_benchmark_filter(benchmark_df, minutes_range, mpg_range=None, age_rang
     except Exception as e:
         print(f"Error applying benchmark filter: {str(e)}")
         return benchmark_df
+
 
 def get_context_info(df, minutes_range, mpg_range, age_range, sel_pos):
     """Get contextual information for visualization titling"""
@@ -429,6 +413,7 @@ def get_context_info(df, minutes_range, mpg_range, age_range, sel_pos):
         'positions': ', '.join(sel_pos) if sel_pos else 'All'
     }
 
+
 def abbreviate_metric_name(metric):
     """
     Abreviar nomes de métricas para o gráfico de pizza
@@ -442,13 +427,14 @@ def abbreviate_metric_name(metric):
     shortened = shortened.replace("per 90", "/90")
     shortened = shortened.replace("Completion", "Comp")
     shortened = shortened.replace("Completions", "Comp")
-    
+
     # Se ainda for muito longo, tentar abreviar mais
     if len(shortened) > 20:
         # Remover palavras comuns que não mudam o significado da métrica
         shortened = shortened.replace(" in ", " ")
-        
+
     return shortened
+
 
 def fig_to_bytes(fig):
     """Convert matplotlib figure to bytes for download"""
@@ -457,8 +443,15 @@ def fig_to_bytes(fig):
     buf.seek(0)
     return buf
 
-def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=None, 
-                       title=None, subtitle=None, p1_name="Player 1", p2_name="Player 2"):
+
+def create_pizza_chart(params=None,
+                       values_p1=None,
+                       values_p2=None,
+                       values_avg=None,
+                       title=None,
+                       subtitle=None,
+                       p1_name="Player 1",
+                       p2_name="Player 2"):
     """
     Cria um pizza chart profissional usando o mesmo estilo do gráfico comparativo.
     Usa o PyPizza da mesma maneira que o gráfico de comparação para garantir consistência visual.
@@ -468,34 +461,32 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
         # Métricas padrão se não forem fornecidas
         if params is None:
             params = [
-                "xG per 90",
-                "Shots on target, %",
-                "Goal conversion, %",
-                "Touches in box per 90",
-                "Progressive runs per 90",
-                "Explosive Acceleration to Sprint P90",
-                "M/min P90",
-                "Sprint Count P90",
-                "Accurate passes, %",
-                "Deep completions per 90",
-                "Progressive passes per 90",
+                "xG per 90", "Shots on target, %", "Goal conversion, %",
+                "Touches in box per 90", "Progressive runs per 90",
+                "Explosive Acceleration to Sprint P90", "M/min P90",
+                "Sprint Count P90", "Accurate passes, %",
+                "Deep completions per 90", "Progressive passes per 90",
                 "Key passes per 90"
             ]
             # Criar valores aleatórios para demonstração se não houver dados
             if values_p1 is None:
-                values_p1 = [random.randint(50, 95) for _ in range(len(params))]
+                values_p1 = [
+                    random.randint(50, 95) for _ in range(len(params))
+                ]
 
         # Verificações de segurança
         if values_p1 is not None and len(params) != len(values_p1):
-            raise ValueError(f"Número de parâmetros ({len(params)}) não corresponde ao número de valores ({len(values_p1)})")
+            raise ValueError(
+                f"Número de parâmetros ({len(params)}) não corresponde ao número de valores ({len(values_p1)})"
+            )
 
         # Estamos sempre usando percentis para a visualização
         # Não precisamos mais do código de valores originais, pois simplificamos
         # para usar apenas percentis conforme solicitado pelo usuário
-        
+
         # Para esta função, SEMPRE usamos os percentis para visualização
         # Ou seja, não fazemos normalização aqui - já que estamos sempre trabalhando com percentis
-        
+
         # Arredondar valores para inteiros (tanto percentis quanto valores normalizados)
         if values_p1 is not None:
             values_p1 = [round(v) for v in values_p1]
@@ -505,11 +496,11 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
             values_avg = [round(v) for v in values_avg]
 
         # Esquema uniforme de cores - azul real e azul claro
-        player1_color = "#0052CC"      # Azul real
-        player2_color = "#00A3FF"      # Azul claro
-        avg_color = "#B3CFFF"          # Azul muito claro para média
-        text_color = "#000000"         # Preto para texto
-        background_color = "#F5F5F5"   # Cinza claro para fundo
+        player1_color = "#0052CC"  # Azul real
+        player2_color = "#00A3FF"  # Azul claro
+        avg_color = "#B3CFFF"  # Azul muito claro para média
+        text_color = "#000000"  # Preto para texto
+        background_color = "#F5F5F5"  # Cinza claro para fundo
 
         # Preparar mínimos e máximos para cada parâmetro
         min_values = [0] * len(params)
@@ -517,20 +508,23 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
 
         # Instanciar o objeto PyPizza
         baker = PyPizza(
-            params=params,                  # lista de parâmetros
+            params=params,  # lista de parâmetros
             background_color=background_color,  # cor de fundo
             straight_line_color="#FFFFFF",  # cor das linhas retas (branco)
-            straight_line_lw=1.5,           # largura das linhas retas
-            last_circle_lw=1.5,             # largura do último círculo
-            other_circle_color="#FFFFFF",   # cor das linhas circulares (branco)
-            other_circle_lw=1.5,            # largura das linhas circulares
-            other_circle_ls="-",            # estilo de linha sólida
-            inner_circle_size=20            # tamanho do círculo interior
+            straight_line_lw=1.5,  # largura das linhas retas
+            last_circle_lw=1.5,  # largura do último círculo
+            other_circle_color="#FFFFFF",  # cor das linhas circulares (branco)
+            other_circle_lw=1.5,  # largura das linhas circulares
+            other_circle_ls="-",  # estilo de linha sólida
+            inner_circle_size=20  # tamanho do círculo interior
         )
 
         # Criar figura e eixos com projeção polar (tamanho menor para visualização no app)
-        fig, ax = plt.subplots(figsize=(8, 8), facecolor=background_color, subplot_kw={"projection": "polar"}, dpi=100)
-        
+        fig, ax = plt.subplots(figsize=(8, 8),
+                               facecolor=background_color,
+                               subplot_kw={"projection": "polar"},
+                               dpi=100)
+
         # Definir DPI maior para exportação, mas tamanho menor para visualização
         fig.set_dpi(300)  # Usado apenas na exportação
 
@@ -548,111 +542,150 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
 
         # Cores iguais para todas as fatias
         slice_colors = [player1_color] * len(params)
-        text_colors = ["#FF0000"] * len(params)  # Texto vermelho para os valores
+        text_colors = ["#FF0000"] * len(
+            params)  # Texto vermelho para os valores
 
         # Melhorar o grid
         # Criar círculos de referência mais definidos (25%, 50%, 75%, 100%)
         circles = [0.25, 0.5, 0.75]
         for circle in circles:
-            ax.plot(np.linspace(0, 2*np.pi, 100), [circle] * 100, 
-                    color='#AAAAAA', linestyle='-', linewidth=0.8, zorder=1, alpha=0.7)
+            ax.plot(np.linspace(0, 2 * np.pi, 100), [circle] * 100,
+                    color='#AAAAAA',
+                    linestyle='-',
+                    linewidth=0.8,
+                    zorder=1,
+                    alpha=0.7)
 
         # Abreviar os rótulos dos parâmetros para melhor visualização
-        abbreviated_params = [abbreviate_metric_name(param) for param in params]
-        
+        abbreviated_params = [
+            abbreviate_metric_name(param) for param in params
+        ]
+
         # Fazer o plot principal com grid melhorado e círculo interno de tamanho adequado
         baker = PyPizza(
-            params=abbreviated_params,      # parâmetros abreviados
-            min_range=min_values,           # valores mínimos
-            max_range=max_values,           # valores máximos
+            params=abbreviated_params,  # parâmetros abreviados
+            min_range=min_values,  # valores mínimos
+            max_range=max_values,  # valores máximos
             background_color=background_color,
             straight_line_color="#FFFFFF",  # linhas radiais brancas
-            straight_line_lw=1.5,           # linhas mais grossas
-            last_circle_lw=1.5,             # círculo externo mais visível
-            other_circle_color="#FFFFFF",   # linhas circulares brancas
-            other_circle_lw=1.5,            # largura das linhas circulares
-            other_circle_ls="-",            # linhas sólidas para círculos
-            inner_circle_size=10            # círculo interno BEM MENOR (10% do raio total)
+            straight_line_lw=1.5,  # linhas mais grossas
+            last_circle_lw=1.5,  # círculo externo mais visível
+            other_circle_color="#FFFFFF",  # linhas circulares brancas
+            other_circle_lw=1.5,  # largura das linhas circulares
+            other_circle_ls="-",  # linhas sólidas para círculos
+            inner_circle_size=10  # círculo interno BEM MENOR (10% do raio total)
         )
 
         # Criar a pizza para o jogador 1
         baker.make_pizza(
-            values,                          # valores
-            ax=ax,                           # axis
-            color_blank_space="same",        # espaço em branco com mesma cor
-            slice_colors=slice_colors,       # cores das fatias
-            value_colors=text_colors,        # cores dos valores (vermelho)
-            value_bck_colors=["#FFFFFF"] * len(params),   # fundo branco para valores
-            blank_alpha=0.4,                 # transparência do espaço em branco
-            kwargs_slices=dict(
-                edgecolor="#F2F2F2", zorder=2, linewidth=1
-            ),
-            kwargs_params=dict(
-                color="#000000", fontsize=8, fontweight="normal", fontfamily="DejaVu Sans", va="center", zorder=3
-            ),
-            kwargs_values=dict(
-                color="#FF0000", fontsize=11, fontweight="bold", zorder=5,
-                bbox=dict(
-                    edgecolor="#000000", facecolor="#FFFFFF",
-                    boxstyle="round,pad=0.2", lw=1, alpha=0.9
-                )
-            )
-        )
+            values,  # valores
+            ax=ax,  # axis
+            color_blank_space="same",  # espaço em branco com mesma cor
+            slice_colors=slice_colors,  # cores das fatias
+            value_colors=text_colors,  # cores dos valores (vermelho)
+            value_bck_colors=["#FFFFFF"] *
+            len(params),  # fundo branco para valores
+            blank_alpha=0.4,  # transparência do espaço em branco
+            kwargs_slices=dict(edgecolor="#F2F2F2", zorder=2, linewidth=1),
+            kwargs_params=dict(color="#000000",
+                               fontsize=8,
+                               fontweight="normal",
+                               fontfamily="DejaVu Sans",
+                               va="center",
+                               zorder=3),
+            kwargs_values=dict(color="#FF0000",
+                               fontsize=11,
+                               fontweight="bold",
+                               zorder=5,
+                               bbox=dict(edgecolor="#000000",
+                                         facecolor="#FFFFFF",
+                                         boxstyle="round,pad=0.2",
+                                         lw=1,
+                                         alpha=0.9)))
 
         # Adicionar jogador 2 se fornecido
         if values_p2 is not None:
             if len(values_p2) != len(params):
-                raise ValueError(f"Número de valores do jogador 2 ({len(values_p2)}) não corresponde ao número de parâmetros ({len(params)})")
+                raise ValueError(
+                    f"Número de valores do jogador 2 ({len(values_p2)}) não corresponde ao número de parâmetros ({len(params)})"
+                )
 
             # Adicionar linhas para o jogador 2
             for i, value in enumerate(values_p2):
                 angle = (i / len(params)) * 2 * np.pi
-                ax.plot([angle, angle], [0, value/100], color=player2_color, 
-                        linewidth=2.5, linestyle='-', zorder=10)
+                ax.plot([angle, angle], [0, value / 100],
+                        color=player2_color,
+                        linewidth=2.5,
+                        linestyle='-',
+                        zorder=10)
 
                 # Adicionar valor em caixa para o jogador 2 (fundo branco e texto vermelho)
                 if value > 25:  # Mostrar apenas valores relevantes
                     radius = value / 100
-                    ax.text(angle, radius + 0.05, f"{value}", color='#FF0000', 
-                            fontsize=9, ha='center', va='center', fontweight='bold',
-                            bbox=dict(boxstyle="round,pad=0.2", facecolor='#FFFFFF', 
-                                    alpha=0.9, edgecolor='#000000', linewidth=1))
+                    ax.text(angle,
+                            radius + 0.05,
+                            f"{value}",
+                            color='#FF0000',
+                            fontsize=9,
+                            ha='center',
+                            va='center',
+                            fontweight='bold',
+                            bbox=dict(boxstyle="round,pad=0.2",
+                                      facecolor='#FFFFFF',
+                                      alpha=0.9,
+                                      edgecolor='#000000',
+                                      linewidth=1))
 
         # Adicionar média do grupo se fornecida
         if values_avg is not None:
             if len(values_avg) != len(params):
-                raise ValueError(f"Número de valores médios ({len(values_avg)}) não corresponde ao número de parâmetros ({len(params)})")
+                raise ValueError(
+                    f"Número de valores médios ({len(values_avg)}) não corresponde ao número de parâmetros ({len(params)})"
+                )
 
             # Adicionar linhas para média
             for i, value in enumerate(values_avg):
                 angle = (i / len(params)) * 2 * np.pi
-                ax.plot([angle, angle], [0, value/100], color=avg_color, 
-                        linewidth=2, linestyle='--', zorder=5, alpha=0.7)
+                ax.plot([angle, angle], [0, value / 100],
+                        color=avg_color,
+                        linewidth=2,
+                        linestyle='--',
+                        zorder=5,
+                        alpha=0.7)
 
         # Adicionar título centralizado
         if title:
             title_text = title
         else:
-            title_text = f"{p1_name}" + (f" vs {p2_name}" if values_p2 is not None else "")
+            title_text = f"{p1_name}" + (f" vs {p2_name}"
+                                         if values_p2 is not None else "")
 
-        fig.text(
-            0.5, 0.97, title_text, 
-            size=16, ha="center", fontweight="bold", color="#000000"
-        )
+        fig.text(0.5,
+                 0.97,
+                 title_text,
+                 size=16,
+                 ha="center",
+                 fontweight="bold",
+                 color="#000000")
 
         # Adicionar subtítulo centralizado
         if subtitle:
-            fig.text(
-                0.5, 0.93, subtitle,
-                size=12, ha="center", color="#666666"
-            )
+            fig.text(0.5,
+                     0.93,
+                     subtitle,
+                     size=12,
+                     ha="center",
+                     color="#666666")
 
         # Adicionar créditos no canto inferior direito em itálico
-        fig.text(
-            0.95, 0.02, "made by Joao Alberto Kolling\ndata via WyScout/SkillCorner",
-            size=8, ha="right", color="#666666", style='italic'
-        )
-        
+        fig.text(0.95,
+                 0.02,
+                 "made by Joao Alberto Kolling\ndata via WyScout/SkillCorner",
+                 size=8,
+                 ha="right",
+                 color="#666666",
+                 style='italic')
+
         # Valores nominais foram removidos conforme solicitado
 
         # Remover grade e ticks
@@ -662,27 +695,33 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
 
         # Adicionar logo do Vålerenga ao centro do gráfico APÓS criar a pizza
         try:
-            print(f"Tentando adicionar logo do Vålerenga ao gráfico pizza (DEPOIS DO PLOT)")
-            
+            print(
+                f"Tentando adicionar logo do Vålerenga ao gráfico pizza (DEPOIS DO PLOT)"
+            )
+
             # Carregar o arquivo de imagem do Vålerenga diretamente
             logo_file = "attached_assets/Vålerenga_Oslo_logo.svg.png"
-            
+
             if os.path.exists(logo_file):
                 # Desenhar um círculo branco no centro para servir de fundo para o logo
-                center_circle = plt.Circle((0, 0), 0.08, facecolor='white', edgecolor='none', zorder=20)
+                center_circle = plt.Circle((0, 0),
+                                           0.08,
+                                           facecolor='white',
+                                           edgecolor='none',
+                                           zorder=20)
                 ax.add_patch(center_circle)
-                
+
                 # Carregar logo
                 logo_img = plt.imread(logo_file)
-                
+
                 # Criar um novo axes no centro com tamanho apropriado
                 # Posição relativa à figura: [left, bottom, width, height]
                 logo_ax = fig.add_axes([0.46, 0.46, 0.08, 0.08], zorder=30)
-                
+
                 # Mostrar logo e remover eixos
                 logo_ax.imshow(logo_img)
                 logo_ax.axis('off')
-                
+
                 print(f"Logo adicionado com sucesso DEPOIS da pizza")
             else:
                 print(f"Arquivo de logo não encontrado: {logo_file}")
@@ -697,35 +736,41 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
 
             # Jogador 1
             legend_elements.append(
-                plt.Rectangle((0, 0), 1, 1, facecolor=player1_color, 
-                              edgecolor='white', label=p1_name)
-            )
+                plt.Rectangle((0, 0),
+                              1,
+                              1,
+                              facecolor=player1_color,
+                              edgecolor='white',
+                              label=p1_name))
 
             # Jogador 2
             if values_p2 is not None:
                 legend_elements.append(
-                    plt.Rectangle((0, 0), 1, 1, facecolor=player2_color, 
-                                  edgecolor='white', label=p2_name)
-                )
+                    plt.Rectangle((0, 0),
+                                  1,
+                                  1,
+                                  facecolor=player2_color,
+                                  edgecolor='white',
+                                  label=p2_name))
 
             # Média
             if values_avg is not None:
                 legend_elements.append(
-                    plt.Line2D([0], [0], color=avg_color, linewidth=2, 
-                              linestyle='--', label='Média do Grupo')
-                )
+                    plt.Line2D([0], [0],
+                               color=avg_color,
+                               linewidth=2,
+                               linestyle='--',
+                               label='Média do Grupo'))
 
             # Posicionar legenda centralizada abaixo do gráfico
-            ax.legend(
-                handles=legend_elements,
-                loc='lower center',
-                bbox_to_anchor=(0.5, -0.1),
-                ncol=len(legend_elements),
-                frameon=True,
-                facecolor='white',
-                edgecolor='#CCCCCC'
-            )
-            
+            ax.legend(handles=legend_elements,
+                      loc='lower center',
+                      bbox_to_anchor=(0.5, -0.1),
+                      ncol=len(legend_elements),
+                      frameon=True,
+                      facecolor='white',
+                      edgecolor='#CCCCCC')
+
     except Exception as e:
         # Em caso de erro, criar um gráfico com mensagem e imprimir o erro
         st.error(f"Erro detalhado: {str(e)}")
@@ -734,14 +779,26 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
 
         fig = plt.figure(figsize=(10, 10), facecolor='white')
         ax = fig.add_subplot(111, facecolor='white')
-        ax.text(0.5, 0.5, f"Erro ao criar pizza chart: {str(e)}", 
-                ha='center', va='center', fontsize=12, color='#333333')
+        ax.text(0.5,
+                0.5,
+                f"Erro ao criar pizza chart: {str(e)}",
+                ha='center',
+                va='center',
+                fontsize=12,
+                color='#333333')
         ax.axis('off')
 
     return fig
 
-def create_comparison_pizza_chart(params, values_p1, values_p2=None, values_avg=None,
-                       title=None, subtitle=None, p1_name="Player 1", p2_name="Player 2"):
+
+def create_comparison_pizza_chart(params,
+                                  values_p1,
+                                  values_p2=None,
+                                  values_avg=None,
+                                  title=None,
+                                  subtitle=None,
+                                  p1_name="Player 1",
+                                  p2_name="Player 2"):
     """
     Cria um pizza chart para comparação entre dois jogadores ou jogador vs média,
     usando o estilo do gráfico padrão mas com sobreposição direta das fatias.
@@ -750,7 +807,9 @@ def create_comparison_pizza_chart(params, values_p1, values_p2=None, values_avg=
     try:
         # Verificações de segurança
         if values_p1 is not None and len(params) != len(values_p1):
-            raise ValueError(f"Número de parâmetros ({len(params)}) não corresponde ao número de valores ({len(values_p1)})")
+            raise ValueError(
+                f"Número de parâmetros ({len(params)}) não corresponde ao número de valores ({len(values_p1)})"
+            )
 
         # Determinar quais valores usar para comparação (valores_p2 ou values_avg)
         compare_values = None
@@ -762,25 +821,27 @@ def create_comparison_pizza_chart(params, values_p1, values_p2=None, values_avg=
             compare_name = "Group Average"
 
         if compare_values is None:
-            raise ValueError("Valores de comparação não fornecidos (Player 2 ou Group Average)")
+            raise ValueError(
+                "Valores de comparação não fornecidos (Player 2 ou Group Average)"
+            )
 
         # Estamos sempre usando percentis para a visualização
         # Não precisamos mais do código de valores originais, pois simplificamos
         # para usar apenas percentis conforme solicitado pelo usuário
-            
+
         # Para esta função, SEMPRE usamos os percentis para visualização
         # Removemos o parâmetro is_percentile pois sempre usamos percentis para consistência
-        
+
         # Arredondar valores para inteiros (tanto percentis quanto valores normalizados)
         values_p1 = [round(v) for v in values_p1]
         compare_values = [round(v) for v in compare_values]
 
         # Definir cores - azul e vermelho para player vs player
-        player1_color = "#1A78CF"      # Azul real para jogador 1
-        player2_color = "#E41A1C"      # Vermelho para jogador 2 (mesma cor que usamos para média)
-        avg_color = "#E41A1C"          # Vermelho para média do grupo
-        text_color = "#000000"         # Preto para texto
-        background_color = "#F5F5F5"   # Cinza claro para fundo
+        player1_color = "#1A78CF"  # Azul real para jogador 1
+        player2_color = "#E41A1C"  # Vermelho para jogador 2 (mesma cor que usamos para média)
+        avg_color = "#E41A1C"  # Vermelho para média do grupo
+        text_color = "#000000"  # Preto para texto
+        background_color = "#F5F5F5"  # Cinza claro para fundo
 
         # Usar vermelho como cor padrão para comparação (tanto para jogador 2 quanto para média)
         compare_color = player2_color  # Sempre vermelho
@@ -791,58 +852,68 @@ def create_comparison_pizza_chart(params, values_p1, values_p2=None, values_avg=
         max_range = [100] * len(params)  # Máximo é sempre 100 para percentis
 
         # Abreviar os rótulos dos parâmetros para melhor visualização
-        abbreviated_params = [abbreviate_metric_name(param) for param in params]
-        
+        abbreviated_params = [
+            abbreviate_metric_name(param) for param in params
+        ]
+
         # Instanciar o objeto PyPizza com círculo interno padrão, logo será menor
         baker = PyPizza(
-            params=abbreviated_params,      # parâmetros abreviados
+            params=abbreviated_params,  # parâmetros abreviados
             min_range=min_range,
             max_range=max_range,
             background_color=background_color,
             straight_line_color="#FFFFFF",  # linhas radiais brancas
-            straight_line_lw=1.5,           # linhas mais grossas
-            last_circle_lw=1.5,             # círculo externo mais visível
-            other_circle_color="#FFFFFF",   # linhas circulares brancas
-            other_circle_lw=1.5,            # largura das linhas circulares
-            other_circle_ls="-",            # linhas sólidas para círculos
-            inner_circle_size=5             # tamanho padrão, menor, para não interferir
+            straight_line_lw=1.5,  # linhas mais grossas
+            last_circle_lw=1.5,  # círculo externo mais visível
+            other_circle_color="#FFFFFF",  # linhas circulares brancas
+            other_circle_lw=1.5,  # largura das linhas circulares
+            other_circle_ls="-",  # linhas sólidas para círculos
+            inner_circle_size=5  # tamanho padrão, menor, para não interferir
         )
 
         # Usar o método make_pizza do PyPizza, que aceita compare_values diretamente
         # Isso criará automaticamente um gráfico com os dois jogadores sobrepostos
         fig, ax = baker.make_pizza(
-            values_p1,                     # valores do jogador 1
-            compare_values=compare_values, # valores do jogador 2 ou média
-            figsize=(10, 10),              # tamanho da figura
-            color_blank_space="same",      # espaço em branco com mesma cor
-            blank_alpha=0.4,               # transparência do espaço em branco
-            param_location=110,            # localização dos parâmetros (um pouco afastados)
-            kwargs_slices=dict(
-                facecolor=player1_color, edgecolor="#F2F2F2",
-                zorder=2, linewidth=1
-            ),
-            kwargs_compare=dict(
-                facecolor=compare_color, edgecolor="#000000", 
-                zorder=3, linewidth=1, alpha=0.8
-            ),
-            kwargs_params=dict(
-                color="#000000", fontsize=8, fontweight="normal", fontfamily="DejaVu Sans", va="center", zorder=3
-            ),
-            kwargs_values=dict(
-                color=player1_color, fontsize=11, fontweight="bold", zorder=5,
-                bbox=dict(
-                    edgecolor="#000000", facecolor="#FFFFFF",
-                    boxstyle="round,pad=0.2", lw=1, alpha=0.9
-                )
-            ),
-            kwargs_compare_values=dict(
-                color=compare_color, fontsize=11, fontweight="bold", zorder=6,
-                bbox=dict(
-                    edgecolor="#000000", facecolor="#FFFFFF",
-                    boxstyle="round,pad=0.2", lw=1, alpha=0.9
-                )
-            )
-        )
+            values_p1,  # valores do jogador 1
+            compare_values=compare_values,  # valores do jogador 2 ou média
+            figsize=(10, 10),  # tamanho da figura
+            color_blank_space="same",  # espaço em branco com mesma cor
+            blank_alpha=0.4,  # transparência do espaço em branco
+            param_location=
+            110,  # localização dos parâmetros (um pouco afastados)
+            kwargs_slices=dict(facecolor=player1_color,
+                               edgecolor="#F2F2F2",
+                               zorder=2,
+                               linewidth=1),
+            kwargs_compare=dict(facecolor=compare_color,
+                                edgecolor="#000000",
+                                zorder=3,
+                                linewidth=1,
+                                alpha=0.8),
+            kwargs_params=dict(color="#000000",
+                               fontsize=8,
+                               fontweight="normal",
+                               fontfamily="DejaVu Sans",
+                               va="center",
+                               zorder=3),
+            kwargs_values=dict(color=player1_color,
+                               fontsize=11,
+                               fontweight="bold",
+                               zorder=5,
+                               bbox=dict(edgecolor="#000000",
+                                         facecolor="#FFFFFF",
+                                         boxstyle="round,pad=0.2",
+                                         lw=1,
+                                         alpha=0.9)),
+            kwargs_compare_values=dict(color=compare_color,
+                                       fontsize=11,
+                                       fontweight="bold",
+                                       zorder=6,
+                                       bbox=dict(edgecolor="#000000",
+                                                 facecolor="#FFFFFF",
+                                                 boxstyle="round,pad=0.2",
+                                                 lw=1,
+                                                 alpha=0.9)))
 
         # Ajustar os textos para evitar sobreposição (como no script de exemplo)
         params_offset = [True] * len(params)
@@ -855,19 +926,25 @@ def create_comparison_pizza_chart(params, values_p1, values_p2=None, values_avg=
         if title:
             title_text = title
         else:
-            title_text = f"{p1_name}" + (f" vs {compare_name}" if compare_values is not None else "")
+            title_text = f"{p1_name}" + (f" vs {compare_name}"
+                                         if compare_values is not None else "")
 
-        fig.text(
-            0.5, 0.97, title_text, 
-            size=16, ha="center", fontweight="bold", color="#000000"
-        )
+        fig.text(0.5,
+                 0.97,
+                 title_text,
+                 size=16,
+                 ha="center",
+                 fontweight="bold",
+                 color="#000000")
 
         # Adicionar subtítulo centralizado
         if subtitle:
-            fig.text(
-                0.5, 0.93, subtitle,
-                size=12, ha="center", color="#666666"
-            )
+            fig.text(0.5,
+                     0.93,
+                     subtitle,
+                     size=12,
+                     ha="center",
+                     color="#666666")
 
         # Remover grade e ticks
         ax.grid(False)
@@ -879,37 +956,45 @@ def create_comparison_pizza_chart(params, values_p1, values_p2=None, values_avg=
 
         # Jogador 1
         legend_elements.append(
-            plt.Rectangle((0, 0), 1, 1, facecolor=player1_color, 
-                         edgecolor='white', label=p1_name)
-        )
+            plt.Rectangle((0, 0),
+                          1,
+                          1,
+                          facecolor=player1_color,
+                          edgecolor='white',
+                          label=p1_name))
 
         # Jogador 2 ou média
         legend_elements.append(
-            plt.Rectangle((0, 0), 1, 1, facecolor=compare_color, 
-                         edgecolor='white', alpha=0.8, label=compare_name)
-        )
+            plt.Rectangle((0, 0),
+                          1,
+                          1,
+                          facecolor=compare_color,
+                          edgecolor='white',
+                          alpha=0.8,
+                          label=compare_name))
 
         # Posicionar legenda centralizada abaixo do gráfico
-        ax.legend(
-            handles=legend_elements,
-            loc='lower center',
-            bbox_to_anchor=(0.5, -0.1),
-            ncol=len(legend_elements),
-            frameon=True,
-            facecolor='white',
-            edgecolor='#CCCCCC'
-        )
+        ax.legend(handles=legend_elements,
+                  loc='lower center',
+                  bbox_to_anchor=(0.5, -0.1),
+                  ncol=len(legend_elements),
+                  frameon=True,
+                  facecolor='white',
+                  edgecolor='#CCCCCC')
 
         # No gráfico de comparação não adicionamos logo
 
         # Adicionar créditos no canto inferior direito em itálico
-        fig.text(
-            0.95, 0.02, "made by Joao Alberto Kolling\ndata via WyScout/SkillCorner",
-            size=8, ha="right", color="#666666", style='italic'
-        )
-        
+        fig.text(0.95,
+                 0.02,
+                 "made by Joao Alberto Kolling\ndata via WyScout/SkillCorner",
+                 size=8,
+                 ha="right",
+                 color="#666666",
+                 style='italic')
+
         return fig
-        
+
     except Exception as e:
         # Em caso de erro, criar um gráfico com mensagem
         st.error(f"Erro na criação do pizza chart comparativo: {str(e)}")
@@ -918,24 +1003,36 @@ def create_comparison_pizza_chart(params, values_p1, values_p2=None, values_avg=
 
         fig = plt.figure(figsize=(10, 10), facecolor='white')
         ax = fig.add_subplot(111, facecolor='white')
-        ax.text(0.5, 0.5, f"Erro ao criar pizza chart: {str(e)}", 
-                ha='center', va='center', fontsize=12, color='#333333')
+        ax.text(0.5,
+                0.5,
+                f"Erro ao criar pizza chart: {str(e)}",
+                ha='center',
+                va='center',
+                fontsize=12,
+                color='#333333')
         ax.axis('off')
         return fig
 
-def create_bar_chart(metrics, p1_name, p1_values, p2_name, p2_values, avg_values,
-                    title=None, subtitle=None):
+
+def create_bar_chart(metrics,
+                     p1_name,
+                     p1_values,
+                     p2_name,
+                     p2_values,
+                     avg_values,
+                     title=None,
+                     subtitle=None):
     """Create horizontal bar chart using matplotlib"""
     # Aumentar o espaço superior para evitar sobreposição do título com legendas
-    fig, axes = plt.subplots(len(metrics), 1, figsize=(10, 3*len(metrics)))
+    fig, axes = plt.subplots(len(metrics), 1, figsize=(10, 3 * len(metrics)))
 
     # Handle single metric case
     if len(metrics) == 1:
         axes = [axes]
 
     # Definir cores consistentes com o gráfico pizza
-    player1_color = "#1A78CF"      # Azul real para jogador 1
-    player2_color = "#E41A1C"      # Vermelho para jogador 2
+    player1_color = "#1A78CF"  # Azul real para jogador 1
+    player2_color = "#E41A1C"  # Vermelho para jogador 2
 
     for i, metric in enumerate(metrics):
         ax = axes[i]
@@ -947,9 +1044,15 @@ def create_bar_chart(metrics, p1_name, p1_values, p2_name, p2_values, avg_values
 
         # Plot average line
         ax.axvline(x=avg_values[i], color='#2ca02c', linestyle='--', alpha=0.7)
-        ax.text(avg_values[i], 0.5, f'Group Avg', 
-                va='center', ha='right', rotation=90, color='#2ca02c',
-                backgroundcolor='white', alpha=0.8)
+        ax.text(avg_values[i],
+                0.5,
+                f'Group Avg',
+                va='center',
+                ha='right',
+                rotation=90,
+                color='#2ca02c',
+                backgroundcolor='white',
+                alpha=0.8)
 
         # Add metric name as title para cada subplot (não principal)
         ax.set_title(metrics[i], fontsize=12, pad=10)
@@ -962,10 +1065,18 @@ def create_bar_chart(metrics, p1_name, p1_values, p2_name, p2_values, avg_values
         ax.grid(axis='x', linestyle='--', alpha=0.6)
 
         # Add value labels
-        ax.text(p1_values[i], y_pos[0], f' {p1_values[i]:.2f}', va='center', 
-               color=player1_color, fontweight='bold')
-        ax.text(p2_values[i], y_pos[1], f' {p2_values[i]:.2f}', va='center', 
-               color=player2_color, fontweight='bold')
+        ax.text(p1_values[i],
+                y_pos[0],
+                f' {p1_values[i]:.2f}',
+                va='center',
+                color=player1_color,
+                fontweight='bold')
+        ax.text(p2_values[i],
+                y_pos[1],
+                f' {p2_values[i]:.2f}',
+                va='center',
+                color=player2_color,
+                fontweight='bold')
 
     # Ajustar layout primeiro para dar espaço adequado ao título
     plt.tight_layout(pad=1.2, h_pad=0.8, w_pad=0.5, rect=[0, 0, 1, 0.92])
@@ -981,29 +1092,44 @@ def create_bar_chart(metrics, p1_name, p1_values, p2_name, p2_values, avg_values
 
     # Adicionar legenda única para o gráfico inteiro
     legend_elements = [
-        plt.Rectangle((0, 0), 1, 1, facecolor=player1_color, edgecolor='white', label=p1_name),
-        plt.Rectangle((0, 0), 1, 1, facecolor=player2_color, edgecolor='white', label=p2_name),
-        plt.Line2D([0], [0], color='#2ca02c', lw=2, linestyle='--', label='Group Average')
+        plt.Rectangle((0, 0),
+                      1,
+                      1,
+                      facecolor=player1_color,
+                      edgecolor='white',
+                      label=p1_name),
+        plt.Rectangle((0, 0),
+                      1,
+                      1,
+                      facecolor=player2_color,
+                      edgecolor='white',
+                      label=p2_name),
+        plt.Line2D([0], [0],
+                   color='#2ca02c',
+                   lw=2,
+                   linestyle='--',
+                   label='Group Average')
     ]
 
     # Posicionar a legenda centralizada no topo da figura (acima do título)
     # Isso evita sobreposições com os subplots individuais
-    fig.legend(handles=legend_elements, 
-              loc='lower center',
-              bbox_to_anchor=(0.5, 1.0),
-              ncol=3, 
-              frameon=True, 
-              facecolor='white', 
-              edgecolor='#CCCCCC')
+    fig.legend(handles=legend_elements,
+               loc='lower center',
+               bbox_to_anchor=(0.5, 1.0),
+               ncol=3,
+               frameon=True,
+               facecolor='white',
+               edgecolor='#CCCCCC')
 
     return fig
+
 
 def create_scatter_plot(df, x_metric, y_metric, title=None):
     """Create scatter plot using matplotlib with player names and hover annotations"""
     fig, ax = plt.subplots(figsize=(12, 8))
 
     # Definir cor consistente
-    player1_color = "#1A78CF"      # Azul real para jogador 1
+    player1_color = "#1A78CF"  # Azul real para jogador 1
 
     # Criar um dict para armazenar nomes de todos os jogadores
     player_names = {}
@@ -1031,16 +1157,19 @@ def create_scatter_plot(df, x_metric, y_metric, title=None):
 
     # Adicionar rótulos para todos os jogadores (limitado a max_labels)
     # Utilizamos uma abordagem mais discreta, com textos pequenos e transparentes
-    for i, (player, (x, y)) in enumerate(list(player_positions.items())[:max_labels]):
+    for i, (player,
+            (x, y)) in enumerate(list(player_positions.items())[:max_labels]):
         # Adicionar textos abaixo dos pontos usando um estilo mais nítido
-        ax.annotate(player, (x, y), 
-                   xytext=(0, -7),  # Posição abaixo do ponto
-                   textcoords='offset points',
-                   fontsize=7,      # Fonte pequena
-                   ha='center',     # Centralizado
-                   va='top',        # Alinhado ao topo do texto
-                   alpha=0.8,       # Maior nitidez
-                   color='#333333') # Cor mais escura para melhor visibilidade
+        ax.annotate(
+            player,
+            (x, y),
+            xytext=(0, -7),  # Posição abaixo do ponto
+            textcoords='offset points',
+            fontsize=7,  # Fonte pequena
+            ha='center',  # Centralizado
+            va='top',  # Alinhado ao topo do texto
+            alpha=0.8,  # Maior nitidez
+            color='#333333')  # Cor mais escura para melhor visibilidade
 
     # Usar mplcursors para adicionar interatividade (hover)
     try:
@@ -1048,10 +1177,14 @@ def create_scatter_plot(df, x_metric, y_metric, title=None):
         from mpld3 import plugins
 
         # Adicionar tooltip com os nomes dos jogadores ao passar o mouse
-        tooltip = plugins.PointHTMLTooltip(sc, 
-                                         labels=[f"<b>{p}</b><br>{x_metric}: {x_values[i]:.2f}<br>{y_metric}: {y_values[i]:.2f}" 
-                                                 for i, p in player_names.items()],
-                                         voffset=10, hoffset=10)
+        tooltip = plugins.PointHTMLTooltip(
+            sc,
+            labels=[
+                f"<b>{p}</b><br>{x_metric}: {x_values[i]:.2f}<br>{y_metric}: {y_values[i]:.2f}"
+                for i, p in player_names.items()
+            ],
+            voffset=10,
+            hoffset=10)
         mpld3.plugins.connect(fig, tooltip)
     except Exception as e:
         # Em caso de erro com mpld3, silenciosamente prosseguir sem tooltip
@@ -1074,7 +1207,12 @@ def create_scatter_plot(df, x_metric, y_metric, title=None):
 
     return fig
 
-def create_similarity_viz(selected_player, similar_players, metrics, df, method='pca_kmeans'):
+
+def create_similarity_viz(selected_player,
+                          similar_players,
+                          metrics,
+                          df,
+                          method='pca_kmeans'):
     """
     Create player similarity visualization based on the model from the reference website.
     Includes PCA visualization and radar charts in a single visualization.
@@ -1093,27 +1231,39 @@ def create_similarity_viz(selected_player, similar_players, metrics, df, method=
     if not similar_players:
         # Create a simple figure with just a message
         fig, ax = plt.subplots(figsize=(10, 6))
-        ax.text(0.5, 0.5, f"No similar players found for {selected_player} based on the selected metrics.",
-               ha='center', va='center', fontsize=14)
+        ax.text(
+            0.5,
+            0.5,
+            f"No similar players found for {selected_player} based on the selected metrics.",
+            ha='center',
+            va='center',
+            fontsize=14)
         ax.axis('off')
         return fig
 
     try:
         # Definir cores consistentes com o resto da aplicação
-        player1_color = "#1A78CF"      # Azul real para jogador principal
-        player2_color = "#E41A1C"      # Vermelho para jogador similar
+        player1_color = "#1A78CF"  # Azul real para jogador principal
+        player2_color = "#E41A1C"  # Vermelho para jogador similar
         cluster_colors = [
-            "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
-            "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"
+            "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b",
+            "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"
         ]  # Cores para clusters
 
         # Criar figura principal
         fig = plt.figure(figsize=(15, 9))
 
         # Título principal
-        fig.suptitle(f"Player Similarity Analysis: {selected_player}", fontsize=18, y=0.98)
-        plt.figtext(0.5, 0.95, f"Based on {len(metrics)} metrics including: {', '.join(metrics[:5])}{'...' if len(metrics) > 5 else ''}", 
-                   ha='center', fontsize=10, fontstyle='italic')
+        fig.suptitle(f"Player Similarity Analysis: {selected_player}",
+                     fontsize=18,
+                     y=0.98)
+        plt.figtext(
+            0.5,
+            0.95,
+            f"Based on {len(metrics)} metrics including: {', '.join(metrics[:5])}{'...' if len(metrics) > 5 else ''}",
+            ha='center',
+            fontsize=10,
+            fontstyle='italic')
 
         # Create grid layout for subplots
         gs = fig.add_gridspec(3, 6, height_ratios=[2, 2, 1])
@@ -1130,63 +1280,65 @@ def create_similarity_viz(selected_player, similar_players, metrics, df, method=
                 # Plotar todos os jogadores em cores baseadas no cluster
                 for cluster_id in pca_df['cluster'].unique():
                     cluster_data = pca_df[pca_df['cluster'] == cluster_id]
-                    ax_pca.scatter(
-                        cluster_data['x'], cluster_data['y'],
-                        alpha=0.5, s=50, 
-                        c=cluster_colors[int(cluster_id) % len(cluster_colors)],
-                        label=f'Cluster {cluster_id+1}'
-                    )
+                    ax_pca.scatter(cluster_data['x'],
+                                   cluster_data['y'],
+                                   alpha=0.5,
+                                   s=50,
+                                   c=cluster_colors[int(cluster_id) %
+                                                    len(cluster_colors)],
+                                   label=f'Cluster {cluster_id+1}')
 
                 # Destacar o jogador principal
                 player_point = pca_df[pca_df['Player'] == selected_player]
-                ax_pca.scatter(
-                    player_point['x'], player_point['y'],
-                    s=150, c=player1_color, marker='*', 
-                    edgecolor='black', linewidth=1.5,
-                    label=selected_player
-                )
+                ax_pca.scatter(player_point['x'],
+                               player_point['y'],
+                               s=150,
+                               c=player1_color,
+                               marker='*',
+                               edgecolor='black',
+                               linewidth=1.5,
+                               label=selected_player)
 
                 # Destacar jogadores similares
                 similar_players_list = [p[0] for p in similar_players]
-                similar_points = pca_df[pca_df['Player'].isin(similar_players_list)]
-                ax_pca.scatter(
-                    similar_points['x'], similar_points['y'],
-                    s=100, c=player2_color, marker='o',
-                    edgecolor='black', linewidth=1,
-                    label='Similar Players'
-                )
+                similar_points = pca_df[pca_df['Player'].isin(
+                    similar_players_list)]
+                ax_pca.scatter(similar_points['x'],
+                               similar_points['y'],
+                               s=100,
+                               c=player2_color,
+                               marker='o',
+                               edgecolor='black',
+                               linewidth=1,
+                               label='Similar Players')
 
                 # Adicionar textos para o jogador selecionado e similares
                 for _, row in player_point.iterrows():
-                    ax_pca.annotate(
-                        row['Player'], 
-                        (row['x'], row['y']),
-                        xytext=(5, 5),
-                        textcoords='offset points',
-                        fontsize=12, fontweight='bold',
-                        color=player1_color,
-                        bbox=dict(
-                            facecolor='white', alpha=0.8,
-                            edgecolor=player1_color, boxstyle="round,pad=0.2"
-                        )
-                    )
+                    ax_pca.annotate(row['Player'], (row['x'], row['y']),
+                                    xytext=(5, 5),
+                                    textcoords='offset points',
+                                    fontsize=12,
+                                    fontweight='bold',
+                                    color=player1_color,
+                                    bbox=dict(facecolor='white',
+                                              alpha=0.8,
+                                              edgecolor=player1_color,
+                                              boxstyle="round,pad=0.2"))
 
                 for _, row in similar_points.iterrows():
-                    ax_pca.annotate(
-                        row['Player'], 
-                        (row['x'], row['y']),
-                        xytext=(5, 5),
-                        textcoords='offset points',
-                        fontsize=10,
-                        color=player2_color,
-                        bbox=dict(
-                            facecolor='white', alpha=0.8,
-                            edgecolor=player2_color, boxstyle="round,pad=0.2"
-                        )
-                    )
+                    ax_pca.annotate(row['Player'], (row['x'], row['y']),
+                                    xytext=(5, 5),
+                                    textcoords='offset points',
+                                    fontsize=10,
+                                    color=player2_color,
+                                    bbox=dict(facecolor='white',
+                                              alpha=0.8,
+                                              edgecolor=player2_color,
+                                              boxstyle="round,pad=0.2"))
 
                 # Configurações do plot PCA
-                ax_pca.set_title('Player Similarity - PCA Visualization', fontsize=14)
+                ax_pca.set_title('Player Similarity - PCA Visualization',
+                                 fontsize=14)
                 ax_pca.set_xlabel('Principal Component 1', fontsize=10)
                 ax_pca.set_ylabel('Principal Component 2', fontsize=10)
                 ax_pca.legend(loc='upper right', fontsize=8)
@@ -1197,11 +1349,16 @@ def create_similarity_viz(selected_player, similar_players, metrics, df, method=
                     "Principal Component Analysis (PCA) reduces multiple metrics to two dimensions, "
                     "allowing visualization of player similarity. Players closer together have more similar styles."
                 )
-                ax_pca.text(
-                    0.5, -0.08, explanation_text, 
-                    transform=ax_pca.transAxes, fontsize=8, ha='center', va='center',
-                    bbox=dict(facecolor='white', alpha=0.8, boxstyle="round,pad=0.3")
-                )
+                ax_pca.text(0.5,
+                            -0.08,
+                            explanation_text,
+                            transform=ax_pca.transAxes,
+                            fontsize=8,
+                            ha='center',
+                            va='center',
+                            bbox=dict(facecolor='white',
+                                      alpha=0.8,
+                                      boxstyle="round,pad=0.3"))
 
         # Top similar players table
         ax_table = fig.add_subplot(gs[0:2, 3:6])
@@ -1218,11 +1375,9 @@ def create_similarity_viz(selected_player, similar_players, metrics, df, method=
                 position = player_info.iloc[0].get('Position', 'N/A')
 
                 table_data.append([
-                    f"{i}. {player_name}",
-                    team,
+                    f"{i}. {player_name}", team,
                     f"{age:.1f}" if isinstance(age, (int, float)) else age,
-                    position,
-                    f"{similarity:.1f}%"
+                    position, f"{similarity:.1f}%"
                 ])
 
         # Criar a tabela
@@ -1232,8 +1387,7 @@ def create_similarity_viz(selected_player, similar_players, metrics, df, method=
                 colLabels=['Player', 'Team', 'Age', 'Position', 'Similarity'],
                 cellLoc='center',
                 loc='center',
-                colWidths=[0.35, 0.25, 0.1, 0.15, 0.15]
-            )
+                colWidths=[0.35, 0.25, 0.1, 0.15, 0.15])
 
             # Configurações de estilo da tabela
             table.auto_set_font_size(False)
@@ -1251,7 +1405,8 @@ def create_similarity_viz(selected_player, similar_players, metrics, df, method=
                         cell.set_facecolor('#f0f0f0')
                     # Colorir célula de similaridade
                     if j == 4:  # Coluna de similaridade
-                        similarity_value = float(table_data[i-1][4].strip('%'))
+                        similarity_value = float(table_data[i -
+                                                            1][4].strip('%'))
                         # Gradiente de cor vermelho-amarelo-verde baseado na similaridade
                         if similarity_value >= 80:
                             cell.set_facecolor('#d4f7d4')  # Verde claro
@@ -1276,67 +1431,110 @@ def create_similarity_viz(selected_player, similar_players, metrics, df, method=
                 radar_metrics = metrics[:8] if len(metrics) > 8 else metrics
 
                 # Calcular percentis
-                values_selected = [calc_percentile(df[m], selected_data.iloc[0][m])*100 for m in radar_metrics]
-                values_similar = [calc_percentile(df[m], similar_data.iloc[0][m])*100 for m in radar_metrics]
+                values_selected = [
+                    calc_percentile(df[m], selected_data.iloc[0][m]) * 100
+                    for m in radar_metrics
+                ]
+                values_similar = [
+                    calc_percentile(df[m], similar_data.iloc[0][m]) * 100
+                    for m in radar_metrics
+                ]
 
                 # Inicializar o radar
-                radar = Radar(
-                    radar_metrics, 
-                    min_range=[0]*len(radar_metrics), 
-                    max_range=[100]*len(radar_metrics),
-                    round_int=[True]*len(radar_metrics),
-                    num_rings=4,
-                    ring_width=1,
-                    center_circle_radius=1
-                )
+                radar = Radar(radar_metrics,
+                              min_range=[0] * len(radar_metrics),
+                              max_range=[100] * len(radar_metrics),
+                              round_int=[True] * len(radar_metrics),
+                              num_rings=4,
+                              ring_width=1,
+                              center_circle_radius=1)
 
                 # Preparar o eixo e desenhar os círculos
                 ax_radar = radar.setup_axis(ax=ax_radar)
-                rings_inner = radar.draw_circles(ax=ax_radar, facecolor='#f9f9f9', edgecolor='#c5c5c5')
+                rings_inner = radar.draw_circles(ax=ax_radar,
+                                                 facecolor='#f9f9f9',
+                                                 edgecolor='#c5c5c5')
 
                 # Desenhar o radar para o jogador selecionado
                 radar_poly1, rings_outer1, vertices1 = radar.draw_radar(
-                    values_selected, ax=ax_radar, 
-                    kwargs_radar={'facecolor': player1_color, 'alpha': 0.6, 'edgecolor': player1_color, 'linewidth': 1.5},
-                    kwargs_rings={'facecolor': player1_color, 'alpha': 0.1}
-                )
+                    values_selected,
+                    ax=ax_radar,
+                    kwargs_radar={
+                        'facecolor': player1_color,
+                        'alpha': 0.6,
+                        'edgecolor': player1_color,
+                        'linewidth': 1.5
+                    },
+                    kwargs_rings={
+                        'facecolor': player1_color,
+                        'alpha': 0.1
+                    })
 
                 # Desenhar o radar para o jogador similar
                 radar_poly2, rings_outer2, vertices2 = radar.draw_radar(
-                    values_similar, ax=ax_radar,
-                    kwargs_radar={'facecolor': player2_color, 'alpha': 0.6, 'edgecolor': player2_color, 'linewidth': 1.5},
-                    kwargs_rings={'facecolor': player2_color, 'alpha': 0.1}
-                )
+                    values_similar,
+                    ax=ax_radar,
+                    kwargs_radar={
+                        'facecolor': player2_color,
+                        'alpha': 0.6,
+                        'edgecolor': player2_color,
+                        'linewidth': 1.5
+                    },
+                    kwargs_rings={
+                        'facecolor': player2_color,
+                        'alpha': 0.1
+                    })
 
                 # Adicionar legenda
                 legend_elements = [
-                    plt.Line2D([0], [0], marker='o', color='w', markerfacecolor=player1_color, 
-                            markersize=10, label=selected_player),
-                    plt.Line2D([0], [0], marker='o', color='w', markerfacecolor=player2_color, 
-                            markersize=10, label=similar_players[0][0])
+                    plt.Line2D([0], [0],
+                               marker='o',
+                               color='w',
+                               markerfacecolor=player1_color,
+                               markersize=10,
+                               label=selected_player),
+                    plt.Line2D([0], [0],
+                               marker='o',
+                               color='w',
+                               markerfacecolor=player2_color,
+                               markersize=10,
+                               label=similar_players[0][0])
                 ]
-                ax_radar.legend(handles=legend_elements, loc='upper right', fontsize=9)
+                ax_radar.legend(handles=legend_elements,
+                                loc='upper right',
+                                fontsize=9)
 
                 # Título do radar
-                ax_radar.set_title(f"Percentile Radar Comparison with Most Similar Player", fontsize=12)
+                ax_radar.set_title(
+                    f"Percentile Radar Comparison with Most Similar Player",
+                    fontsize=12)
 
         # Adicionar créditos no canto inferior direito em itálico
-        fig.text(
-            0.95, 0.01, "made by Joao Alberto Kolling\ndata via WyScout/SkillCorner",
-            size=8, ha="right", color="#666666", style='italic'
-        )
+        fig.text(0.95,
+                 0.01,
+                 "made by Joao Alberto Kolling\ndata via WyScout/SkillCorner",
+                 size=8,
+                 ha="right",
+                 color="#666666",
+                 style='italic')
 
         # Adjust spacing and layout - use larger bottom margin to fix the "bottom" error
         plt.tight_layout(rect=[0, 0.05, 1, 0.95])
         return fig
-        
+
     except Exception as e:
         # Create a simple figure with error description in English
         fig, ax = plt.subplots(figsize=(10, 6))
-        ax.text(0.5, 0.5, f"Could not generate similarity visualization:\n{str(e)}", 
-               ha='center', va='center', fontsize=14, wrap=True)
+        ax.text(0.5,
+                0.5,
+                f"Could not generate similarity visualization:\n{str(e)}",
+                ha='center',
+                va='center',
+                fontsize=14,
+                wrap=True)
         ax.axis('off')
         return fig
+
 
 def create_pca_kmeans_df(df, metrics, n_clusters=8):
     """
@@ -1368,7 +1566,9 @@ def create_pca_kmeans_df(df, metrics, n_clusters=8):
 
         # Handle missing values in features
         if X.isna().any().any():
-            st.info("Missing values detected in metrics. They will be filled with column means.")
+            st.info(
+                "Missing values detected in metrics. They will be filled with column means."
+            )
             X = X.fillna(X.mean())
 
         # Normalize/Scale the data
@@ -1392,7 +1592,9 @@ def create_pca_kmeans_df(df, metrics, n_clusters=8):
 
         # Get variance explained by PCA
         variance_explained = pca.explained_variance_ratio_.sum()
-        st.info(f"PCA with 2 components explains {variance_explained:.1%} of the variance in the data")
+        st.info(
+            f"PCA with 2 components explains {variance_explained:.1%} of the variance in the data"
+        )
 
         return player_info
 
@@ -1402,7 +1604,7 @@ def create_pca_kmeans_df(df, metrics, n_clusters=8):
 
 
 def compute_player_similarity(df, player, metrics, n=5, method='pca_kmeans'):
-        """
+    """
         Compute player similarity using PCA and K-Means clustering.
         This follows the methodology from the reference website.
 
@@ -1416,111 +1618,122 @@ def compute_player_similarity(df, player, metrics, n=5, method='pca_kmeans'):
         Returns:
             List of tuples (player_name, similarity_score)
         """
-        # Safety check: make sure player exists in the dataframe
-        if player not in df['Player'].values:
-            st.error(f"Player '{player}' not found in the filtered dataset!")
-            return []
+    # Safety check: make sure player exists in the dataframe
+    if player not in df['Player'].values:
+        st.error(f"Player '{player}' not found in the filtered dataset!")
+        return []
 
-        try:
-            # If using the new PCA + K-Means method
-            if method == 'pca_kmeans':
-                # Create PCA + K-Means DataFrame
-                pca_df = create_pca_kmeans_df(df, metrics)
+    try:
+        # If using the new PCA + K-Means method
+        if method == 'pca_kmeans':
+            # Create PCA + K-Means DataFrame
+            pca_df = create_pca_kmeans_df(df, metrics)
 
-                if pca_df is None:
+            if pca_df is None:
+                return []
+
+            # Get the reference player
+            ref_player = pca_df[pca_df['Player'] == player].iloc[0]
+
+            # Calculate Euclidean distance in PCA space
+            pca_df['distance'] = np.sqrt((pca_df['x'] - ref_player['x'])**2 +
+                                         (pca_df['y'] - ref_player['y'])**2)
+
+            # Convert distance to similarity percentage (higher is more similar)
+            max_distance = pca_df['distance'].max()
+            pca_df['similarity'] = (
+                (max_distance - pca_df['distance']) / max_distance) * 100
+
+            # Get the most similar players (excluding the reference player)
+            similar = pca_df.sort_values('distance').reset_index(drop=True)
+            similar = similar[similar['Player'] != player].head(n)
+
+            # Check if we have any similar players
+            if similar.empty:
+                return []
+
+            # Format and return the similar players
+            similar_players = [(row['Player'], row['similarity'])
+                               for _, row in similar.iterrows()]
+            return similar_players
+
+        # Using the original vector-based methods
+        else:
+            # Safety check: ensure all metrics exist in dataframe
+            valid_metrics = [m for m in metrics if m in df.columns]
+            if len(valid_metrics) != len(metrics):
+                missing = set(metrics) - set(valid_metrics)
+                st.warning(f"Some metrics were not found: {missing}")
+                if not valid_metrics:
                     return []
 
-                # Get the reference player
-                ref_player = pca_df[pca_df['Player'] == player].iloc[0]
+            # Extract feature columns for valid metrics only
+            X = df[valid_metrics].values
 
-                # Calculate Euclidean distance in PCA space
-                pca_df['distance'] = np.sqrt(
-                    (pca_df['x'] - ref_player['x'])**2 + 
-                    (pca_df['y'] - ref_player['y'])**2
+            # Handle missing values in features
+            if np.isnan(X).any():
+                st.warning(
+                    "Missing values detected in metrics. They will be filled with column means."
                 )
+                # Replace NaNs with column means
+                col_means = np.nanmean(X, axis=0)
+                inds = np.where(np.isnan(X))
+                X[inds] = np.take(col_means, inds[1])
 
-                # Convert distance to similarity percentage (higher is more similar)
-                max_distance = pca_df['distance'].max()
-                pca_df['similarity'] = ((max_distance - pca_df['distance']) / max_distance) * 100
+            # Standardize features
+            scaler = StandardScaler()
+            X_scaled = scaler.fit_transform(X)
 
-                # Get the most similar players (excluding the reference player)
-                similar = pca_df.sort_values('distance').reset_index(drop=True)
-                similar = similar[similar['Player'] != player].head(n)
+            # Get index of player - using DataFrame.index now for safety
+            player_data = df[df['Player'] == player]
+            if player_data.empty:
+                st.error(f"Player '{player}' not found in dataset")
+                return []
 
-                # Check if we have any similar players
-                if similar.empty:
-                    return []
+            player_idx = player_data.index[0]
 
-                # Format and return the similar players
-                similar_players = [(row['Player'], row['similarity']) for _, row in similar.iterrows()]
-                return similar_players
+            # Make sure player_idx is within the bounds of X_scaled
+            if player_idx >= X_scaled.shape[0]:
+                st.error(
+                    f"Player index out of bounds: {player_idx} >= {X_scaled.shape[0]}"
+                )
+                return []
 
-            # Using the original vector-based methods
+            # Compute similarities based on method
+            if method == 'cosine':
+                # Cosine similarity (higher is more similar)
+                similarities = cosine_similarity([X_scaled[player_idx]],
+                                                 X_scaled)[0]
+                # Convert to similarity score (0 to 1, higher is better)
+                similarities = (similarities +
+                                1) / 2  # Convert from [-1,1] to [0,1]
             else:
-                # Safety check: ensure all metrics exist in dataframe
-                valid_metrics = [m for m in metrics if m in df.columns]
-                if len(valid_metrics) != len(metrics):
-                    missing = set(metrics) - set(valid_metrics)
-                    st.warning(f"Some metrics were not found: {missing}")
-                    if not valid_metrics:
-                        return []
+                # Euclidean distance (lower is more similar)
+                distances = cdist([X_scaled[player_idx]], X_scaled,
+                                  'euclidean')[0]
+                # Convert to similarity score (0 to 1, higher is better)
+                max_dist = np.max(distances)
+                similarities = 1 - (distances / max_dist)
 
-                # Extract feature columns for valid metrics only
-                X = df[valid_metrics].values
+            # Get player indices sorted by similarity (excluding the player itself)
+            similar_indices = np.argsort(similarities)[::-1]
+            similar_indices = [i for i in similar_indices
+                               if i != player_idx][:n]
 
-                # Handle missing values in features
-                if np.isnan(X).any():
-                    st.warning("Missing values detected in metrics. They will be filled with column means.")
-                    # Replace NaNs with column means
-                    col_means = np.nanmean(X, axis=0)
-                    inds = np.where(np.isnan(X))
-                    X[inds] = np.take(col_means, inds[1])
+            # Return player names and similarity scores
+            similar_players = [(df.iloc[i]['Player'], similarities[i] * 100)
+                               for i in similar_indices]
+            return similar_players
 
-                # Standardize features
-                scaler = StandardScaler()
-                X_scaled = scaler.fit_transform(X)
+    except Exception as e:
+        st.error(f"Error computing similarity: {str(e)}")
+        return []
 
-                # Get index of player - using DataFrame.index now for safety
-                player_data = df[df['Player'] == player]
-                if player_data.empty:
-                    st.error(f"Player '{player}' not found in dataset")
-                    return []
-
-                player_idx = player_data.index[0]
-
-                # Make sure player_idx is within the bounds of X_scaled
-                if player_idx >= X_scaled.shape[0]:
-                    st.error(f"Player index out of bounds: {player_idx} >= {X_scaled.shape[0]}")
-                    return []
-
-                # Compute similarities based on method
-                if method == 'cosine':
-                    # Cosine similarity (higher is more similar)
-                    similarities = cosine_similarity([X_scaled[player_idx]], X_scaled)[0]
-                    # Convert to similarity score (0 to 1, higher is better)
-                    similarities = (similarities + 1) / 2  # Convert from [-1,1] to [0,1]
-                else:
-                    # Euclidean distance (lower is more similar)
-                    distances = cdist([X_scaled[player_idx]], X_scaled, 'euclidean')[0]
-                    # Convert to similarity score (0 to 1, higher is better)
-                    max_dist = np.max(distances)
-                    similarities = 1 - (distances / max_dist)
-
-                # Get player indices sorted by similarity (excluding the player itself)
-                similar_indices = np.argsort(similarities)[::-1]
-                similar_indices = [i for i in similar_indices if i != player_idx][:n]
-
-                # Return player names and similarity scores
-                similar_players = [(df.iloc[i]['Player'], similarities[i] * 100) for i in similar_indices]
-                return similar_players
-
-        except Exception as e:
-            st.error(f"Error computing similarity: {str(e)}")
-            return []
 
 # =============================================
 # Main Application
 # =============================================
+
 
 # Inicialização de variáveis de sessão para manter seleções entre mudanças de filtros
 def initialize_session_state():
@@ -1534,7 +1747,7 @@ def initialize_session_state():
         st.session_state.saved_pizza_metrics = []
     if 'saved_pizza_comparison_option' not in st.session_state:
         st.session_state.saved_pizza_comparison_option = 0
-        
+
     # Variáveis para Bar Chart
     if 'saved_bar_p1' not in st.session_state:
         st.session_state.saved_bar_p1 = None
@@ -1542,13 +1755,13 @@ def initialize_session_state():
         st.session_state.saved_bar_p2 = None
     if 'saved_bar_metrics' not in st.session_state:
         st.session_state.saved_bar_metrics = []
-        
+
     # Variáveis para Scatter Plot
     if 'saved_scatter_x_metric' not in st.session_state:
         st.session_state.saved_scatter_x_metric = None
     if 'saved_scatter_y_metric' not in st.session_state:
         st.session_state.saved_scatter_y_metric = None
-        
+
     # Variáveis para Similarity
     if 'saved_similarity_player' not in st.session_state:
         st.session_state.saved_similarity_player = None
@@ -1556,7 +1769,7 @@ def initialize_session_state():
         st.session_state.saved_similarity_metrics = []
     if 'saved_similarity_method' not in st.session_state:
         st.session_state.saved_similarity_method = 'pca_kmeans'
-        
+
     # Variáveis legadas (compatibilidade)
     if 'bar_p1' not in st.session_state:
         st.session_state.bar_p1 = st.session_state.saved_bar_p1
@@ -1573,6 +1786,7 @@ def initialize_session_state():
     if 'similarity_method' not in st.session_state:
         st.session_state.similarity_method = st.session_state.saved_similarity_method
 
+
 # Inicializar estados de sessão
 initialize_session_state()
 
@@ -1584,7 +1798,8 @@ with col2:
 
 st.header('Technical Scouting Department')
 st.subheader('Football Analytics Dashboard')
-st.caption("Created by João Alberto Kolling | Enhanced Player Analysis System v4.0")
+st.caption(
+    "Created by João Alberto Kolling | Enhanced Player Analysis System v4.0")
 
 # Inicializar variável de sessão para fonte de dados
 if 'data_source' not in st.session_state:
@@ -1613,7 +1828,8 @@ st.sidebar.header('Filters')
 data_source = st.sidebar.checkbox(
     "Use WyScout data",
     value=False,
-    help="When checked, the application will load WyScout data. When unchecked, it will use SkillCorner Integrated data."
+    help=
+    "When checked, the application will load WyScout data. When unchecked, it will use SkillCorner Integrated data."
 )
 
 # Atualizar a fonte de dados no estado da sessão
@@ -1635,89 +1851,54 @@ if st.session_state.data_source == 'wyscout':
     wyscout_dir = "wyscout_data"
     if not os.path.exists(wyscout_dir):
         os.makedirs(wyscout_dir)
-        st.sidebar.info(f"Created directory {wyscout_dir} for WyScout data. Please add your Excel files there.")
+        st.sidebar.info(
+            f"Created directory '{wyscout_dir}' for WyScout data. Please add your Excel files there."
+        )
     
-    # Expandir opções para mostrar configuração do GitHub
-    with st.sidebar.expander("GitHub WyScout Data", expanded=False):
-        st.markdown("**Configure GitHub Repository for WyScout Data**")
-        
-        # Inicializar variáveis de sessão para GitHub se não existirem
-        if 'github_user' not in st.session_state:
-            st.session_state.github_user = ""
-        if 'github_repo' not in st.session_state:
-            st.session_state.github_repo = ""
-        if 'github_path' not in st.session_state:
-            st.session_state.github_path = "wyscout_data"
-        
-        # Coletar informações do GitHub
-        github_user = st.text_input("GitHub Username", value=st.session_state.github_user,
-                                    help="Username of the GitHub account that hosts the data")
-        
-        github_repo = st.text_input("GitHub Repository", value=st.session_state.github_repo,
-                                   help="Name of the repository containing WyScout data files")
-        
-        github_path = st.text_input("Path within Repository", value=st.session_state.github_path,
-                                   help="Path to the folder containing the Excel files, e.g., 'data/wyscout'")
-        
-        # Atualizar o estado da sessão quando os valores mudam
-        if github_user != st.session_state.github_user:
-            st.session_state.github_user = github_user
-        if github_repo != st.session_state.github_repo:
-            st.session_state.github_repo = github_repo
-        if github_path != st.session_state.github_path:
-            st.session_state.github_path = github_path
-        
-        # Botão para recarregar os dados do GitHub
-        if st.button("Load GitHub Data"):
-            if github_user and github_repo:
-                st.success(f"Attempting to load WyScout data from GitHub repository: {github_user}/{github_repo}/{github_path}")
-                # Recarregar as ligas disponíveis usando a fonte WyScout
-                AVAILABLE_LEAGUES = load_available_leagues('wyscout')
-                if AVAILABLE_LEAGUES:
-                    st.success(f"Successfully found {len(AVAILABLE_LEAGUES)} leagues in the GitHub repository!")
-                else:
-                    st.error("No WyScout data files (.xlsx) found in the specified GitHub repository and path.")
-            else:
-                st.error("Please enter GitHub username and repository name.")
-        
-        # Instruções para o usuário
-        st.markdown("""
-        **Instructions:**
-        1. Create a GitHub repository with your WyScout Excel files
-        2. Make sure the repository is public
-        3. Enter the repository details above
-        4. Click 'Load GitHub Data' to access your files
-        """)
+    # Verificar se há arquivos na pasta
+    if os.path.exists(wyscout_dir) and os.path.isdir(wyscout_dir):
+        excel_files = [f for f in os.listdir(wyscout_dir) if f.endswith('.xlsx')]
+        if not excel_files:
+            st.sidebar.warning(f"No Excel files found in '{wyscout_dir}' directory. Please add some Excel files.")
+        else:
+            st.sidebar.success(f"Found {len(excel_files)} Excel files in '{wyscout_dir}' directory.")
 
 with st.sidebar.expander("⚙️ Select Leagues", expanded=True):
     current_source_text = "WyScout" if st.session_state.data_source == 'wyscout' else "SkillCorner Integrated"
     st.markdown(f"**Current data source: {current_source_text}**")
-    
+
     if len(AVAILABLE_LEAGUES) == 0:
-        st.warning(f"No {current_source_text} data files found. Please add data files to the appropriate folder.")
+        st.warning(
+            f"No {current_source_text} data files found. Please add data files to the appropriate folder."
+        )
         # Mostrar mensagem específica para fonte de dados
         if st.session_state.data_source == 'wyscout':
-            st.info("Please add your WyScout Excel files to the 'wyscout_data' folder.")
+            st.info(
+                "Please add your WyScout Excel files to the 'wyscout_data' folder."
+            )
         else:
-            st.info("Please add your SkillCorner Excel files to the 'attached_assets' folder.")
+            st.info(
+                "Please add your SkillCorner Excel files to the 'attached_assets' folder."
+            )
         selected_leagues = []
     else:
         selected_leagues = st.multiselect(
             "Select leagues to analyze",
             options=list(AVAILABLE_LEAGUES.keys()),
-            default=[list(AVAILABLE_LEAGUES.keys())[0]] if AVAILABLE_LEAGUES else []
-        )
-    
+            default=[list(AVAILABLE_LEAGUES.keys())[0]]
+            if AVAILABLE_LEAGUES else [])
+
     # Opção para escolher como calcular os percentis
     if 'combine_leagues' not in st.session_state:
         st.session_state.combine_leagues = True
-        
+
     combine_leagues = st.checkbox(
-        "Combine all selected leagues into one dataset for percentile calculation", 
+        "Combine all selected leagues into one dataset for percentile calculation",
         value=st.session_state.combine_leagues,
-        help="When checked, all leagues are combined into one dataset and percentiles are calculated globally. When unchecked, percentiles are calculated separately within each league."
+        help=
+        "When checked, all leagues are combined into one dataset and percentiles are calculated globally. When unchecked, percentiles are calculated separately within each league."
     )
-    
+
     # Atualizar o estado da sessão se houver mudança
     if combine_leagues != st.session_state.combine_leagues:
         st.session_state.combine_leagues = combine_leagues
@@ -1727,136 +1908,177 @@ with st.sidebar.expander("⚙️ Select Leagues", expanded=True):
 
     # Opção para carregar benchmark
     st.sidebar.subheader("Benchmark Database")
-    
+
     # Inicializar variáveis de estado para o benchmark
     if 'benchmark_loaded' not in st.session_state:
         st.session_state.benchmark_loaded = False
         st.session_state.benchmark_df = None
         st.session_state.benchmark_name = ""
-    
+
     # Abas para carregar benchmark de diferentes fontes
     benchmark_source = st.sidebar.radio(
-        "Benchmark Source:",
-        ["From GitHub", "Upload File"],
-        help="Choose where to load the benchmark data from"
-    )
-    
-    if benchmark_source == "From GitHub":
-        # Opção similar ao carregamento principal
+        "Benchmark Source:", ["From Local Files", "Upload File"],
+        help="Choose where to load the benchmark data from")
+
+    if benchmark_source == "From Local Files":
+        # Opção para usar dados locais não selecionados como dados principais
         # Evitar escolher ligas que já estão na seleção principal
         current_main_leagues = selected_leagues if selected_leagues else []
-        
+
         # Filtrar ligas disponíveis para não duplicar com as já selecionadas
-        available_benchmark_leagues = [league for league in AVAILABLE_LEAGUES.keys() 
-                                     if league not in current_main_leagues]
-        
+        available_benchmark_leagues = [
+            league for league in AVAILABLE_LEAGUES.keys()
+            if league not in current_main_leagues
+        ]
+
         if available_benchmark_leagues:
             benchmark_leagues = st.sidebar.multiselect(
                 "Select benchmark league(s)",
                 options=available_benchmark_leagues,
-                help="Select one or more leagues to use as benchmark"
-            )
-            
-            if st.sidebar.button("Load GitHub Benchmark"):
+                help="Select one or more leagues to use as benchmark")
+
+            if st.sidebar.button("Load Local Benchmark"):
                 try:
                     with st.spinner("Loading benchmark data..."):
                         benchmark_dfs = []
-                        
+
                         for league_name in benchmark_leagues:
                             try:
                                 file_path = AVAILABLE_LEAGUES[league_name]
                                 df = pd.read_excel(file_path)
                                 df.dropna(how="all", inplace=True)
                                 df = df.loc[:, df.columns.notnull()]
-                                df.columns = [str(c).strip() for c in df.columns]
+                                df.columns = [
+                                    str(c).strip() for c in df.columns
+                                ]
                                 df['Data Origin'] = league_name
                                 df['Season'] = "2023/2024"
                                 benchmark_dfs.append(df)
                             except Exception as e:
-                                st.sidebar.error(f"Error loading {league_name}: {str(e)}")
-                        
+                                st.sidebar.error(
+                                    f"Error loading {league_name}: {str(e)}")
+
                         if benchmark_dfs:
                             # Combinar os dataframes se houver mais de um
-                            benchmark_df = pd.concat(benchmark_dfs, ignore_index=True)
-                            
+                            benchmark_df = pd.concat(benchmark_dfs,
+                                                     ignore_index=True)
+
                             # Verificar e processar as colunas necessárias
-                            required_cols = ['Player', 'Team', 'Age', 'Position', 'Minutes played']
-                            if all(col in benchmark_df.columns for col in required_cols):
+                            required_cols = [
+                                'Player', 'Team', 'Age', 'Position',
+                                'Minutes played'
+                            ]
+                            if all(col in benchmark_df.columns
+                                   for col in required_cols):
                                 # Processamento básico
                                 if 'Minutes per game' not in benchmark_df.columns and 'Matches played' in benchmark_df.columns:
-                                    benchmark_df['Minutes per game'] = benchmark_df['Minutes played'] / benchmark_df['Matches played']
-                                
+                                    benchmark_df[
+                                        'Minutes per game'] = benchmark_df[
+                                            'Minutes played'] / benchmark_df[
+                                                'Matches played']
+
                                 # Limpeza básica
                                 benchmark_df = benchmark_df.fillna(0)
-                                
+
                                 # Calcular métricas ofensivas avançadas para o benchmark
-                                benchmark_df = calculate_offensive_metrics(benchmark_df)
-                                
+                                benchmark_df = calculate_offensive_metrics(
+                                    benchmark_df)
+
                                 # Guardar no session_state
                                 st.session_state.benchmark_df = benchmark_df
                                 st.session_state.benchmark_loaded = True
                                 # Nome do benchmark combinado
                                 benchmark_name = " & ".join(benchmark_leagues)
                                 st.session_state.benchmark_name = benchmark_name
-                                
-                                st.sidebar.success(f"Benchmark '{benchmark_name}' loaded successfully with {len(benchmark_df)} players!")
+
+                                st.sidebar.success(
+                                    f"Benchmark '{benchmark_name}' loaded successfully with {len(benchmark_df)} players!"
+                                )
                             else:
-                                missing = [col for col in required_cols if col not in benchmark_df.columns]
-                                st.sidebar.error(f"Benchmark file is missing required columns: {', '.join(missing)}")
+                                missing = [
+                                    col for col in required_cols
+                                    if col not in benchmark_df.columns
+                                ]
+                                st.sidebar.error(
+                                    f"Benchmark file is missing required columns: {', '.join(missing)}"
+                                )
                         else:
-                            st.sidebar.error("No benchmark data was loaded. Please select at least one league.")
+                            st.sidebar.error(
+                                "No benchmark data was loaded. Please select at least one league."
+                            )
                 except Exception as e:
                     st.sidebar.error(f"Error loading benchmark: {str(e)}")
         else:
-            st.sidebar.warning("All available leagues are already selected as main data. Please deselect some leagues from main data to use them as benchmark.")
-    
+            st.sidebar.warning(
+                "All available leagues are already selected as main data. Please deselect some leagues from main data to use them as benchmark."
+            )
+
     else:  # Upload File option
         benchmark_file = st.sidebar.file_uploader(
             "Upload benchmark Excel file",
             type=["xlsx"],
-            help="Upload a separate database (e.g., Premier League) to use as a benchmark for comparison"
+            help=
+            "Upload a separate database (e.g., Premier League) to use as a benchmark for comparison"
         )
-        
+
         # Se um arquivo de benchmark foi carregado
         if benchmark_file:
-            benchmark_name = st.sidebar.text_input("Benchmark name (e.g., 'Premier League')", 
-                                         key="benchmark_name_input",
-                                         value="Benchmark League")
-            
+            benchmark_name = st.sidebar.text_input(
+                "Benchmark name (e.g., 'Premier League')",
+                key="benchmark_name_input",
+                value="Benchmark League")
+
             if st.sidebar.button("Load File Benchmark"):
                 try:
                     with st.spinner("Loading benchmark data..."):
                         # Carregar o arquivo de benchmark
                         benchmark_df = pd.read_excel(benchmark_file)
-                        
+
                         # Verificar e processar as colunas necessárias
-                        required_cols = ['Player', 'Team', 'Age', 'Position', 'Minutes played']
-                        if all(col in benchmark_df.columns for col in required_cols):
+                        required_cols = [
+                            'Player', 'Team', 'Age', 'Position',
+                            'Minutes played'
+                        ]
+                        if all(col in benchmark_df.columns
+                               for col in required_cols):
                             # Processamento básico (o mesmo aplicado aos arquivos regulares)
                             if 'Minutes per game' not in benchmark_df.columns and 'Matches played' in benchmark_df.columns:
-                                benchmark_df['Minutes per game'] = benchmark_df['Minutes played'] / benchmark_df['Matches played']
-                            
+                                benchmark_df[
+                                    'Minutes per game'] = benchmark_df[
+                                        'Minutes played'] / benchmark_df[
+                                            'Matches played']
+
                             # Limpeza básica
                             benchmark_df = benchmark_df.fillna(0)
-                            
+
                             # Calcular métricas ofensivas avançadas para o benchmark
-                            benchmark_df = calculate_offensive_metrics(benchmark_df)
-                            
+                            benchmark_df = calculate_offensive_metrics(
+                                benchmark_df)
+
                             # Guardar no session_state
                             st.session_state.benchmark_df = benchmark_df
                             st.session_state.benchmark_loaded = True
                             st.session_state.benchmark_name = benchmark_name
-                            
-                            st.sidebar.success(f"Benchmark '{benchmark_name}' loaded successfully with {len(benchmark_df)} players!")
+
+                            st.sidebar.success(
+                                f"Benchmark '{benchmark_name}' loaded successfully with {len(benchmark_df)} players!"
+                            )
                         else:
-                            missing = [col for col in required_cols if col not in benchmark_df.columns]
-                            st.sidebar.error(f"Benchmark file is missing required columns: {', '.join(missing)}")
+                            missing = [
+                                col for col in required_cols
+                                if col not in benchmark_df.columns
+                            ]
+                            st.sidebar.error(
+                                f"Benchmark file is missing required columns: {', '.join(missing)}"
+                            )
                 except Exception as e:
                     st.sidebar.error(f"Error loading benchmark: {str(e)}")
-    
+
     # Status do benchmark
     if st.session_state.benchmark_loaded:
-        st.sidebar.info(f"Current benchmark: {st.session_state.benchmark_name} ({len(st.session_state.benchmark_df)} players)")
+        st.sidebar.info(
+            f"Current benchmark: {st.session_state.benchmark_name} ({len(st.session_state.benchmark_df)} players)"
+        )
         if st.sidebar.button("Reset Benchmark"):
             st.session_state.benchmark_loaded = False
             st.session_state.benchmark_df = None
@@ -1872,48 +2094,64 @@ if selected_leagues:
         df = load_league_data(selected_leagues)
 
         if df.empty:
-            st.error("Failed to load data from uploaded files or no data available.")
+            st.error(
+                "Failed to load data from uploaded files or no data available."
+            )
             st.stop()
 
         # Verificar se colunas essenciais existem
         required_cols = ['Player', 'Minutes played', 'Matches played', 'Age']
         missing_cols = [col for col in required_cols if col not in df.columns]
         if missing_cols:
-            st.error(f"Required columns are missing: {', '.join(missing_cols)}")
+            st.error(
+                f"Required columns are missing: {', '.join(missing_cols)}")
             st.stop()
     except Exception as e:
         st.error(f"Error processing data: {str(e)}")
         st.exception(e)
         st.stop()
-        
+
     # Filtros Principais (com validação)
     try:
-        min_min, max_min = int(df['Minutes played'].min()), int(df['Minutes played'].max())
-        minutes_range = st.sidebar.slider('Minutes Played', min_min, max_min, (min_min, max_min))
+        min_min, max_min = int(df['Minutes played'].min()), int(
+            df['Minutes played'].max())
+        minutes_range = st.sidebar.slider('Minutes Played', min_min, max_min,
+                                          (min_min, max_min))
         df_minutes = df[df['Minutes played'].between(*minutes_range)].copy()
 
         # Verificar se temos jogadores após o filtro
         if df_minutes.empty:
-            st.warning("No players match the selected minutes range. Using all players.")
+            st.warning(
+                "No players match the selected minutes range. Using all players."
+            )
             df_minutes = df.copy()
             minutes_range = (min_min, max_min)
     except Exception as e:
         st.error(f"Error filtering by minutes: {str(e)}")
         df_minutes = df.copy()
-        minutes_range = (df['Minutes played'].min(), df['Minutes played'].max())
+        minutes_range = (df['Minutes played'].min(),
+                         df['Minutes played'].max())
 
     # Calcular minutos por jogo com tratamento adequado para divisão por zero
     try:
-        df_minutes['Minutes per game'] = df_minutes['Minutes played'] / df_minutes['Matches played'].replace(0, np.nan)
-        df_minutes['Minutes per game'] = df_minutes['Minutes per game'].fillna(0).clip(0, 120)
+        df_minutes['Minutes per game'] = df_minutes[
+            'Minutes played'] / df_minutes['Matches played'].replace(
+                0, np.nan)
+        df_minutes['Minutes per game'] = df_minutes['Minutes per game'].fillna(
+            0).clip(0, 120)
 
-        min_mpg, max_mpg = int(df_minutes['Minutes per game'].min()), int(df_minutes['Minutes per game'].max())
-        mpg_range = st.sidebar.slider('Minutes per Game', min_mpg, max_mpg, (min_mpg, max_mpg))
-        df_filtered = df_minutes[df_minutes['Minutes per game'].between(*mpg_range)]
+        min_mpg, max_mpg = int(df_minutes['Minutes per game'].min()), int(
+            df_minutes['Minutes per game'].max())
+        mpg_range = st.sidebar.slider('Minutes per Game', min_mpg, max_mpg,
+                                      (min_mpg, max_mpg))
+        df_filtered = df_minutes[df_minutes['Minutes per game'].between(
+            *mpg_range)]
 
         # Verificar se ainda temos jogadores
         if df_filtered.empty:
-            st.warning("No players match the selected minutes per game range. Using previous filter.")
+            st.warning(
+                "No players match the selected minutes per game range. Using previous filter."
+            )
             df_filtered = df_minutes
             mpg_range = (min_mpg, max_mpg)
         else:
@@ -1924,13 +2162,17 @@ if selected_leagues:
 
     # Filtro de idade
     try:
-        min_age, max_age = int(df_minutes['Age'].min()), int(df_minutes['Age'].max())
-        age_range = st.sidebar.slider('Age Range', min_age, max_age, (min_age, max_age))
+        min_age, max_age = int(df_minutes['Age'].min()), int(
+            df_minutes['Age'].max())
+        age_range = st.sidebar.slider('Age Range', min_age, max_age,
+                                      (min_age, max_age))
         df_filtered = df_minutes[df_minutes['Age'].between(*age_range)]
 
         # Verificar se ainda temos jogadores
         if df_filtered.empty:
-            st.warning("No players match the selected age range. Using previous filter.")
+            st.warning(
+                "No players match the selected age range. Using previous filter."
+            )
             age_range = (min_age, max_age)
         else:
             df_minutes = df_filtered
@@ -1940,29 +2182,40 @@ if selected_leagues:
 
     # Coleta posições
     if 'Position' in df_minutes.columns:
-        df_minutes['Position_split'] = df_minutes['Position'].astype(str).apply(lambda x: [p.strip() for p in x.split(',')])
-        all_pos = sorted({p for lst in df_minutes['Position_split'] for p in lst})
+        df_minutes['Position_split'] = df_minutes['Position'].astype(
+            str).apply(lambda x: [p.strip() for p in x.split(',')])
+        all_pos = sorted(
+            {p
+             for lst in df_minutes['Position_split']
+             for p in lst})
         sel_pos = st.sidebar.multiselect('Positions', all_pos, default=all_pos)
     else:
         sel_pos = []
 
     # Cria dataframe para cálculos de grupo
     if 'Position_split' in df_minutes.columns and sel_pos:
-        df_group = df_minutes[df_minutes['Position_split'].apply(lambda x: any(pos in x for pos in sel_pos))]
+        df_group = df_minutes[df_minutes['Position_split'].apply(
+            lambda x: any(pos in x for pos in sel_pos))]
     else:
         df_group = df_minutes.copy()
 
-    context = get_context_info(df_minutes, minutes_range, mpg_range, age_range, sel_pos)
+    context = get_context_info(df_minutes, minutes_range, mpg_range, age_range,
+                               sel_pos)
     players = sorted(df_minutes['Player'].unique())
 
     # Get numeric columns for metrics
     numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
     # Remove some columns that aren't player metrics
-    exclude_cols = ['Age', 'Minutes played', 'Matches played', 'Minutes per game']
+    exclude_cols = [
+        'Age', 'Minutes played', 'Matches played', 'Minutes per game'
+    ]
     metric_cols = [col for col in numeric_cols if col not in exclude_cols]
 
     # Create tabs for different analyses
-    tabs = st.tabs(['Pizza Chart', 'Bars', 'Scatter', 'Similarity', 'Correlation', 'Composite Index (PCA)', 'Profiler'])
+    tabs = st.tabs([
+        'Pizza Chart', 'Bars', 'Scatter', 'Similarity', 'Correlation',
+        'Composite Index (PCA)', 'Profiler'
+    ])
 
     # =============================================
     # Pizza Chart (Aba 1) - Estilo Sofyan Amrabat
@@ -1975,8 +2228,12 @@ if selected_leagues:
 
         # Primeiramente, decidir se queremos usar o benchmark ou não
         if benchmark_available:
-            use_benchmark = st.checkbox("Use benchmark for comparison", value=False, 
-                                     help="When enabled, you can compare a player from your dataset with players from the benchmark league")
+            use_benchmark = st.checkbox(
+                "Use benchmark for comparison",
+                value=False,
+                help=
+                "When enabled, you can compare a player from your dataset with players from the benchmark league"
+            )
         else:
             use_benchmark = False
 
@@ -1986,10 +2243,13 @@ if selected_leagues:
             player_index = 0
             if st.session_state.saved_pizza_p1 in players:
                 player_index = players.index(st.session_state.saved_pizza_p1)
-                
+
             # Usar o index para manter a seleção anterior quando possível
-            p1 = st.selectbox('Select Player 1', players, index=player_index, key='pizza_p1')
-            
+            p1 = st.selectbox('Select Player 1',
+                              players,
+                              index=player_index,
+                              key='pizza_p1')
+
             # Atualizar nossa variável de armazenamento (não o widget diretamente)
             st.session_state.saved_pizza_p1 = p1
 
@@ -1998,45 +2258,53 @@ if selected_leagues:
             if use_benchmark:
                 # Filtrar o benchmark com os mesmos filtros aplicados à base principal
                 filtered_benchmark = apply_benchmark_filter(
-                    st.session_state.benchmark_df,
-                    minutes_range,
-                    mpg_range,
-                    age_range,
-                    sel_pos
-                )
+                    st.session_state.benchmark_df, minutes_range, mpg_range,
+                    age_range, sel_pos)
 
                 if filtered_benchmark is not None and not filtered_benchmark.empty:
-                    benchmark_players = sorted(filtered_benchmark['Player'].unique())
-                    
+                    benchmark_players = sorted(
+                        filtered_benchmark['Player'].unique())
+
                     # Verificar se o jogador anteriormente selecionado ainda está disponível
                     benchmark_index = 0
                     if st.session_state.saved_pizza_p2 in benchmark_players:
-                        benchmark_index = benchmark_players.index(st.session_state.saved_pizza_p2)
-                        
-                    p2 = st.selectbox('Select Benchmark Player', benchmark_players, index=benchmark_index, key='pizza_p2_benchmark')
-                    
+                        benchmark_index = benchmark_players.index(
+                            st.session_state.saved_pizza_p2)
+
+                    p2 = st.selectbox('Select Benchmark Player',
+                                      benchmark_players,
+                                      index=benchmark_index,
+                                      key='pizza_p2_benchmark')
+
                     # Atualizar nossa variável de armazenamento (não o widget diretamente)
                     st.session_state.saved_pizza_p2 = p2
 
                     # Exibir informações do jogador benchmark selecionado
-                    st.info(f"Benchmark: {p2} from {st.session_state.benchmark_name}")
+                    st.info(
+                        f"Benchmark: {p2} from {st.session_state.benchmark_name}"
+                    )
                 else:
-                    st.warning("No benchmark players match the applied filters")
+                    st.warning(
+                        "No benchmark players match the applied filters")
                     p2 = None
                     use_benchmark = False
             else:
                 # Filtrar jogadores para não incluir o jogador 1
                 remaining_players = [p for p in players if p != p1]
-                
+
                 if remaining_players:
                     # Verificar se o jogador anteriormente selecionado ainda está disponível
                     player2_index = 0
                     if st.session_state.saved_pizza_p2 in remaining_players:
-                        player2_index = remaining_players.index(st.session_state.saved_pizza_p2)
-                    
+                        player2_index = remaining_players.index(
+                            st.session_state.saved_pizza_p2)
+
                     # Usar o index para manter a seleção anterior quando possível
-                    p2 = st.selectbox('Select Player 2', remaining_players, index=player2_index, key='pizza_p2')
-                    
+                    p2 = st.selectbox('Select Player 2',
+                                      remaining_players,
+                                      index=player2_index,
+                                      key='pizza_p2')
+
                     # Atualizar nossa variável de armazenamento (não o widget diretamente)
                     st.session_state.saved_pizza_p2 = p2
                 else:
@@ -2045,20 +2313,41 @@ if selected_leagues:
 
         # Predefined metric groups for pizza charts
         pizza_metric_groups = {
-            "Overall": ['Progressive runs per 90', 'Progressive passes per 90', 'Deep completions per 90', 'Key passes per 90', 
-                        'Accurate passes, %', 'Accurate crosses, %', 'xA per 90', 'Defensive duels won, %', 
-                        'Aerial duels won, %', 'PAdj Interceptions', 'PAdj Sliding tackles', 'npxG per 90', 
-                        'npxG per Shot', 'Goal conversion, %', 'Shots on target, %'],
-            "Offensive": ['Goals per 90', 'Shots per 90', 'xG per 90', 'npxG', 'G-xG', 'npxG per Shot', 'Box Efficiency', 'Shots on target per 90', 'Successful dribbles per 90', 'Progressive runs per 90'],
-            "Passing": ['Passes per 90', 'Accurate passes, %', 'Forward passes per 90', 'Progressive passes per 90', 'Key passes per 90', 'Assists per 90', 'xA per 90'],
-            "Defensive": ['Interceptions per 90', 'Tackles per 90', 'Defensive duels per 90', 'Aerial duels won per 90', 'Recoveries per 90'],
-            "Physical": ['Accelerations per 90', 'Sprint distance per 90', 'Distance covered per 90'],
-            "Advanced Metrics": ['npxG', 'G-xG', 'npxG per Shot', 'Box Efficiency']  # Incluindo Box Efficiency nas métricas avançadas
+            "Overall": [
+                'Progressive runs per 90', 'Progressive passes per 90',
+                'Deep completions per 90', 'Key passes per 90',
+                'Accurate passes, %', 'Accurate crosses, %', 'xA per 90',
+                'Defensive duels won, %', 'Aerial duels won, %',
+                'PAdj Interceptions', 'PAdj Sliding tackles', 'npxG per 90',
+                'npxG per Shot', 'Goal conversion, %', 'Shots on target, %'
+            ],
+            "Offensive": [
+                'Goals per 90', 'Shots per 90', 'xG per 90', 'npxG', 'G-xG',
+                'npxG per Shot', 'Box Efficiency', 'Shots on target per 90',
+                'Successful dribbles per 90', 'Progressive runs per 90'
+            ],
+            "Passing": [
+                'Passes per 90', 'Accurate passes, %', 'Forward passes per 90',
+                'Progressive passes per 90', 'Key passes per 90',
+                'Assists per 90', 'xA per 90'
+            ],
+            "Defensive": [
+                'Interceptions per 90', 'Tackles per 90',
+                'Defensive duels per 90', 'Aerial duels won per 90',
+                'Recoveries per 90'
+            ],
+            "Physical": [
+                'Accelerations per 90', 'Sprint distance per 90',
+                'Distance covered per 90'
+            ],
+            "Advanced Metrics":
+            ['npxG', 'G-xG', 'npxG per Shot', 'Box Efficiency'
+             ]  # Incluindo Box Efficiency nas métricas avançadas
         }
 
         # Let user select metric selection mode
         metric_selection_mode = st.radio(
-            "Metric Selection Mode", 
+            "Metric Selection Mode",
             ["Custom (Select Individual Metrics)", "Use Metric Presets"],
             horizontal=True,
             key="pizza_metric_selection_mode"  # Adicionando chave única
@@ -2070,16 +2359,21 @@ if selected_leagues:
                 default_groups = ["Offensive", "Passing"]
             else:
                 # Filtrar para manter apenas grupos que ainda existem
-                valid_groups = [g for g in st.session_state.pizza_selected_groups if g in pizza_metric_groups.keys()]
-                default_groups = valid_groups if valid_groups else ["Offensive", "Passing"]
-                
+                valid_groups = [
+                    g for g in st.session_state.pizza_selected_groups
+                    if g in pizza_metric_groups.keys()
+                ]
+                default_groups = valid_groups if valid_groups else [
+                    "Offensive", "Passing"
+                ]
+
             selected_groups = st.multiselect(
-                "Select Metric Groups", 
+                "Select Metric Groups",
                 list(pizza_metric_groups.keys()),
                 default=default_groups,
                 key="pizza_preset_groups"  # Adicionando chave única
             )
-            
+
             # Guardar a seleção de grupos na session_state
             st.session_state.pizza_selected_groups = selected_groups
 
@@ -2087,20 +2381,25 @@ if selected_leagues:
             preset_metrics = []
             for group in selected_groups:
                 # Only add metrics that exist in the dataframe
-                available_metrics = [m for m in pizza_metric_groups[group] if m in metric_cols]
+                available_metrics = [
+                    m for m in pizza_metric_groups[group] if m in metric_cols
+                ]
                 preset_metrics.extend(available_metrics)
-                
+
             # Definir valores padrão para métricas com base na sessão ou presets calculados
             if 'saved_pizza_metrics' in st.session_state and st.session_state.saved_pizza_metrics:
                 # Filtrar para manter apenas métricas que ainda existem no dataframe
-                valid_metrics = [m for m in st.session_state.saved_pizza_metrics if m in metric_cols]
+                valid_metrics = [
+                    m for m in st.session_state.saved_pizza_metrics
+                    if m in metric_cols
+                ]
                 default_metrics = valid_metrics if valid_metrics else preset_metrics
             else:
                 default_metrics = preset_metrics
 
             # Allow further customization
             sel = st.multiselect(
-                'Add or Remove Individual Metrics (6-15 recommended)', 
+                'Add or Remove Individual Metrics (6-15 recommended)',
                 metric_cols,
                 default=default_metrics,
                 key="pizza_preset_metrics"  # Adicionando chave única
@@ -2109,110 +2408,158 @@ if selected_leagues:
             # Definir valores padrão para métricas com base na sessão ou primeiras 9 métricas
             if 'saved_pizza_metrics' in st.session_state and st.session_state.saved_pizza_metrics:
                 # Filtrar para manter apenas métricas que ainda existem no dataframe
-                valid_metrics = [m for m in st.session_state.saved_pizza_metrics if m in metric_cols]
-                default_metrics = valid_metrics if valid_metrics else metric_cols[:9]
+                valid_metrics = [
+                    m for m in st.session_state.saved_pizza_metrics
+                    if m in metric_cols
+                ]
+                default_metrics = valid_metrics if valid_metrics else metric_cols[:
+                                                                                  9]
             else:
                 default_metrics = metric_cols[:9]
-                
+
             # Let user select metrics manually
-            sel = st.multiselect(
-                'Metrics for Pizza Chart (6-15)', 
-                metric_cols, 
-                default=default_metrics, 
-                key="pizza_custom_metrics"
-            )
-            
+            sel = st.multiselect('Metrics for Pizza Chart (6-15)',
+                                 metric_cols,
+                                 default=default_metrics,
+                                 key="pizza_custom_metrics")
+
         # Guardar as métricas selecionadas na session_state para uso futuro
         st.session_state.saved_pizza_metrics = sel
 
         if 6 <= len(sel) <= 15:
             # Dados do jogador 1 (sempre da base principal)
-            d1 = df_minutes[df_minutes['Player']==p1].iloc[0]
-            
+            d1 = df_minutes[df_minutes['Player'] == p1].iloc[0]
+
             # Verificar modo de cálculo de percentis (global ou por liga)
             combine_leagues = st.session_state.get('combine_leagues', True)
-            
+
             # Identificar a liga do jogador 1
             player1_league = d1['Data Origin']
-            
+
             # Dados do jogador 2 (pode ser do benchmark ou da base principal)
             if use_benchmark and p2 is not None:
                 # Obter dados do benchmark
-                d2 = filtered_benchmark[filtered_benchmark['Player']==p2].iloc[0]
-                
+                d2 = filtered_benchmark[filtered_benchmark['Player'] ==
+                                        p2].iloc[0]
+
                 # Calcular percentis de acordo com a configuração
                 if combine_leagues:
                     # Modo Global: usar todo o dataframe para cálculo de percentis
-                    p1pct = [calc_percentile(df_minutes[m], d1[m])*100 for m in sel]
-                    p2pct = [calc_percentile(filtered_benchmark[m], d2[m])*100 for m in sel]
-                    
-                    # Média global para comparação 
+                    p1pct = [
+                        calc_percentile(df_minutes[m], d1[m]) * 100
+                        for m in sel
+                    ]
+                    p2pct = [
+                        calc_percentile(filtered_benchmark[m], d2[m]) * 100
+                        for m in sel
+                    ]
+
+                    # Média global para comparação
                     gm = {m: filtered_benchmark[m].mean() for m in sel}
-                    gmpct = [calc_percentile(filtered_benchmark[m], gm[m])*100 for m in sel]
+                    gmpct = [
+                        calc_percentile(filtered_benchmark[m], gm[m]) * 100
+                        for m in sel
+                    ]
                 else:
                     # Modo Por Liga: usar apenas jogadores da mesma liga para cálculo de percentis
                     # Filtrar jogadores da mesma liga que o jogador 1
-                    same_league_players = df_minutes[df_minutes['Data Origin'] == player1_league]
-                    
+                    same_league_players = df_minutes[df_minutes['Data Origin']
+                                                     == player1_league]
+
                     # Para jogador 1, calcular percentis dentro da sua própria liga
-                    p1pct = [calc_percentile(same_league_players[m], d1[m])*100 for m in sel]
-                    
+                    p1pct = [
+                        calc_percentile(same_league_players[m], d1[m]) * 100
+                        for m in sel
+                    ]
+
                     # Para jogador 2 (benchmark), calcular percentis dentro do benchmark
-                    p2pct = [calc_percentile(filtered_benchmark[m], d2[m])*100 for m in sel]
-                    
+                    p2pct = [
+                        calc_percentile(filtered_benchmark[m], d2[m]) * 100
+                        for m in sel
+                    ]
+
                     # Média do benchmark para comparação
                     gm = {m: filtered_benchmark[m].mean() for m in sel}
-                    gmpct = [calc_percentile(filtered_benchmark[m], gm[m])*100 for m in sel]
+                    gmpct = [
+                        calc_percentile(filtered_benchmark[m], gm[m]) * 100
+                        for m in sel
+                    ]
 
-                # Texto especial para o subtítulo 
+                # Texto especial para o subtítulo
                 benchmark_text = f" | Benchmark: {st.session_state.benchmark_name}"
-                
+
                 # Adicionar informação sobre modo de cálculo de percentis
                 if not combine_leagues:
                     benchmark_text += " | Percentiles: League-specific"
             else:
                 # Fluxo normal - ambos jogadores da base principal
-                d2 = df_minutes[df_minutes['Player']==p2].iloc[0]
+                d2 = df_minutes[df_minutes['Player'] == p2].iloc[0]
                 player2_league = d2['Data Origin']
-                
+
                 if combine_leagues:
                     # Modo Global: usar todo o dataframe para cálculo de percentis
-                    p1pct = [calc_percentile(df_minutes[m], d1[m])*100 for m in sel]
-                    p2pct = [calc_percentile(df_minutes[m], d2[m])*100 for m in sel]
-                    
+                    p1pct = [
+                        calc_percentile(df_minutes[m], d1[m]) * 100
+                        for m in sel
+                    ]
+                    p2pct = [
+                        calc_percentile(df_minutes[m], d2[m]) * 100
+                        for m in sel
+                    ]
+
                     # Média global para comparação
                     gm = {m: df_group[m].mean() for m in sel}
-                    gmpct = [calc_percentile(df_minutes[m], gm[m])*100 for m in sel]
+                    gmpct = [
+                        calc_percentile(df_minutes[m], gm[m]) * 100
+                        for m in sel
+                    ]
                 else:
                     # Modo Por Liga: usar apenas jogadores da mesma liga para cálculo de percentis
                     # Filtrar jogadores da mesma liga que o jogador 1
-                    same_league_players1 = df_minutes[df_minutes['Data Origin'] == player1_league]
-                    same_league_players2 = df_minutes[df_minutes['Data Origin'] == player2_league]
-                    
+                    same_league_players1 = df_minutes[df_minutes['Data Origin']
+                                                      == player1_league]
+                    same_league_players2 = df_minutes[df_minutes['Data Origin']
+                                                      == player2_league]
+
                     # Para cada jogador, calcular percentis dentro da sua própria liga
-                    p1pct = [calc_percentile(same_league_players1[m], d1[m])*100 for m in sel]
-                    p2pct = [calc_percentile(same_league_players2[m], d2[m])*100 for m in sel]
-                    
+                    p1pct = [
+                        calc_percentile(same_league_players1[m], d1[m]) * 100
+                        for m in sel
+                    ]
+                    p2pct = [
+                        calc_percentile(same_league_players2[m], d2[m]) * 100
+                        for m in sel
+                    ]
+
                     # Calcular média global (manter comportamento original)
                     gm = {m: df_group[m].mean() for m in sel}
-                    
+
                     if player1_league == player2_league:
                         # Se ambos jogadores são da mesma liga, usar essa liga para gmpct
-                        gmpct = [calc_percentile(same_league_players1[m], gm[m])*100 for m in sel]
+                        gmpct = [
+                            calc_percentile(same_league_players1[m], gm[m]) *
+                            100 for m in sel
+                        ]
                     else:
                         # Se são de ligas diferentes, usar o dataset global para gmpct
-                        gmpct = [calc_percentile(df_minutes[m], gm[m])*100 for m in sel]
-                
+                        gmpct = [
+                            calc_percentile(df_minutes[m], gm[m]) * 100
+                            for m in sel
+                        ]
+
                 # Adicionar informação sobre modo de cálculo de percentis no subtítulo
                 benchmark_text = "" if combine_leagues else " | Percentiles: League-specific"
 
             # Controle de visualização modificado para limitar a 2 elementos
             st.subheader("Display Options")
-            
+
             # Opção para mostrar valores nominais nos rótulos (mantendo visualização em percentil)
-            show_nominal_values = st.checkbox("Show nominal values in labels (visualization remains percentile-based)", 
-                                           value=False, 
-                                           help="When checked, the chart labels will show actual metric values instead of percentile ranks, but chart visualization will still use percentiles")
+            show_nominal_values = st.checkbox(
+                "Show nominal values in labels (visualization remains percentile-based)",
+                value=False,
+                help=
+                "When checked, the chart labels will show actual metric values instead of percentile ranks, but chart visualization will still use percentiles"
+            )
 
             # Sempre mostrar jogador 1 por padrão
             show_p1 = True
@@ -2227,10 +2574,12 @@ if selected_leagues:
             else:
                 # Opções normais
                 comparison_option = st.radio(
-                    "Compare with:", 
-                    [f"No comparison (only {p1})", 
-                     f"Player vs Player ({p1} vs {p2})", 
-                     f"Player vs Group Average ({p1} vs Avg)"],
+                    "Compare with:",
+                    [
+                        f"No comparison (only {p1})",
+                        f"Player vs Player ({p1} vs {p2})",
+                        f"Player vs Group Average ({p1} vs Avg)"
+                    ],
                     index=0,
                     key="pizza_comparison_options"  # Adicionando chave única
                 )
@@ -2238,17 +2587,20 @@ if selected_leagues:
                 # Configurar valores com base na opção selecionada
                 # Obter posição e idade do jogador 1
                 p1_position = d1['Position']
-                p1_age = int(d1['Age']) if isinstance(d1['Age'], (int, float)) else d1['Age']
+                p1_age = int(d1['Age']) if isinstance(d1['Age'],
+                                                      (int,
+                                                       float)) else d1['Age']
                 p1_display = f"{p1} ({p1_position}, {p1_age})"
-                
+
                 # Obter posição e idade do jogador 2 se estiver disponível
                 if p2 is not None:
                     p2_position = d2['Position']
-                    p2_age = int(d2['Age']) if isinstance(d2['Age'], (int, float)) else d2['Age']
+                    p2_age = int(d2['Age']) if isinstance(
+                        d2['Age'], (int, float)) else d2['Age']
                     p2_display = f"{p2} ({p2_position}, {p2_age})"
                 else:
                     p2_display = p2
-                
+
                 if comparison_option == f"No comparison (only {p1})":
                     show_p2 = False
                     show_avg = False
@@ -2264,27 +2616,31 @@ if selected_leagues:
 
             # Ajustar o subtítulo com base na escolha de valores nominais ou percentis
             if show_nominal_values:
-                subtitle = (f"Actual Values | {context['leagues']} | "
-                          f"{context['min_min']}+ mins | Position: {context['positions']}{benchmark_text}")
+                subtitle = (
+                    f"Actual Values | {context['leagues']} | "
+                    f"{context['min_min']}+ mins | Position: {context['positions']}{benchmark_text}"
+                )
             else:
-                subtitle = (f"Percentile Rank | {context['leagues']} | "
-                          f"{context['min_min']}+ mins | Position: {context['positions']}{benchmark_text}")
+                subtitle = (
+                    f"Percentile Rank | {context['leagues']} | "
+                    f"{context['min_min']}+ mins | Position: {context['positions']}{benchmark_text}"
+                )
 
             # Armazenar os valores originais para uso posterior
             original_values_p1 = [d1[m] for m in sel] if show_p1 else None
             original_values_p2 = [d2[m] for m in sel] if show_p2 else None
             original_values_avg = [gm[m] for m in sel] if show_avg else None
-            
+
             # Para a visualização, SEMPRE usamos percentis para manter consistência
             # independentemente da opção de exibição de valores
             values_p1_arg = p1pct if show_p1 else None
             values_p2_arg = p2pct if show_p2 else None
             values_avg_arg = gmpct if show_avg else None
-            
+
             # Armazenar os valores nominais na sessão para uso no gráfico
             st.session_state.nominal_values_p1 = original_values_p1
             st.session_state.nominal_values_p2 = original_values_p2
-            
+
             # Guardar os valores originais para exibição condicional nos rótulos
             # Se show_nominal_values é True, a função de plotagem usará esses valores nos rótulos
             if show_nominal_values:
@@ -2295,7 +2651,7 @@ if selected_leagues:
                 st.session_state.display_values_p1 = values_p1_arg
                 st.session_state.display_values_p2 = values_p2_arg
                 st.session_state.display_values_avg = values_avg_arg
-            
+
             # Flag para usar o chart comparativo para comparações entre jogadores ou jogador vs média
             use_comparison_chart = False
             if show_p1 and (show_p2 or show_avg):
@@ -2304,28 +2660,24 @@ if selected_leagues:
             # Criar o Pizza Chart de acordo com a escolha
             if use_comparison_chart:
                 # Usar o chart comparativo (para dois jogadores ou jogador vs média)
-                fig = create_comparison_pizza_chart(
-                    params=sel,
-                    values_p1=values_p1_arg, 
-                    values_p2=values_p2_arg,
-                    values_avg=values_avg_arg,
-                    title=title,
-                    subtitle=subtitle,
-                    p1_name=p1,
-                    p2_name=p2
-                )
+                fig = create_comparison_pizza_chart(params=sel,
+                                                    values_p1=values_p1_arg,
+                                                    values_p2=values_p2_arg,
+                                                    values_avg=values_avg_arg,
+                                                    title=title,
+                                                    subtitle=subtitle,
+                                                    p1_name=p1,
+                                                    p2_name=p2)
             else:
                 # Usar o chart padrão para casos com média ou apenas um jogador
-                fig = create_pizza_chart(
-                    params=sel,
-                    values_p1=values_p1_arg, 
-                    values_p2=values_p2_arg,
-                    values_avg=values_avg_arg,
-                    title=title,
-                    subtitle=subtitle,
-                    p1_name=p1,
-                    p2_name=p2
-                )
+                fig = create_pizza_chart(params=sel,
+                                         values_p1=values_p1_arg,
+                                         values_p2=values_p2_arg,
+                                         values_avg=values_avg_arg,
+                                         title=title,
+                                         subtitle=subtitle,
+                                         p1_name=p1,
+                                         p2_name=p2)
 
             # Display pizza chart
             st.pyplot(fig)
@@ -2352,12 +2704,10 @@ if selected_leagues:
                     players_str += f"_vs_{p2}"
                 if show_avg and not show_p2:
                     players_str += "_vs_avg"
-                st.download_button(
-                    "⬇️ Download Pizza Chart", 
-                    data=img_bytes, 
-                    file_name=f"pizza_chart_{players_str}.png", 
-                    mime="image/png"
-                )
+                st.download_button("⬇️ Download Pizza Chart",
+                                   data=img_bytes,
+                                   file_name=f"pizza_chart_{players_str}.png",
+                                   mime="image/png")
 
         # =============================================
         # Bar Charts (Aba 2)
@@ -2370,9 +2720,12 @@ if selected_leagues:
 
             # Primeiramente, decidir se queremos usar o benchmark ou não
             if benchmark_available:
-                use_benchmark = st.checkbox("Use benchmark for comparison", value=False, 
-                                         help="When enabled, you can compare a player from your dataset with players from the benchmark league",
-                                         key="bar_use_benchmark")
+                use_benchmark = st.checkbox(
+                    "Use benchmark for comparison",
+                    value=False,
+                    help=
+                    "When enabled, you can compare a player from your dataset with players from the benchmark league",
+                    key="bar_use_benchmark")
             else:
                 use_benchmark = False
 
@@ -2382,10 +2735,13 @@ if selected_leagues:
                 player_index = 0
                 if st.session_state.saved_bar_p1 in players:
                     player_index = players.index(st.session_state.saved_bar_p1)
-                    
+
                 # Usar o index para manter a seleção anterior quando possível
-                p1 = st.selectbox('Select Player 1', players, index=player_index, key='bar_p1')
-                
+                p1 = st.selectbox('Select Player 1',
+                                  players,
+                                  index=player_index,
+                                  key='bar_p1')
+
                 # Atualizar nossa variável de armazenamento (não o widget diretamente)
                 st.session_state.saved_bar_p1 = p1
 
@@ -2394,62 +2750,76 @@ if selected_leagues:
                 if use_benchmark:
                     # Filtrar o benchmark com os mesmos filtros aplicados à base principal
                     filtered_benchmark = apply_benchmark_filter(
-                        st.session_state.benchmark_df,
-                        minutes_range,
-                        mpg_range,
-                        age_range,
-                        sel_pos
-                    )
+                        st.session_state.benchmark_df, minutes_range,
+                        mpg_range, age_range, sel_pos)
 
                     if filtered_benchmark is not None and not filtered_benchmark.empty:
-                        benchmark_players = sorted(filtered_benchmark['Player'].unique())
-                        
+                        benchmark_players = sorted(
+                            filtered_benchmark['Player'].unique())
+
                         # Verificar se o jogador anteriormente selecionado ainda está disponível
                         benchmark_index = 0
                         if st.session_state.saved_bar_p2 in benchmark_players:
-                            benchmark_index = benchmark_players.index(st.session_state.saved_bar_p2)
-                            
-                        p2 = st.selectbox('Select Benchmark Player', benchmark_players, index=benchmark_index, key='bar_p2_benchmark')
-                        
+                            benchmark_index = benchmark_players.index(
+                                st.session_state.saved_bar_p2)
+
+                        p2 = st.selectbox('Select Benchmark Player',
+                                          benchmark_players,
+                                          index=benchmark_index,
+                                          key='bar_p2_benchmark')
+
                         # Atualizar nossa variável de armazenamento (não o widget diretamente)
                         st.session_state.saved_bar_p2 = p2
 
                         # Exibir informações do jogador benchmark selecionado
-                        st.info(f"Benchmark: {p2} from {st.session_state.benchmark_name}")
+                        st.info(
+                            f"Benchmark: {p2} from {st.session_state.benchmark_name}"
+                        )
                     else:
-                        st.warning("No benchmark players match the applied filters")
+                        st.warning(
+                            "No benchmark players match the applied filters")
                         p2 = None
                         use_benchmark = False
                 else:
                     # Seleção normal do segundo jogador da mesma base
                     remaining_players = [p for p in players if p != p1]
-                    
+
                     if remaining_players:
                         # Verificar se o jogador anteriormente selecionado ainda está disponível
                         player2_index = 0
                         if st.session_state.saved_bar_p2 in remaining_players:
-                            player2_index = remaining_players.index(st.session_state.saved_bar_p2)
-                        
+                            player2_index = remaining_players.index(
+                                st.session_state.saved_bar_p2)
+
                         # Usar o index para manter a seleção anterior quando possível
-                        p2 = st.selectbox('Select Player 2', remaining_players, index=player2_index, key='bar_p2')
-                        
+                        p2 = st.selectbox('Select Player 2',
+                                          remaining_players,
+                                          index=player2_index,
+                                          key='bar_p2')
+
                         # Atualizar nossa variável de armazenamento (não o widget diretamente)
                         st.session_state.saved_bar_p2 = p2
                     else:
                         st.warning("No second player available")
                         p2 = None
-                        
+
             # Definir métricas padrão com base na session_state ou primeiras métricas
             if 'saved_bar_metrics' in st.session_state and st.session_state.saved_bar_metrics:
                 # Filtrar para manter apenas métricas que ainda existem no dataframe
-                valid_metrics = [m for m in st.session_state.saved_bar_metrics if m in metric_cols]
-                default_metrics = valid_metrics if valid_metrics else metric_cols[:1]
+                valid_metrics = [
+                    m for m in st.session_state.saved_bar_metrics
+                    if m in metric_cols
+                ]
+                default_metrics = valid_metrics if valid_metrics else metric_cols[:
+                                                                                  1]
             else:
                 default_metrics = metric_cols[:1]
-                
-            selected_metrics = st.multiselect('Select metrics (max 5)', metric_cols, 
-                                            default=default_metrics, key='bar_metrics')
-                                            
+
+            selected_metrics = st.multiselect('Select metrics (max 5)',
+                                              metric_cols,
+                                              default=default_metrics,
+                                              key='bar_metrics')
+
             # Guardar as métricas selecionadas na session_state para uso futuro
             st.session_state.saved_bar_metrics = selected_metrics
 
@@ -2458,21 +2828,24 @@ if selected_leagues:
 
             elif len(selected_metrics) >= 1 and p2 is not None:
                 # Dados do jogador 1 (sempre da base principal)
-                d1 = df_minutes[df_minutes['Player']==p1].iloc[0]
+                d1 = df_minutes[df_minutes['Player'] == p1].iloc[0]
 
                 # Dados do jogador 2 (pode ser do benchmark ou da base principal)
                 if use_benchmark:
                     # Obter dados do benchmark
-                    d2 = filtered_benchmark[filtered_benchmark['Player']==p2].iloc[0]
+                    d2 = filtered_benchmark[filtered_benchmark['Player'] ==
+                                            p2].iloc[0]
 
                     # A média do grupo é a média do benchmark para comparação consistente
-                    avg_values = [filtered_benchmark[m].mean() for m in selected_metrics]
+                    avg_values = [
+                        filtered_benchmark[m].mean() for m in selected_metrics
+                    ]
 
                     # Texto especial para o subtítulo
                     benchmark_text = f" | Benchmark: {st.session_state.benchmark_name}"
                 else:
                     # Fluxo normal - ambos jogadores da base principal
-                    d2 = df_minutes[df_minutes['Player']==p2].iloc[0]
+                    d2 = df_minutes[df_minutes['Player'] == p2].iloc[0]
 
                     # Group average da base principal
                     avg_values = [df_group[m].mean() for m in selected_metrics]
@@ -2484,19 +2857,19 @@ if selected_leagues:
                 p2_values = [d2[m] for m in selected_metrics]
 
                 title = "Metric Comparison"
-                subtitle = (f"Context: {context['leagues']} ({context['seasons']}) | "
-                          f"Players: {context['total_players']} | Filters: {context['min_age']}-{context['max_age']} years{benchmark_text}")
-
-                fig = create_bar_chart(
-                    metrics=selected_metrics,
-                    p1_name=p1,
-                    p1_values=p1_values,
-                    p2_name=p2,
-                    p2_values=p2_values,
-                    avg_values=avg_values,
-                    title=title,
-                    subtitle=subtitle
+                subtitle = (
+                    f"Context: {context['leagues']} ({context['seasons']}) | "
+                    f"Players: {context['total_players']} | Filters: {context['min_age']}-{context['max_age']} years{benchmark_text}"
                 )
+
+                fig = create_bar_chart(metrics=selected_metrics,
+                                       p1_name=p1,
+                                       p1_values=p1_values,
+                                       p2_name=p2,
+                                       p2_values=p2_values,
+                                       avg_values=avg_values,
+                                       title=title,
+                                       subtitle=subtitle)
 
                 # Display bar chart
                 st.pyplot(fig)
@@ -2504,12 +2877,10 @@ if selected_leagues:
                 # Export button
                 if st.button('Export Bar Chart (300 DPI)', key='export_bar'):
                     img_bytes = fig_to_bytes(fig)
-                    st.download_button(
-                        "⬇️ Download Bar Chart", 
-                        data=img_bytes, 
-                        file_name=f"bar_{p1}_vs_{p2}.png", 
-                        mime="image/png"
-                    )
+                    st.download_button("⬇️ Download Bar Chart",
+                                       data=img_bytes,
+                                       file_name=f"bar_{p1}_vs_{p2}.png",
+                                       mime="image/png")
 
         # =============================================
         # Scatter Plot (Aba 3)
@@ -2522,9 +2893,12 @@ if selected_leagues:
 
             # Primeiramente, decidir se queremos incluir o benchmark no scatter plot
             if benchmark_available:
-                include_benchmark = st.checkbox("Include benchmark players in scatter plot", value=False, 
-                                         help="When enabled, players from benchmark database will be shown in a different color",
-                                         key="scatter_use_benchmark")
+                include_benchmark = st.checkbox(
+                    "Include benchmark players in scatter plot",
+                    value=False,
+                    help=
+                    "When enabled, players from benchmark database will be shown in a different color",
+                    key="scatter_use_benchmark")
             else:
                 include_benchmark = False
 
@@ -2533,23 +2907,31 @@ if selected_leagues:
                 # Verificar se a métrica X anteriormente selecionada ainda está disponível
                 x_index = 0
                 if st.session_state.saved_scatter_x_metric in metric_cols:
-                    x_index = metric_cols.index(st.session_state.saved_scatter_x_metric)
-                
+                    x_index = metric_cols.index(
+                        st.session_state.saved_scatter_x_metric)
+
                 # Selecionar métrica X mantendo a seleção anterior quando possível
-                x_metric = st.selectbox('X-Axis Metric', metric_cols, index=x_index, key='scatter_x')
-                
+                x_metric = st.selectbox('X-Axis Metric',
+                                        metric_cols,
+                                        index=x_index,
+                                        key='scatter_x')
+
                 # Atualizar nossa variável de armazenamento (não o widget diretamente)
                 st.session_state.saved_scatter_x_metric = x_metric
-                
+
             with col2:
                 # Verificar se a métrica Y anteriormente selecionada ainda está disponível
-                y_index = min(1, len(metric_cols)-1)  # Valor padrão
+                y_index = min(1, len(metric_cols) - 1)  # Valor padrão
                 if st.session_state.saved_scatter_y_metric in metric_cols:
-                    y_index = metric_cols.index(st.session_state.saved_scatter_y_metric)
-                
+                    y_index = metric_cols.index(
+                        st.session_state.saved_scatter_y_metric)
+
                 # Selecionar métrica Y mantendo a seleção anterior quando possível
-                y_metric = st.selectbox('Y-Axis Metric', metric_cols, index=y_index, key='scatter_y')
-                
+                y_metric = st.selectbox('Y-Axis Metric',
+                                        metric_cols,
+                                        index=y_index,
+                                        key='scatter_y')
+
                 # Atualizar nossa variável de armazenamento (não o widget diretamente)
                 st.session_state.saved_scatter_y_metric = y_metric
 
@@ -2561,12 +2943,8 @@ if selected_leagues:
             if include_benchmark:
                 # Filtrar o benchmark com os mesmos filtros aplicados à base principal
                 filtered_benchmark = apply_benchmark_filter(
-                    st.session_state.benchmark_df,
-                    minutes_range,
-                    mpg_range,
-                    age_range,
-                    sel_pos
-                )
+                    st.session_state.benchmark_df, minutes_range, mpg_range,
+                    age_range, sel_pos)
 
                 if filtered_benchmark is not None and not filtered_benchmark.empty:
                     # Adicionar informação sobre o benchmark ao subtítulo
@@ -2576,61 +2954,81 @@ if selected_leagues:
                     fig, ax = plt.subplots(figsize=(10, 6))
 
                     # Plotar pontos da base principal (azul)
-                    sc1 = ax.scatter(df_group[x_metric], df_group[y_metric], 
-                                 alpha=0.7, s=60, c=player1_color, edgecolor='white', label='Current Database')
+                    sc1 = ax.scatter(df_group[x_metric],
+                                     df_group[y_metric],
+                                     alpha=0.7,
+                                     s=60,
+                                     c=player1_color,
+                                     edgecolor='white',
+                                     label='Current Database')
 
                     # Plotar pontos do benchmark (vermelho)
-                    sc2 = ax.scatter(filtered_benchmark[x_metric], filtered_benchmark[y_metric], 
-                                 alpha=0.7, s=60, c=player2_color, edgecolor='white', label='Benchmark Database')
+                    sc2 = ax.scatter(filtered_benchmark[x_metric],
+                                     filtered_benchmark[y_metric],
+                                     alpha=0.7,
+                                     s=60,
+                                     c=player2_color,
+                                     edgecolor='white',
+                                     label='Benchmark Database')
 
                     # Adicionar rótulos para jogadores da base principal
                     for i, row in df_group.iterrows():
                         # Adicionar textos abaixo dos pontos
-                        ax.annotate(row['Player'], 
-                                   (row[x_metric], row[y_metric]),
-                                   xytext=(0, -10),
-                                   textcoords='offset points',
-                                   fontsize=8,
-                                   ha='center',
-                                   va='top',
-                                   alpha=0.8,
-                                   color=player1_color,
-                                   bbox=dict(
-                                       facecolor='white',
-                                       alpha=0.7,
-                                       edgecolor=player1_color,
-                                       boxstyle="round,pad=0.1",
-                                       linewidth=0.5
-                                   ),
-                                   zorder=10)
+                        ax.annotate(row['Player'],
+                                    (row[x_metric], row[y_metric]),
+                                    xytext=(0, -10),
+                                    textcoords='offset points',
+                                    fontsize=8,
+                                    ha='center',
+                                    va='top',
+                                    alpha=0.8,
+                                    color=player1_color,
+                                    bbox=dict(facecolor='white',
+                                              alpha=0.7,
+                                              edgecolor=player1_color,
+                                              boxstyle="round,pad=0.1",
+                                              linewidth=0.5),
+                                    zorder=10)
 
                     # Adicionar rótulos para jogadores do benchmark
                     for i, row in filtered_benchmark.iterrows():
                         # Adicionar textos abaixo dos pontos
-                        ax.annotate(row['Player'], 
-                                   (row[x_metric], row[y_metric]),
-                                   xytext=(0, -10),
-                                   textcoords='offset points',
-                                   fontsize=8,
-                                   ha='center',
-                                   va='top',
-                                   alpha=0.8,
-                                   color=player2_color,
-                                   bbox=dict(
-                                       facecolor='white',
-                                       alpha=0.7,
-                                       edgecolor=player2_color,
-                                       boxstyle="round,pad=0.1",
-                                       linewidth=0.5
-                                   ),
-                                   zorder=10)
+                        ax.annotate(row['Player'],
+                                    (row[x_metric], row[y_metric]),
+                                    xytext=(0, -10),
+                                    textcoords='offset points',
+                                    fontsize=8,
+                                    ha='center',
+                                    va='top',
+                                    alpha=0.8,
+                                    color=player2_color,
+                                    bbox=dict(facecolor='white',
+                                              alpha=0.7,
+                                              edgecolor=player2_color,
+                                              boxstyle="round,pad=0.1",
+                                              linewidth=0.5),
+                                    zorder=10)
 
                     # Adicionar linhas médias
-                    ax.axvline(df_group[x_metric].mean(), color=player1_color, linestyle='--', alpha=0.5, label='Current DB Mean')
-                    ax.axhline(df_group[y_metric].mean(), color=player1_color, linestyle='--', alpha=0.5)
+                    ax.axvline(df_group[x_metric].mean(),
+                               color=player1_color,
+                               linestyle='--',
+                               alpha=0.5,
+                               label='Current DB Mean')
+                    ax.axhline(df_group[y_metric].mean(),
+                               color=player1_color,
+                               linestyle='--',
+                               alpha=0.5)
 
-                    ax.axvline(filtered_benchmark[x_metric].mean(), color=player2_color, linestyle='--', alpha=0.5, label='Benchmark Mean')
-                    ax.axhline(filtered_benchmark[y_metric].mean(), color=player2_color, linestyle='--', alpha=0.5)
+                    ax.axvline(filtered_benchmark[x_metric].mean(),
+                               color=player2_color,
+                               linestyle='--',
+                               alpha=0.5,
+                               label='Benchmark Mean')
+                    ax.axhline(filtered_benchmark[y_metric].mean(),
+                               color=player2_color,
+                               linestyle='--',
+                               alpha=0.5)
 
                     # Configurar rótulos e título
                     ax.set_xlabel(x_metric, fontsize=12)
@@ -2645,23 +3043,20 @@ if selected_leagues:
                     # Ajustar layout
                     plt.tight_layout(rect=[0, 0.03, 1, 0.97])
                 else:
-                    st.warning("No benchmark players match the applied filters")
+                    st.warning(
+                        "No benchmark players match the applied filters")
 
                     # Criar scatter plot normal se o benchmark não tem dados
-                    fig = create_scatter_plot(
-                        df=df_group,
-                        x_metric=x_metric,
-                        y_metric=y_metric,
-                        title=title
-                    )
+                    fig = create_scatter_plot(df=df_group,
+                                              x_metric=x_metric,
+                                              y_metric=y_metric,
+                                              title=title)
             else:
                 # Criar scatter plot normal
-                fig = create_scatter_plot(
-                    df=df_group,
-                    x_metric=x_metric,
-                    y_metric=y_metric,
-                    title=title
-                )
+                fig = create_scatter_plot(df=df_group,
+                                          x_metric=x_metric,
+                                          y_metric=y_metric,
+                                          title=title)
 
             # Display scatter plot
             st.pyplot(fig)
@@ -2671,14 +3066,14 @@ if selected_leagues:
             st.info(f"Correlation coefficient: {corr:.4f}")
 
             # Export button
-            if st.button('Export Scatter Plot (300 DPI)', key='export_scatter'):
+            if st.button('Export Scatter Plot (300 DPI)',
+                         key='export_scatter'):
                 img_bytes = fig_to_bytes(fig)
                 st.download_button(
-                    "⬇️ Download Scatter Plot", 
-                    data=img_bytes, 
-                    file_name=f"scatter_{x_metric}_vs_{y_metric}.png", 
-                    mime="image/png"
-                )
+                    "⬇️ Download Scatter Plot",
+                    data=img_bytes,
+                    file_name=f"scatter_{x_metric}_vs_{y_metric}.png",
+                    mime="image/png")
 
         # =============================================
         # Player Similarity (Aba 4) - Advanced Similarity Model
@@ -2687,7 +3082,8 @@ if selected_leagues:
             st.header('Advanced Player Similarity Analysis')
 
             # Explicação do modelo de similaridade aprimorado
-            with st.expander("ℹ️ About Player Similarity Model", expanded=False):
+            with st.expander("ℹ️ About Player Similarity Model",
+                             expanded=False):
                 st.markdown("""
                 This advanced player similarity model uses the approach from [SteveAQ's Player Similarity Models](https://steveaq.github.io/Player-Similarity-Models/).
 
@@ -2703,11 +3099,13 @@ if selected_leagues:
             col1, col2 = st.columns(2)
             with col1:
                 # Initialize benchmark player usage flag
-                use_benchmark_player = st.session_state.get('use_benchmark_player', False)
+                use_benchmark_player = st.session_state.get(
+                    'use_benchmark_player', False)
 
                 # Verificar opção de player benchmark e recarregar a página se necessário
                 # Isso garante que a interface seja atualizada quando o usuário marca/desmarca a opção
-                if st.session_state.get('use_benchmark_player') != use_benchmark_player:
+                if st.session_state.get(
+                        'use_benchmark_player') != use_benchmark_player:
                     # Atualizar o estado
                     st.session_state.use_benchmark_player = use_benchmark_player
 
@@ -2719,64 +3117,84 @@ if selected_leagues:
                         benchmark_min_filter = apply_benchmark_filter(
                             st.session_state.benchmark_df,
                             [0, 5000],  # Wide minutes range
-                            [0, 90],    # Wide MPG range
-                            [15, 45],   # Wide age range
-                            ["All"]     # All positions
+                            [0, 90],  # Wide MPG range
+                            [15, 45],  # Wide age range
+                            ["All"]  # All positions
                         )
 
                         if benchmark_min_filter is not None and not benchmark_min_filter.empty:
-                            st.success("Using benchmark player as reference to find similar players in main dataset")
-                            # Show dropdown with benchmark players
-                            benchmark_players = benchmark_min_filter['Player'].sort_values().tolist()
-                            sim_player = st.selectbox(
-                                'Select BENCHMARK Reference Player', 
-                                benchmark_players, 
-                                key='sim_player_benchmark'
+                            st.success(
+                                "Using benchmark player as reference to find similar players in main dataset"
                             )
+                            # Show dropdown with benchmark players
+                            benchmark_players = benchmark_min_filter[
+                                'Player'].sort_values().tolist()
+                            sim_player = st.selectbox(
+                                'Select BENCHMARK Reference Player',
+                                benchmark_players,
+                                key='sim_player_benchmark')
 
                             # Set benchmark player flag
                             is_benchmark_player = True
                         else:
                             st.error("Could not load benchmark players")
-                            sim_player = st.selectbox('Select Reference Player', players, key='sim_player')
+                            sim_player = st.selectbox(
+                                'Select Reference Player',
+                                players,
+                                key='sim_player')
                             is_benchmark_player = False
                     except Exception as bench_ref_error:
-                        st.error(f"Error loading benchmark players: {str(bench_ref_error)}")
-                        sim_player = st.selectbox('Select Reference Player', players, key='sim_player')
+                        st.error(
+                            f"Error loading benchmark players: {str(bench_ref_error)}"
+                        )
+                        sim_player = st.selectbox('Select Reference Player',
+                                                  players,
+                                                  key='sim_player')
                         is_benchmark_player = False
                 else:
                     # Regular selection from main dataset
                     # Verificar se o jogador anteriormente selecionado ainda está disponível
                     player_index = 0
                     if st.session_state.saved_similarity_player in players:
-                        player_index = players.index(st.session_state.saved_similarity_player)
-                        
+                        player_index = players.index(
+                            st.session_state.saved_similarity_player)
+
                     # Usar o index para manter a seleção anterior quando possível
-                    sim_player = st.selectbox('Select Reference Player', players, index=player_index, key='sim_player')
-                    
+                    sim_player = st.selectbox('Select Reference Player',
+                                              players,
+                                              index=player_index,
+                                              key='sim_player')
+
                     # Atualizar nossa variável de armazenamento (não o widget diretamente)
                     st.session_state.saved_similarity_player = sim_player
                     is_benchmark_player = False
 
             with col2:
                 # Verificar se o método anteriormente selecionado ainda está disponível
-                sim_methods = ['PCA + K-Means (Recommended)', 'Cosine Similarity', 'Euclidean Distance']
+                sim_methods = [
+                    'PCA + K-Means (Recommended)', 'Cosine Similarity',
+                    'Euclidean Distance'
+                ]
                 method_index = 0  # Padrão para PCA + K-Means
-                
+
                 # Mapear o método interno para o nome de exibição
                 method_display_mapping = {
                     'pca_kmeans': 'PCA + K-Means (Recommended)',
                     'cosine': 'Cosine Similarity',
                     'euclidean': 'Euclidean Distance'
                 }
-                
+
                 # Se temos um método salvo e ele é válido, use-o como padrão
-                if st.session_state.saved_similarity_method in method_display_mapping.keys():
-                    display_method = method_display_mapping[st.session_state.saved_similarity_method]
+                if st.session_state.saved_similarity_method in method_display_mapping.keys(
+                ):
+                    display_method = method_display_mapping[
+                        st.session_state.saved_similarity_method]
                     if display_method in sim_methods:
                         method_index = sim_methods.index(display_method)
-                
-                similarity_method = st.selectbox('Similarity Method', sim_methods, index=method_index)
+
+                similarity_method = st.selectbox('Similarity Method',
+                                                 sim_methods,
+                                                 index=method_index)
 
             # Map the displayed method name to internal method identifier
             method_mapping = {
@@ -2785,7 +3203,7 @@ if selected_leagues:
                 'Euclidean Distance': 'euclidean'
             }
             method = method_mapping[similarity_method]
-            
+
             # Salvar nossa escolha para preservar entre mudanças de filtro
             st.session_state.saved_similarity_method = method
 
@@ -2794,20 +3212,43 @@ if selected_leagues:
 
             # Predefined metric groups for easy selection - always using per 90 metrics
             metric_groups = {
-                "Overall": ['Progressive runs per 90', 'Progressive passes per 90', 'Deep completions per 90', 'Key passes per 90', 
-                          'Accurate passes, %', 'Accurate crosses, %', 'xA per 90', 'Defensive duels won, %', 
-                          'Aerial duels won, %', 'PAdj Interceptions', 'PAdj Sliding tackles', 'npxG per 90', 
-                          'npxG per Shot', 'Goal conversion, %', 'Shots on target, %'],
-                "Offensive": ['Goals per 90', 'Shots per 90', 'xG per 90', 'npxG', 'G-xG', 'npxG per Shot', 'Box Efficiency', 'Shots on target per 90', 'Successful dribbles per 90', 'Progressive runs per 90'],
-                "Passing": ['Passes per 90', 'Accurate passes, %', 'Forward passes per 90', 'Progressive passes per 90', 'Key passes per 90', 'Assists per 90', 'xA per 90'],
-                "Defensive": ['Interceptions per 90', 'Tackles per 90', 'Defensive duels per 90', 'Aerial duels won per 90', 'Recoveries per 90'],
-                "Physical": ['Accelerations per 90', 'Sprint distance per 90', 'Distance covered per 90'],
-                "Advanced Metrics": ['npxG', 'G-xG', 'npxG per Shot', 'Box Efficiency']  # Incluindo Box Efficiency nas métricas avançadas
+                "Overall": [
+                    'Progressive runs per 90', 'Progressive passes per 90',
+                    'Deep completions per 90', 'Key passes per 90',
+                    'Accurate passes, %', 'Accurate crosses, %', 'xA per 90',
+                    'Defensive duels won, %', 'Aerial duels won, %',
+                    'PAdj Interceptions', 'PAdj Sliding tackles',
+                    'npxG per 90', 'npxG per Shot', 'Goal conversion, %',
+                    'Shots on target, %'
+                ],
+                "Offensive": [
+                    'Goals per 90', 'Shots per 90', 'xG per 90', 'npxG',
+                    'G-xG', 'npxG per Shot', 'Box Efficiency',
+                    'Shots on target per 90', 'Successful dribbles per 90',
+                    'Progressive runs per 90'
+                ],
+                "Passing": [
+                    'Passes per 90', 'Accurate passes, %',
+                    'Forward passes per 90', 'Progressive passes per 90',
+                    'Key passes per 90', 'Assists per 90', 'xA per 90'
+                ],
+                "Defensive": [
+                    'Interceptions per 90', 'Tackles per 90',
+                    'Defensive duels per 90', 'Aerial duels won per 90',
+                    'Recoveries per 90'
+                ],
+                "Physical": [
+                    'Accelerations per 90', 'Sprint distance per 90',
+                    'Distance covered per 90'
+                ],
+                "Advanced Metrics":
+                ['npxG', 'G-xG', 'npxG per Shot', 'Box Efficiency'
+                 ]  # Incluindo Box Efficiency nas métricas avançadas
             }
 
             # Let user first select a preset group or custom
             metric_selection_mode = st.radio(
-                "Metric Selection Mode", 
+                "Metric Selection Mode",
                 ["Custom (Select Individual Metrics)", "Use Metric Presets"],
                 horizontal=True,
                 key="similarity_metric_selection_mode"  # Adicionando chave única
@@ -2815,7 +3256,7 @@ if selected_leagues:
 
             if metric_selection_mode == "Use Metric Presets":
                 selected_groups = st.multiselect(
-                    "Select Metric Groups", 
+                    "Select Metric Groups",
                     list(metric_groups.keys()),
                     default=["Offensive", "Passing"],
                     key="similarity_preset_groups"  # Adicionando chave única
@@ -2825,12 +3266,14 @@ if selected_leagues:
                 preset_metrics = []
                 for group in selected_groups:
                     # Only add metrics that exist in the dataframe
-                    available_metrics = [m for m in metric_groups[group] if m in metric_cols]
+                    available_metrics = [
+                        m for m in metric_groups[group] if m in metric_cols
+                    ]
                     preset_metrics.extend(available_metrics)
 
                 # Allow further customization
                 sim_metric_options = st.multiselect(
-                    'Add or Remove Individual Metrics', 
+                    'Add or Remove Individual Metrics',
                     metric_cols,
                     default=preset_metrics,
                     key="similarity_preset_metrics"  # Adicionando chave única
@@ -2838,7 +3281,7 @@ if selected_leagues:
             else:
                 # Let user select metrics manually
                 sim_metric_options = st.multiselect(
-                    'Choose Individual Metrics (6-15 recommended for PCA)', 
+                    'Choose Individual Metrics (6-15 recommended for PCA)',
                     metric_cols,
                     default=metric_cols[:min(8, len(metric_cols))],
                     key="similarity_custom_metrics"  # Adicionando chave única
@@ -2847,53 +3290,66 @@ if selected_leagues:
             # Advanced options in expander
             with st.expander("Advanced Filtering Options", expanded=False):
                 # Number of similar players to find
-                num_similar = st.slider('Number of similar players to show', 3, 15, 8)
+                num_similar = st.slider('Number of similar players to show', 3,
+                                        15, 8)
 
                 # Filter similar players by position
-                filter_by_position = st.checkbox('Filter similar players by reference player position', True)
+                filter_by_position = st.checkbox(
+                    'Filter similar players by reference player position',
+                    True)
 
                 # Filter similar players by age
-                filter_by_age = st.checkbox('Filter similar players by age range', False)
+                filter_by_age = st.checkbox(
+                    'Filter similar players by age range', False)
                 if filter_by_age:
-                    ref_player_age = df_minutes[df_minutes['Player'] == sim_player]['Age'].iloc[0]
-                    age_diff = st.slider('Maximum age difference (years)', 0, 10, 3)
+                    ref_player_age = df_minutes[df_minutes['Player'] ==
+                                                sim_player]['Age'].iloc[0]
+                    age_diff = st.slider('Maximum age difference (years)', 0,
+                                         10, 3)
                     min_age_filter = ref_player_age - age_diff
                     max_age_filter = ref_player_age + age_diff
 
                     # Apply age filter to dataframe
-                    df_sim = df_minutes[df_minutes['Age'].between(min_age_filter, max_age_filter)]
+                    df_sim = df_minutes[df_minutes['Age'].between(
+                        min_age_filter, max_age_filter)]
                 else:
                     df_sim = df_minutes.copy()
 
                 # Only if using PCA+K-Means, let user specify number of clusters
                 if method == 'pca_kmeans':
-                    num_clusters = st.slider('Number of clusters for K-Means', 3, 12, 8)
+                    num_clusters = st.slider('Number of clusters for K-Means',
+                                             3, 12, 8)
                 else:
                     num_clusters = 8
 
-                # Benchmark options 
+                # Benchmark options
                 use_benchmark = False
 
                 if st.session_state.benchmark_loaded:
-                    st.info(f"Benchmark dataset loaded: {st.session_state.benchmark_name}")
+                    st.info(
+                        f"Benchmark dataset loaded: {st.session_state.benchmark_name}"
+                    )
 
                     benchmark_options = st.columns(2)
                     with benchmark_options[0]:
                         use_benchmark = st.checkbox(
-                            "Include benchmark players in results", 
+                            "Include benchmark players in results",
                             value=True,
-                            help="Include players from benchmark dataset in similarity search results"
+                            help=
+                            "Include players from benchmark dataset in similarity search results"
                         )
 
                     with benchmark_options[1]:
                         use_benchmark_player = st.checkbox(
-                            "Use benchmark player as reference", 
+                            "Use benchmark player as reference",
                             value=False,
-                            help="Select a player from the benchmark dataset to find similar ones in main dataset"
+                            help=
+                            "Select a player from the benchmark dataset to find similar ones in main dataset"
                         )
 
                         # Verificar se o valor mudou para forçar recarregamento da página
-                        old_value = st.session_state.get('use_benchmark_player', None)
+                        old_value = st.session_state.get(
+                            'use_benchmark_player', None)
                         if old_value != use_benchmark_player:
                             # Atualizar estado e forçar recarregamento da página
                             st.session_state.use_benchmark_player = use_benchmark_player
@@ -2902,9 +3358,10 @@ if selected_leagues:
                         # Adicionar opção para buscar similares em ambos os datasets ou apenas no principal
                         if use_benchmark_player:
                             st.session_state.search_in_benchmark = st.checkbox(
-                                'Include Benchmark Players in similarity search', 
-                                False, 
-                                help="When checked, players from both the main dataset and benchmark will be considered. When unchecked, only players from the main dataset will be shown as similar."
+                                'Include Benchmark Players in similarity search',
+                                False,
+                                help=
+                                "When checked, players from both the main dataset and benchmark will be considered. When unchecked, only players from the main dataset will be shown as similar."
                             )
 
                 if use_benchmark:
@@ -2917,46 +3374,62 @@ if selected_leagues:
 
                         # Apply filters to benchmark data
                         filtered_benchmark = apply_benchmark_filter(
-                            st.session_state.benchmark_df,
-                            curr_minutes_range,
-                            curr_mpg_range,
-                            curr_age_range,
-                            curr_pos
-                        )
+                            st.session_state.benchmark_df, curr_minutes_range,
+                            curr_mpg_range, curr_age_range, curr_pos)
 
                         if filtered_benchmark is not None and not filtered_benchmark.empty:
                             # Apply additional age filter if needed
                             if filter_by_age:
                                 # Set default age range values if not already defined
-                                age_min = min_age_filter if 'min_age_filter' in locals() else 15
-                                age_max = max_age_filter if 'max_age_filter' in locals() else 45
+                                age_min = min_age_filter if 'min_age_filter' in locals(
+                                ) else 15
+                                age_max = max_age_filter if 'max_age_filter' in locals(
+                                ) else 45
 
                                 filtered_benchmark = filtered_benchmark[
-                                    filtered_benchmark['Age'].between(age_min, age_max)
-                                ]
+                                    filtered_benchmark['Age'].between(
+                                        age_min, age_max)]
 
-                            # Get reference player position for filtering  
+                            # Get reference player position for filtering
                             if filter_by_position and 'Position_split' in df_minutes.columns:
-                                ref_player_pos = df_minutes[df_minutes['Player'] == sim_player]['Position_split'].iloc[0]
+                                ref_player_pos = df_minutes[
+                                    df_minutes['Player'] ==
+                                    sim_player]['Position_split'].iloc[0]
 
                                 # Apply position filter to benchmark if possible
                                 if 'Position_split' in filtered_benchmark.columns:
-                                    filtered_benchmark = filtered_benchmark[filtered_benchmark['Position_split'].apply(
-                                        lambda x: any(pos in ref_player_pos for pos in x) if isinstance(x, list) else False)]
+                                    filtered_benchmark = filtered_benchmark[
+                                        filtered_benchmark['Position_split'].
+                                        apply(lambda x: any(
+                                            pos in ref_player_pos for pos in x
+                                        ) if isinstance(x, list) else False)]
                                 elif 'Position' in filtered_benchmark.columns:
                                     # Try using regular Position column if Position_split not available
-                                    ref_player_pos_text = df_minutes[df_minutes['Player'] == sim_player]['Position'].iloc[0]
-                                    filtered_benchmark = filtered_benchmark[filtered_benchmark['Position'] == ref_player_pos_text]
+                                    ref_player_pos_text = df_minutes[
+                                        df_minutes['Player'] ==
+                                        sim_player]['Position'].iloc[0]
+                                    filtered_benchmark = filtered_benchmark[
+                                        filtered_benchmark['Position'] ==
+                                        ref_player_pos_text]
 
                             # Combine dataframes for similarity search
-                            df_sim = pd.concat([df_sim, filtered_benchmark], ignore_index=True)
-                            st.info(f"Including {len(filtered_benchmark)} benchmark players in similarity search")
+                            df_sim = pd.concat([df_sim, filtered_benchmark],
+                                               ignore_index=True)
+                            st.info(
+                                f"Including {len(filtered_benchmark)} benchmark players in similarity search"
+                            )
                         else:
-                            st.warning("No benchmark players match the current filters")
+                            st.warning(
+                                "No benchmark players match the current filters"
+                            )
                     except Exception as bench_error:
-                        st.error(f"Error applying benchmark filters: {str(bench_error)}")
+                        st.error(
+                            f"Error applying benchmark filters: {str(bench_error)}"
+                        )
                 elif not st.session_state.benchmark_loaded:
-                    st.info("No benchmark database loaded. Upload one in the sidebar to include players from other leagues.")
+                    st.info(
+                        "No benchmark database loaded. Upload one in the sidebar to include players from other leagues."
+                    )
 
                 # Handle benchmark player as reference (search in main dataset only)
                 if is_benchmark_player and use_benchmark_player:
@@ -2964,92 +3437,142 @@ if selected_leagues:
                     benchmark_player_data = None
                     try:
                         benchmark_player_data = st.session_state.benchmark_df[
-                            st.session_state.benchmark_df['Player'] == sim_player
-                        ].iloc[0]
+                            st.session_state.benchmark_df['Player'] ==
+                            sim_player].iloc[0]
                     except Exception as bench_player_error:
-                        st.error(f"Could not get benchmark player data: {str(bench_player_error)}")
+                        st.error(
+                            f"Could not get benchmark player data: {str(bench_player_error)}"
+                        )
 
                     if benchmark_player_data is not None:
                         # Para jogador de referência do benchmark, verificar opção do usuário
                         if st.session_state.get('search_in_benchmark', False):
-                            st.info("Finding similar players to benchmark player in both datasets (main and benchmark)")
+                            st.info(
+                                "Finding similar players to benchmark player in both datasets (main and benchmark)"
+                            )
                             # Manter o dataframe combinado (df_sim já contém ambos os datasets)
                         else:
-                            st.info("Finding similar players to benchmark player in the main dataset only")
-                            df_sim = df_minutes.copy()  # Reset to only use main dataset
+                            st.info(
+                                "Finding similar players to benchmark player in the main dataset only"
+                            )
+                            df_sim = df_minutes.copy(
+                            )  # Reset to only use main dataset
 
                         # Apply position filter if selected - get position from benchmark player
                         if filter_by_position:
                             if 'Position_split' in st.session_state.benchmark_df.columns and 'Position_split' in df_minutes.columns:
-                                ref_player_pos = benchmark_player_data['Position_split']
+                                ref_player_pos = benchmark_player_data[
+                                    'Position_split']
                                 # Check if Position_split contains list data or float (error handling)
                                 df_sim = df_sim[df_sim['Position_split'].apply(
-                                    lambda x: any(pos in ref_player_pos for pos in x) if isinstance(x, list) else False)]
+                                    lambda x: any(pos in ref_player_pos
+                                                  for pos in x)
+                                    if isinstance(x, list) else False)]
                             elif 'Position' in st.session_state.benchmark_df.columns and 'Position' in df_minutes.columns:
-                                ref_position = benchmark_player_data['Position']
-                                df_sim = df_sim[df_sim['Position'] == ref_position]
+                                ref_position = benchmark_player_data[
+                                    'Position']
+                                df_sim = df_sim[df_sim['Position'] ==
+                                                ref_position]
                 # Regular position filtering for main dataset reference player
                 elif filter_by_position and 'Position_split' in df_minutes.columns:
-                    ref_player_pos = df_minutes[df_minutes['Player'] == sim_player]['Position_split'].iloc[0]
+                    ref_player_pos = df_minutes[
+                        df_minutes['Player'] ==
+                        sim_player]['Position_split'].iloc[0]
                     # Check if Position_split contains list data or float (error handling)
                     df_sim = df_sim[df_sim['Position_split'].apply(
-                        lambda x: any(pos in ref_player_pos for pos in x) if isinstance(x, list) else False)]
+                        lambda x: any(pos in ref_player_pos for pos in x)
+                        if isinstance(x, list) else False)]
 
                 # Compute similar players with progress indicator
                 if len(sim_metric_options) >= 2 and len(df_sim) > 1:
                     try:
-                        with st.spinner(f"Finding players similar to {sim_player} using {method} method..."):
+                        with st.spinner(
+                                f"Finding players similar to {sim_player} using {method} method..."
+                        ):
                             # Special handling for benchmark player as reference
                             if is_benchmark_player and use_benchmark_player:
                                 # We need to create a temporary combined dataframe just for similarity calculation
                                 # that includes the benchmark player
-                                st.info("Using benchmark player as reference - special processing")
+                                st.info(
+                                    "Using benchmark player as reference - special processing"
+                                )
 
                                 # Get benchmark player data
                                 benchmark_player_row = st.session_state.benchmark_df[
-                                    st.session_state.benchmark_df['Player'] == sim_player
-                                ]
+                                    st.session_state.benchmark_df['Player'] ==
+                                    sim_player]
 
                                 if not benchmark_player_row.empty:
                                     # Create a temporary dataframe with the benchmark player added to main dataframe
-                                    temp_df_sim = pd.concat([df_sim, benchmark_player_row], ignore_index=True)
+                                    temp_df_sim = pd.concat(
+                                        [df_sim, benchmark_player_row],
+                                        ignore_index=True)
 
                                     # Verify player is in the dataframe
-                                    if sim_player not in temp_df_sim['Player'].values:
-                                        st.error(f"Could not add benchmark player to temporary dataframe!")
+                                    if sim_player not in temp_df_sim[
+                                            'Player'].values:
+                                        st.error(
+                                            f"Could not add benchmark player to temporary dataframe!"
+                                        )
                                     else:
-                                        st.success(f"Successfully added benchmark player to comparison dataset")
+                                        st.success(
+                                            f"Successfully added benchmark player to comparison dataset"
+                                        )
                                         # Use this temporary dataframe for similarity calculations
                                         df_sim = temp_df_sim
                                 else:
-                                    st.error(f"Could not find benchmark player '{sim_player}' data!")
+                                    st.error(
+                                        f"Could not find benchmark player '{sim_player}' data!"
+                                    )
                             # Regular check for player in dataframe (non-benchmark reference)
                             elif sim_player not in df_sim['Player'].values:
-                                st.error(f"Player '{sim_player}' not found in the filtered dataset!")
+                                st.error(
+                                    f"Player '{sim_player}' not found in the filtered dataset!"
+                                )
                                 # Try using alternative method
                                 method = 'euclidean'
-                                st.warning(f"Switching to alternative method: {method}")
+                                st.warning(
+                                    f"Switching to alternative method: {method}"
+                                )
 
                             # Show information about the dataset
-                            st.info(f"Analyzing {len(df_sim)} players with {len(sim_metric_options)} metrics")
+                            st.info(
+                                f"Analyzing {len(df_sim)} players with {len(sim_metric_options)} metrics"
+                            )
 
                             # Check if we have all necessary metrics
-                            missing_metrics = [m for m in sim_metric_options if m not in df_sim.columns]
+                            missing_metrics = [
+                                m for m in sim_metric_options
+                                if m not in df_sim.columns
+                            ]
                             if missing_metrics:
-                                st.warning(f"Metrics not found: {missing_metrics}")
+                                st.warning(
+                                    f"Metrics not found: {missing_metrics}")
                                 # Remove missing metrics
-                                sim_metric_options = [m for m in sim_metric_options if m not in missing_metrics]
-                                st.info(f"Using only available metrics: {sim_metric_options}")
+                                sim_metric_options = [
+                                    m for m in sim_metric_options
+                                    if m not in missing_metrics
+                                ]
+                                st.info(
+                                    f"Using only available metrics: {sim_metric_options}"
+                                )
 
                             # If using PCA+K-Means, pass the number of clusters
                             if method == 'pca_kmeans':
                                 try:
                                     # Create PCA+K-Means DataFrame first to display PCA chart separately
-                                    st.info("Applying PCA and K-Means clustering...")
-                                    pca_df = create_pca_kmeans_df(df_sim, sim_metric_options, n_clusters=num_clusters)
+                                    st.info(
+                                        "Applying PCA and K-Means clustering..."
+                                    )
+                                    pca_df = create_pca_kmeans_df(
+                                        df_sim,
+                                        sim_metric_options,
+                                        n_clusters=num_clusters)
 
                                     if pca_df is None:
-                                        st.error("Could not create the PCA+K-Means model. Using alternative method.")
+                                        st.error(
+                                            "Could not create the PCA+K-Means model. Using alternative method."
+                                        )
                                         method = 'euclidean'
 
                                     # Get similar players
@@ -3058,19 +3581,21 @@ if selected_leagues:
                                         player=sim_player,
                                         metrics=sim_metric_options,
                                         n=num_similar,
-                                        method=method
-                                    )
+                                        method=method)
                                 except Exception as pca_error:
-                                    st.error(f"Error in PCA+K-Means model: {str(pca_error)}")
-                                    st.warning("Using alternative similarity method...")
+                                    st.error(
+                                        f"Error in PCA+K-Means model: {str(pca_error)}"
+                                    )
+                                    st.warning(
+                                        "Using alternative similarity method..."
+                                    )
                                     method = 'euclidean'
                                     similar_players = compute_player_similarity(
                                         df=df_sim,
                                         player=sim_player,
                                         metrics=sim_metric_options,
                                         n=num_similar,
-                                        method=method
-                                    )
+                                        method=method)
                             else:
                                 # Use vector-based method
                                 similar_players = compute_player_similarity(
@@ -3078,8 +3603,7 @@ if selected_leagues:
                                     player=sim_player,
                                     metrics=sim_metric_options,
                                     n=num_similar,
-                                    method=method
-                                )
+                                    method=method)
                     except Exception as e:
                         st.error(f"Error computing similarity: {str(e)}")
                         similar_players = []
@@ -3090,7 +3614,8 @@ if selected_leagues:
 
                         # Tab 1: Similarity Table
                         with result_tabs[0]:
-                            st.subheader(f"Players Most Similar to {sim_player}")
+                            st.subheader(
+                                f"Players Most Similar to {sim_player}")
 
                             # Create a more detailed dataframe
                             detailed_data = []
@@ -3100,31 +3625,45 @@ if selected_leagues:
                                     continue
 
                                 # For benchmark player reference, verificar se deve incluir benchmark ou não
-                                if is_benchmark_player and use_benchmark_player and not st.session_state.get('search_in_benchmark', False):
+                                if is_benchmark_player and use_benchmark_player and not st.session_state.get(
+                                        'search_in_benchmark', False):
                                     # Checar se o jogador está no dataset principal (não no benchmark)
-                                    if player_name not in df_minutes['Player'].values:
+                                    if player_name not in df_minutes[
+                                            'Player'].values:
                                         continue  # Pular jogadores do benchmark nos resultados
 
                                     # Use main dataset for info
-                                    player_info = df_minutes[df_minutes['Player'] == player_name]
+                                    player_info = df_minutes[
+                                        df_minutes['Player'] == player_name]
                                 else:
                                     # Regular case - use full dataset
-                                    player_info = df_sim[df_sim['Player'] == player_name]
+                                    player_info = df_sim[df_sim['Player'] ==
+                                                         player_name]
 
                                 if not player_info.empty:
                                     player_row = {
-                                        'Player': player_name,
-                                        'Team': player_info.iloc[0].get('Team', 'N/A'),
-                                        'Age': player_info.iloc[0].get('Age', 'N/A'),
-                                        'Position': player_info.iloc[0].get('Position', 'N/A'),
-                                        'Minutes': player_info.iloc[0].get('Minutes played', 'N/A'),
-                                        'Similarity': f"{similarity:.1f}%"
+                                        'Player':
+                                        player_name,
+                                        'Team':
+                                        player_info.iloc[0].get('Team', 'N/A'),
+                                        'Age':
+                                        player_info.iloc[0].get('Age', 'N/A'),
+                                        'Position':
+                                        player_info.iloc[0].get(
+                                            'Position', 'N/A'),
+                                        'Minutes':
+                                        player_info.iloc[0].get(
+                                            'Minutes played', 'N/A'),
+                                        'Similarity':
+                                        f"{similarity:.1f}%"
                                     }
 
                                     # Add metric data
                                     for metric in sim_metric_options:
                                         if metric in player_info.columns:
-                                            player_row[metric] = player_info.iloc[0][metric]
+                                            player_row[
+                                                metric] = player_info.iloc[0][
+                                                    metric]
 
                                     detailed_data.append(player_row)
 
@@ -3133,18 +3672,21 @@ if selected_leagues:
 
                                 # Create two display options: standard table and styled PIQ-like table
                                 table_display_option = st.radio(
-                                    "Display format:", 
-                                    ["Standard Table", "PIQ-style Similarity Table"], 
-                                    horizontal=True
-                                )
+                                    "Display format:", [
+                                        "Standard Table",
+                                        "PIQ-style Similarity Table"
+                                    ],
+                                    horizontal=True)
 
                                 if table_display_option == "Standard Table":
                                     # Show standard table with all metrics
-                                    st.dataframe(sim_df, use_container_width=True)
+                                    st.dataframe(sim_df,
+                                                 use_container_width=True)
                                 else:
                                     # Create a styled table similar to PIQ reference
                                     # Get reference player values
-                                    ref_player_values = df_sim[df_sim['Player'] == sim_player]
+                                    ref_player_values = df_sim[df_sim['Player']
+                                                               == sim_player]
 
                                     if not ref_player_values.empty:
                                         # Create dataframe for PIQ-style table
@@ -3152,15 +3694,23 @@ if selected_leagues:
                                         display_metrics = sim_metric_options
 
                                         # Create columns for reference and delta values
-                                        piq_cols = ['Player', 'Position', 'Similarity']
+                                        piq_cols = [
+                                            'Player', 'Position', 'Similarity'
+                                        ]
 
                                         # Add metrics and delta columns
                                         for metric in display_metrics:
-                                            piq_cols.extend([metric, f"Δ% {metric}"])
+                                            piq_cols.extend(
+                                                [metric, f"Δ% {metric}"])
 
                                         # Create PIQ style dataframe
                                         piq_data = []
-                                        ref_values = {metric: ref_player_values.iloc[0].get(metric, 0) for metric in display_metrics}
+                                        ref_values = {
+                                            metric:
+                                            ref_player_values.iloc[0].get(
+                                                metric, 0)
+                                            for metric in display_metrics
+                                        }
 
                                         for player_name, similarity in similar_players:
                                             # Skip reference player when using benchmark reference
@@ -3168,32 +3718,50 @@ if selected_leagues:
                                                 continue
 
                                             # For benchmark player reference, verificar se deve incluir benchmark ou não
-                                            if is_benchmark_player and use_benchmark_player and not st.session_state.get('search_in_benchmark', False):
+                                            if is_benchmark_player and use_benchmark_player and not st.session_state.get(
+                                                    'search_in_benchmark',
+                                                    False):
                                                 # Checar se o jogador está no dataset principal (não no benchmark)
-                                                if player_name not in df_minutes['Player'].values:
+                                                if player_name not in df_minutes[
+                                                        'Player'].values:
                                                     continue  # Pular jogadores do benchmark nos resultados
 
                                                 # Use main dataset for info
-                                                player_info = df_minutes[df_minutes['Player'] == player_name]
+                                                player_info = df_minutes[
+                                                    df_minutes['Player'] ==
+                                                    player_name]
                                             else:
                                                 # Regular case - use full dataset
-                                                player_info = df_sim[df_sim['Player'] == player_name]
+                                                player_info = df_sim[
+                                                    df_sim['Player'] ==
+                                                    player_name]
 
                                             if not player_info.empty:
                                                 row_data = {
-                                                    'Player': player_name,
-                                                    'Position': player_info.iloc[0].get('Position', 'N/A'),
-                                                    'Similarity': f"{similarity:.1f}%"
+                                                    'Player':
+                                                    player_name,
+                                                    'Position':
+                                                    player_info.iloc[0].get(
+                                                        'Position', 'N/A'),
+                                                    'Similarity':
+                                                    f"{similarity:.1f}%"
                                                 }
 
                                                 # Calculate metrics and deltas
                                                 for metric in display_metrics:
-                                                    metric_value = player_info.iloc[0].get(metric, 0)
-                                                    row_data[metric] = f"{metric_value:.2f}"
+                                                    metric_value = player_info.iloc[
+                                                        0].get(metric, 0)
+                                                    row_data[
+                                                        metric] = f"{metric_value:.2f}"
 
                                                     # Calculate percentage difference
                                                     if ref_values[metric] != 0:
-                                                        delta_pct = ((metric_value - ref_values[metric]) / abs(ref_values[metric])) * 100
+                                                        delta_pct = (
+                                                            (metric_value -
+                                                             ref_values[metric]
+                                                             ) /
+                                                            abs(ref_values[
+                                                                metric])) * 100
                                                         # Format with sign and one decimal place for PIQ-style
                                                         if delta_pct > 0:
                                                             delta_str = f"+{delta_pct:.1f}"
@@ -3202,7 +3770,8 @@ if selected_leagues:
                                                     else:
                                                         delta_str = "N/A"
 
-                                                    row_data[f"Δ% {metric}"] = delta_str
+                                                    row_data[
+                                                        f"Δ% {metric}"] = delta_str
 
                                                 piq_data.append(row_data)
 
@@ -3213,12 +3782,17 @@ if selected_leagues:
                                             # Apply styling - similar to PIQ reference image with more precise control
                                             def color_delta_cells(val):
                                                 try:
-                                                    if isinstance(val, str) and val not in ['N/A']:
+                                                    if isinstance(
+                                                            val, str
+                                                    ) and val not in ['N/A']:
                                                         # Handle the "+" sign in values for proper comparison
                                                         if "+" in val:
-                                                            val_float = float(val.replace("+", ""))
+                                                            val_float = float(
+                                                                val.replace(
+                                                                    "+", ""))
                                                         else:
-                                                            val_float = float(val)
+                                                            val_float = float(
+                                                                val)
 
                                                         # More nuanced color intensity based on value magnitude - PIQ-style
                                                         if val_float > 20:  # Strong positive
@@ -3240,12 +3814,19 @@ if selected_leagues:
                                             # Updated version for newer pandas
                                             def color_delta_cells_elem(x):
                                                 try:
-                                                    if isinstance(x, str) and x not in ['N/A']:
+                                                    if isinstance(
+                                                            x,
+                                                            str) and x not in [
+                                                                'N/A'
+                                                            ]:
                                                         # Handle the "+" sign in values for proper comparison
                                                         if "+" in x:
-                                                            val_float = float(x.replace("+", ""))
+                                                            val_float = float(
+                                                                x.replace(
+                                                                    "+", ""))
                                                         else:
-                                                            val_float = float(x)
+                                                            val_float = float(
+                                                                x)
 
                                                         # More nuanced color intensity based on value magnitude - PIQ-style
                                                         if val_float > 20:  # Strong positive
@@ -3266,23 +3847,39 @@ if selected_leagues:
 
                                             # Apply styles and display
                                             # Create a header similar to PIQ image
-                                            st.markdown(f"### {sim_player} - PIQ Similarity Model Results")
+                                            st.markdown(
+                                                f"### {sim_player} - PIQ Similarity Model Results"
+                                            )
 
                                             # Add subtitle explaining model and metrics
-                                            metric_names = ", ".join([m.replace("_", " ").title() for m in display_metrics])
-                                            st.markdown(f"**{metric_names}** metrics via {method.upper()} model")
+                                            metric_names = ", ".join([
+                                                m.replace("_", " ").title()
+                                                for m in display_metrics
+                                            ])
+                                            st.markdown(
+                                                f"**{metric_names}** metrics via {method.upper()} model"
+                                            )
 
                                             # Explain what the statistics mean
-                                            st.markdown("Similarity shows overall profile match. Δ% columns show percentage difference from reference player.")
-                                            st.markdown("🟢 Green = better value | 🟡 Yellow = similar value | 🔴 Red = worse value")
+                                            st.markdown(
+                                                "Similarity shows overall profile match. Δ% columns show percentage difference from reference player."
+                                            )
+                                            st.markdown(
+                                                "🟢 Green = better value | 🟡 Yellow = similar value | 🔴 Red = worse value"
+                                            )
 
                                             # Create better styling with team logos and bars for similarity scores
-                                            # First add similarity score bars  
+                                            # First add similarity score bars
                                             def bar_similarity(val):
-                                                if isinstance(val, str) and '%' in val:
+                                                if isinstance(
+                                                        val,
+                                                        str) and '%' in val:
                                                     try:
-                                                        score = float(val.replace('%', ''))
-                                                        width = min(100, max(0, score))
+                                                        score = float(
+                                                            val.replace(
+                                                                '%', ''))
+                                                        width = min(
+                                                            100, max(0, score))
                                                         return f'background: linear-gradient(90deg, #0066cc {width}%, transparent {width}%); color: white; font-weight: bold;'
                                                     except:
                                                         pass
@@ -3296,75 +3893,113 @@ if selected_leagues:
                                                 .set_properties(**{'font-weight': 'bold'}, subset=['Player'])\
                                                 .hide(axis='index')
 
-                                            st.dataframe(styled_df, use_container_width=True)
+                                            st.dataframe(
+                                                styled_df,
+                                                use_container_width=True)
                                         else:
-                                            st.warning("Could not generate PIQ-style table with available data")
+                                            st.warning(
+                                                "Could not generate PIQ-style table with available data"
+                                            )
                                     else:
-                                        st.error(f"Reference player '{sim_player}' data not found for table creation")
+                                        st.error(
+                                            f"Reference player '{sim_player}' data not found for table creation"
+                                        )
 
                                 # Export as CSV
-                                csv = sim_df.to_csv(index=False).encode('utf-8')
+                                csv = sim_df.to_csv(
+                                    index=False).encode('utf-8')
                                 st.download_button(
                                     "⬇️ Download Similarity Table as CSV",
                                     csv,
                                     f"similarity_{sim_player}_{method}.csv",
                                     "text/csv",
-                                    key="download_similarity_csv"
-                                )
+                                    key="download_similarity_csv")
 
                         # Tab 3: Raw Data
                         with result_tabs[1]:
                             st.subheader("Raw Player Data")
                             # Create list of players to display
-                            players_to_show = [sim_player] + [p[0] for p in similar_players]
+                            players_to_show = [sim_player] + [
+                                p[0] for p in similar_players
+                            ]
 
                             # Para referência de jogador do benchmark, verificar opção do usuário
                             if is_benchmark_player and use_benchmark_player:
                                 # Adicionar o jogador do benchmark como referência
                                 benchmark_player_data = st.session_state.benchmark_df[
-                                    st.session_state.benchmark_df['Player'] == sim_player
-                                ]
+                                    st.session_state.benchmark_df['Player'] ==
+                                    sim_player]
 
-                                if st.session_state.get('search_in_benchmark', False):
+                                if st.session_state.get(
+                                        'search_in_benchmark', False):
                                     # Mostrar jogadores do dataset principal e do benchmark
                                     # Já estão todos em df_sim, apenas filtrar por nome
-                                    raw_data = df_sim[df_sim['Player'].isin(players_to_show)]
-                                    st.info(f"Showing benchmark player '{sim_player}' and similar players from both datasets")
+                                    raw_data = df_sim[df_sim['Player'].isin(
+                                        players_to_show)]
+                                    st.info(
+                                        f"Showing benchmark player '{sim_player}' and similar players from both datasets"
+                                    )
 
                                     # Usar coluna para highlight
-                                    raw_data['Data Source'] = raw_data['Player'].apply(
-                                        lambda p: "Benchmark" if p != sim_player and p not in df_minutes['Player'].values 
-                                        else "Main Dataset"
-                                    )
+                                    raw_data['Data Source'] = raw_data[
+                                        'Player'].apply(
+                                            lambda p: "Benchmark"
+                                            if p != sim_player and p not in
+                                            df_minutes['Player'].values else
+                                            "Main Dataset")
                                 else:
                                     # Obter apenas jogadores do dataset principal (excluindo o jogador benchmark)
-                                    main_players = [p for p in players_to_show if p != sim_player and p in df_minutes['Player'].values]
-                                    main_data = df_minutes[df_minutes['Player'].isin(main_players)]
+                                    main_players = [
+                                        p for p in players_to_show
+                                        if p != sim_player
+                                        and p in df_minutes['Player'].values
+                                    ]
+                                    main_data = df_minutes[df_minutes['Player']
+                                                           .isin(main_players)]
 
                                     # Combine reference player with main dataset players (if we have benchmark player data)
                                     if not benchmark_player_data.empty:
-                                        raw_data = pd.concat([benchmark_player_data, main_data], ignore_index=True)
-                                        st.info(f"Showing benchmark player '{sim_player}' and similar players from main dataset")
+                                        raw_data = pd.concat(
+                                            [benchmark_player_data, main_data],
+                                            ignore_index=True)
+                                        st.info(
+                                            f"Showing benchmark player '{sim_player}' and similar players from main dataset"
+                                        )
                                     else:
                                         raw_data = main_data
-                                        st.warning(f"Benchmark player '{sim_player}' data not found, showing only similar players")
+                                        st.warning(
+                                            f"Benchmark player '{sim_player}' data not found, showing only similar players"
+                                        )
                             else:
                                 # Regular case - use combined dataset
-                                raw_data = df_sim[df_sim['Player'].isin(players_to_show)]
+                                raw_data = df_sim[df_sim['Player'].isin(
+                                    players_to_show)]
 
                             # Show selected metrics only for better readability
-                            columns_to_show = ['Player', 'Team', 'Age', 'Position', 'Minutes played'] + sim_metric_options
+                            columns_to_show = [
+                                'Player', 'Team', 'Age', 'Position',
+                                'Minutes played'
+                            ] + sim_metric_options
 
                             # Make sure we only show columns that exist
-                            available_columns = [col for col in columns_to_show if col in raw_data.columns]
-                            st.dataframe(raw_data[available_columns], use_container_width=True)
+                            available_columns = [
+                                col for col in columns_to_show
+                                if col in raw_data.columns
+                            ]
+                            st.dataframe(raw_data[available_columns],
+                                         use_container_width=True)
                     else:
-                        st.warning(f"No similar players found for {sim_player}. Try adjusting filters or selecting different metrics.")
+                        st.warning(
+                            f"No similar players found for {sim_player}. Try adjusting filters or selecting different metrics."
+                        )
                 else:
                     if len(sim_metric_options) < 2:
-                        st.warning("Please select at least 2 metrics for similarity calculation")
+                        st.warning(
+                            "Please select at least 2 metrics for similarity calculation"
+                        )
                     else:
-                        st.warning("Not enough players matching the filter criteria")
+                        st.warning(
+                            "Not enough players matching the filter criteria")
 
             # =============================================
             # Correlation Matrix (Aba 5)
@@ -3374,23 +4009,27 @@ if selected_leagues:
 
                 # Select metrics for correlation
                 corr_metrics = st.multiselect(
-                    'Select metrics to analyze correlations (2-10)', 
-                    metric_cols, 
+                    'Select metrics to analyze correlations (2-10)',
+                    metric_cols,
                     default=metric_cols[:5],
-                    key='corr_metrics'
-                )
+                    key='corr_metrics')
 
                 if len(corr_metrics) < 2:
                     st.warning("Please select at least 2 metrics")
                 elif len(corr_metrics) > 10:
-                    st.warning("Too many metrics selected. Please limit to 10 or fewer")
+                    st.warning(
+                        "Too many metrics selected. Please limit to 10 or fewer"
+                    )
                 else:
                     # Calculate correlation matrix
                     corr_matrix = df_group[corr_metrics].corr()
 
                     # Create correlation heatmap
                     fig, ax = plt.subplots(figsize=(10, 8))
-                    im = ax.imshow(corr_matrix, cmap='coolwarm', vmin=-1, vmax=1)
+                    im = ax.imshow(corr_matrix,
+                                   cmap='coolwarm',
+                                   vmin=-1,
+                                   vmax=1)
 
                     # Add colorbar
                     cbar = plt.colorbar(im, ax=ax)
@@ -3405,9 +4044,14 @@ if selected_leagues:
                     # Loop over data dimensions and create text annotations
                     for i in range(len(corr_metrics)):
                         for j in range(len(corr_metrics)):
-                            text = ax.text(j, i, f"{corr_matrix.iloc[i, j]:.2f}",
-                                        ha="center", va="center", 
-                                        color="white" if abs(corr_matrix.iloc[i, j]) > 0.5 else "black")
+                            text = ax.text(
+                                j,
+                                i,
+                                f"{corr_matrix.iloc[i, j]:.2f}",
+                                ha="center",
+                                va="center",
+                                color="white" if abs(
+                                    corr_matrix.iloc[i, j]) > 0.5 else "black")
 
                     ax.set_title("Correlation Matrix")
                     fig.tight_layout()
@@ -3416,18 +4060,19 @@ if selected_leagues:
                     st.pyplot(fig)
 
                     # Export button
-                    if st.button('Export Correlation Matrix (300 DPI)', key='export_corr'):
+                    if st.button('Export Correlation Matrix (300 DPI)',
+                                 key='export_corr'):
                         img_bytes = fig_to_bytes(fig)
-                        st.download_button(
-                            "⬇️ Download Correlation Matrix", 
-                            data=img_bytes, 
-                            file_name="correlation_matrix.png", 
-                            mime="image/png"
-                        )
+                        st.download_button("⬇️ Download Correlation Matrix",
+                                           data=img_bytes,
+                                           file_name="correlation_matrix.png",
+                                           mime="image/png")
 
                     # Show correlation table
                     st.subheader("Correlation Values")
-                    st.dataframe(corr_matrix.style.format("{:.2f}").background_gradient(cmap='coolwarm', axis=None))
+                    st.dataframe(
+                        corr_matrix.style.format("{:.2f}").background_gradient(
+                            cmap='coolwarm', axis=None))
 
             # =============================================
             # Composite Index - PCA (Aba 6)
@@ -3437,16 +4082,17 @@ if selected_leagues:
 
                 # Select metrics for PCA
                 pca_metrics = st.multiselect(
-                    'Select metrics for composite index (3-10 recommended)', 
-                    metric_cols, 
+                    'Select metrics for composite index (3-10 recommended)',
+                    metric_cols,
                     default=metric_cols[:5],
-                    key='pca_metrics'
-                )
+                    key='pca_metrics')
 
                 if len(pca_metrics) < 3:
                     st.warning("Please select at least 3 metrics")
                 elif len(pca_metrics) > 15:
-                    st.warning("Too many metrics selected. Please limit to 15 or fewer")
+                    st.warning(
+                        "Too many metrics selected. Please limit to 15 or fewer"
+                    )
                 else:
                     # Standardize data
                     X = df_group[pca_metrics].values
@@ -3457,10 +4103,8 @@ if selected_leagues:
                     pca_result = pca.fit_transform(X_scaled)
 
                     # Criar dataframe com resultados do PCA
-                    pca_df = pd.DataFrame(
-                        data=pca_result, 
-                        columns=['PC1', 'PC2']
-                    )
+                    pca_df = pd.DataFrame(data=pca_result,
+                                          columns=['PC1', 'PC2'])
 
                     # Adicionar informações dos jogadores
                     pca_df['Player'] = df_group['Player'].values
@@ -3479,27 +4123,36 @@ if selected_leagues:
                     fig, ax = plt.subplots(figsize=(12, 8))
 
                     # Definir cores consistentes
-                    player1_color = "#1A78CF"      # Azul real para jogador 1
-                    player2_color = "#E41A1C"      # Vermelho para jogador 2
+                    player1_color = "#1A78CF"  # Azul real para jogador 1
+                    player2_color = "#E41A1C"  # Vermelho para jogador 2
 
                     # Plot all players com pontos menores para melhor visualização (maior nitidez)
-                    sc = ax.scatter(pca_result[:, 0], pca_result[:, 1], alpha=0.7, s=30, c='gray')
+                    sc = ax.scatter(pca_result[:, 0],
+                                    pca_result[:, 1],
+                                    alpha=0.7,
+                                    s=30,
+                                    c='gray')
 
                     # Adicionar nomes de todos os jogadores (com texto pequeno e discreto)
-                    max_labels = min(50, len(df_group))  # Limitar número de labels para legibilidade
+                    max_labels = min(
+                        50, len(df_group)
+                    )  # Limitar número de labels para legibilidade
 
                     # Adicionar nomes abaixo dos pontos para todos os jogadores
-                    for i, player in enumerate(df_group['Player'].values[:max_labels]):
+                    for i, player in enumerate(
+                            df_group['Player'].values[:max_labels]):
                         # Adicionar textos abaixo dos pontos usando um estilo mais nítido
-                        ax.annotate(player, 
-                                  (pca_result[i, 0], pca_result[i, 1]),
-                                  xytext=(0, -7),  # Posição abaixo do ponto
-                                  textcoords='offset points',
-                                  fontsize=7,      # Fonte pequena
-                                  ha='center',     # Centralizado
-                                  va='top',        # Alinhado ao topo do texto
-                                  alpha=0.8,       # Maior nitidez
-                                  color='#333333') # Cor mais escura para melhor visibilidade
+                        ax.annotate(
+                            player,
+                            (pca_result[i, 0], pca_result[i, 1]),
+                            xytext=(0, -7),  # Posição abaixo do ponto
+                            textcoords='offset points',
+                            fontsize=7,  # Fonte pequena
+                            ha='center',  # Centralizado
+                            va='top',  # Alinhado ao topo do texto
+                            alpha=0.8,  # Maior nitidez
+                            color='#333333'
+                        )  # Cor mais escura para melhor visibilidade
 
                     # Highlight selected players
                     p1_idx = df_group[df_group['Player'] == p1].index
@@ -3507,51 +4160,63 @@ if selected_leagues:
 
                     if len(p1_idx) > 0 and p1 != 'None':
                         p1_idx = p1_idx[0]
-                        p1_idx_in_group = df_group.index.get_indexer([p1_idx])[0]
+                        p1_idx_in_group = df_group.index.get_indexer([p1_idx
+                                                                      ])[0]
                         if p1_idx_in_group >= 0:  # Player is in the filtered group
-                            ax.scatter(pca_result[p1_idx_in_group, 0], pca_result[p1_idx_in_group, 1], 
-                                      s=100, c=player1_color, edgecolor='black', label=p1, zorder=10)
-                            ax.annotate(p1, 
-                                      (pca_result[p1_idx_in_group, 0], pca_result[p1_idx_in_group, 1]),
-                                      xytext=(0, -9),  # Posição abaixo do ponto
-                                      textcoords='offset points',
-                                      fontsize=9,      # Fonte um pouco maior
-                                      fontweight='bold',
-                                      ha='center',     # Centralizado
-                                      va='top',        # Alinhado ao topo do texto
-                                      color=player1_color, # Cor do jogador
-                                      bbox=dict(
-                                          facecolor='white',
+                            ax.scatter(pca_result[p1_idx_in_group, 0],
+                                       pca_result[p1_idx_in_group, 1],
+                                       s=100,
+                                       c=player1_color,
+                                       edgecolor='black',
+                                       label=p1,
+                                       zorder=10)
+                            ax.annotate(
+                                p1,
+                                (pca_result[p1_idx_in_group, 0],
+                                 pca_result[p1_idx_in_group, 1]),
+                                xytext=(0, -9),  # Posição abaixo do ponto
+                                textcoords='offset points',
+                                fontsize=9,  # Fonte um pouco maior
+                                fontweight='bold',
+                                ha='center',  # Centralizado
+                                va='top',  # Alinhado ao topo do texto
+                                color=player1_color,  # Cor do jogador
+                                bbox=dict(facecolor='white',
                                           alpha=0.7,
                                           edgecolor=player1_color,
                                           boxstyle="round,pad=0.1",
-                                          linewidth=0.5
-                                      ),
-                                      zorder=11)
+                                          linewidth=0.5),
+                                zorder=11)
 
                     if len(p2_idx) > 0 and p2 != 'None':
                         p2_idx = p2_idx[0]
-                        p2_idx_in_group = df_group.index.get_indexer([p2_idx])[0]
+                        p2_idx_in_group = df_group.index.get_indexer([p2_idx
+                                                                      ])[0]
                         if p2_idx_in_group >= 0:  # Player is in the filtered group
-                            ax.scatter(pca_result[p2_idx_in_group, 0], pca_result[p2_idx_in_group, 1], 
-                                      s=100, c=player2_color, edgecolor='black', label=p2, zorder=10)
-                            ax.annotate(p2, 
-                                      (pca_result[p2_idx_in_group, 0], pca_result[p2_idx_in_group, 1]),
-                                      xytext=(0, -9),  # Posição abaixo do ponto
-                                      textcoords='offset points',
-                                      fontsize=9,      # Fonte um pouco maior
-                                      fontweight='bold',
-                                      ha='center',     # Centralizado
-                                      va='top',        # Alinhado ao topo do texto
-                                      color=player2_color, # Cor do jogador
-                                      bbox=dict(
-                                          facecolor='white',
+                            ax.scatter(pca_result[p2_idx_in_group, 0],
+                                       pca_result[p2_idx_in_group, 1],
+                                       s=100,
+                                       c=player2_color,
+                                       edgecolor='black',
+                                       label=p2,
+                                       zorder=10)
+                            ax.annotate(
+                                p2,
+                                (pca_result[p2_idx_in_group, 0],
+                                 pca_result[p2_idx_in_group, 1]),
+                                xytext=(0, -9),  # Posição abaixo do ponto
+                                textcoords='offset points',
+                                fontsize=9,  # Fonte um pouco maior
+                                fontweight='bold',
+                                ha='center',  # Centralizado
+                                va='top',  # Alinhado ao topo do texto
+                                color=player2_color,  # Cor do jogador
+                                bbox=dict(facecolor='white',
                                           alpha=0.7,
                                           edgecolor=player2_color,
                                           boxstyle="round,pad=0.1",
-                                          linewidth=0.5
-                                      ),
-                                      zorder=11)
+                                          linewidth=0.5),
+                                zorder=11)
 
                     # Plot feature vectors
                     coeff = pca.components_.T
@@ -3562,13 +4227,25 @@ if selected_leagues:
                     scale_factor = 5
 
                     for i, (x, y) in enumerate(zip(feat_xs, feat_ys)):
-                        plt.arrow(0, 0, x*scale_factor, y*scale_factor, head_width=0.15, head_length=0.2, fc='red', ec='red')
-                        plt.text(x*scale_factor*1.1, y*scale_factor*1.1, pca_metrics[i], color='red')
+                        plt.arrow(0,
+                                  0,
+                                  x * scale_factor,
+                                  y * scale_factor,
+                                  head_width=0.15,
+                                  head_length=0.2,
+                                  fc='red',
+                                  ec='red')
+                        plt.text(x * scale_factor * 1.1,
+                                 y * scale_factor * 1.1,
+                                 pca_metrics[i],
+                                 color='red')
 
                     # Add explanations
                     explained_var = pca.explained_variance_ratio_
-                    ax.set_xlabel(f"PC1 ({explained_var[0]:.2%} variance)", fontsize=12)
-                    ax.set_ylabel(f"PC2 ({explained_var[1]:.2%} variance)", fontsize=12)
+                    ax.set_xlabel(f"PC1 ({explained_var[0]:.2%} variance)",
+                                  fontsize=12)
+                    ax.set_ylabel(f"PC2 ({explained_var[1]:.2%} variance)",
+                                  fontsize=12)
 
                     ax.set_title("Principal Component Analysis", fontsize=14)
                     ax.grid(True, alpha=0.3)
@@ -3583,25 +4260,24 @@ if selected_leagues:
                     st.pyplot(fig)
 
                     # Show explained variance
-                    st.info(f"Total explained variance: {sum(explained_var):.2%}")
+                    st.info(
+                        f"Total explained variance: {sum(explained_var):.2%}")
 
                     # Export button
-                    if st.button('Export PCA Analysis (300 DPI)', key='export_pca'):
+                    if st.button('Export PCA Analysis (300 DPI)',
+                                 key='export_pca'):
                         img_bytes = fig_to_bytes(fig)
-                        st.download_button(
-                            "⬇️ Download PCA Analysis", 
-                            data=img_bytes, 
-                            file_name="pca_analysis.png", 
-                            mime="image/png"
-                        )
+                        st.download_button("⬇️ Download PCA Analysis",
+                                           data=img_bytes,
+                                           file_name="pca_analysis.png",
+                                           mime="image/png")
 
                     # Show loadings
                     st.subheader("PCA Loadings (Feature Importance)")
                     loadings = pd.DataFrame(
-                        pca.components_.T, 
+                        pca.components_.T,
                         columns=[f'PC{i+1}' for i in range(2)],
-                        index=pca_metrics
-                    )
+                        index=pca_metrics)
                     st.dataframe(loadings.style.format("{:.4f}"))
 
                     # Adicionar botão para exportar resultados do PCA como CSV
@@ -3615,13 +4291,11 @@ if selected_leagues:
                     csv = convert_df_to_csv(pca_df)
 
                     # Botão para download do CSV
-                    st.download_button(
-                        "⬇️ Download PCA Results as CSV",
-                        csv,
-                        "pca_player_results.csv",
-                        "text/csv",
-                        key='download-pca-csv'
-                    )
+                    st.download_button("⬇️ Download PCA Results as CSV",
+                                       csv,
+                                       "pca_player_results.csv",
+                                       "text/csv",
+                                       key='download-pca-csv')
 
                     # Mostrar prévia dos dados
                     with st.expander("Preview PCA Results DataFrame"):
@@ -3639,33 +4313,38 @@ if selected_leagues:
 
             with col1:
                 # Nota explicativa sobre uso dos filtros
-                st.info("Note: Use os filtros na barra lateral para ajustar minutos, idade e posições.")
+                st.info(
+                    "Note: Use os filtros na barra lateral para ajustar minutos, idade e posições."
+                )
 
                 # Verificar se temos um benchmark carregado
                 benchmark_available = st.session_state.benchmark_loaded and st.session_state.benchmark_df is not None
 
                 # Opção para usar benchmark como fonte de dados para profiling
                 if benchmark_available:
-                    use_benchmark_profile = st.checkbox("Use benchmark database for profiling", value=False, 
-                                                    help="When enabled, you'll profile players from the benchmark database instead",
-                                                    key="profiler_use_benchmark")
+                    use_benchmark_profile = st.checkbox(
+                        "Use benchmark database for profiling",
+                        value=False,
+                        help=
+                        "When enabled, you'll profile players from the benchmark database instead",
+                        key="profiler_use_benchmark")
 
                     if use_benchmark_profile:
                         # Filtrar o benchmark com os mesmos filtros aplicados à base principal
                         filtered_benchmark = apply_benchmark_filter(
-                            st.session_state.benchmark_df,
-                            minutes_range,
-                            mpg_range,
-                            age_range,
-                            sel_pos
-                        )
+                            st.session_state.benchmark_df, minutes_range,
+                            mpg_range, age_range, sel_pos)
 
                         if filtered_benchmark is not None and not filtered_benchmark.empty:
                             # Usar o benchmark filtrado para profiling
                             profiler_df = filtered_benchmark
-                            st.success(f"Profiling using benchmark: {st.session_state.benchmark_name} ({len(profiler_df)} players)")
+                            st.success(
+                                f"Profiling using benchmark: {st.session_state.benchmark_name} ({len(profiler_df)} players)"
+                            )
                         else:
-                            st.warning("No benchmark players match the applied filters. Using your database instead.")
+                            st.warning(
+                                "No benchmark players match the applied filters. Using your database instead."
+                            )
                             profiler_df = df_minutes
                             use_benchmark_profile = False
                     else:
@@ -3677,60 +4356,86 @@ if selected_leagues:
             with col2:
                 # Definir presets de métricas para o profiler
                 profiler_metric_groups = {
-                    "Overall": ['Progressive runs per 90', 'Progressive passes per 90', 'Deep completions per 90', 'Key passes per 90', 
-                              'Accurate passes, %', 'Accurate crosses, %', 'xA per 90', 'Defensive duels won, %', 
-                              'Aerial duels won, %', 'PAdj Interceptions', 'PAdj Sliding tackles', 'npxG per 90', 
-                              'npxG per Shot', 'Goal conversion, %', 'Shots on target, %'],
-                    "Offensive": ['Goals per 90', 'Shots per 90', 'xG per 90', 'npxG', 'G-xG', 'npxG per Shot', 'Shots on target per 90', 'Box Efficiency'],
-                    "Passing": ['Passes per 90', 'Accurate passes, %', 'Forward passes per 90', 'Progressive passes per 90', 'Key passes per 90'],
-                    "Defensive": ['Interceptions per 90', 'Tackles per 90', 'Defensive duels per 90', 'Aerial duels won per 90'],
-                    "Physical": ['Accelerations per 90', 'Sprint distance per 90', 'Distance covered per 90'],
-                    "Advanced Metrics": ['npxG', 'G-xG', 'npxG per Shot', 'Box Efficiency']
+                    "Overall": [
+                        'Progressive runs per 90', 'Progressive passes per 90',
+                        'Deep completions per 90', 'Key passes per 90',
+                        'Accurate passes, %', 'Accurate crosses, %',
+                        'xA per 90', 'Defensive duels won, %',
+                        'Aerial duels won, %', 'PAdj Interceptions',
+                        'PAdj Sliding tackles', 'npxG per 90', 'npxG per Shot',
+                        'Goal conversion, %', 'Shots on target, %'
+                    ],
+                    "Offensive": [
+                        'Goals per 90', 'Shots per 90', 'xG per 90', 'npxG',
+                        'G-xG', 'npxG per Shot', 'Shots on target per 90',
+                        'Box Efficiency'
+                    ],
+                    "Passing": [
+                        'Passes per 90', 'Accurate passes, %',
+                        'Forward passes per 90', 'Progressive passes per 90',
+                        'Key passes per 90'
+                    ],
+                    "Defensive": [
+                        'Interceptions per 90', 'Tackles per 90',
+                        'Defensive duels per 90', 'Aerial duels won per 90'
+                    ],
+                    "Physical": [
+                        'Accelerations per 90', 'Sprint distance per 90',
+                        'Distance covered per 90'
+                    ],
+                    "Advanced Metrics":
+                    ['npxG', 'G-xG', 'npxG per Shot', 'Box Efficiency']
                 }
 
                 # Opção para selecionar por grupo ou personalizar
                 metric_selection = st.radio(
-                    "Metric Selection Mode", 
+                    "Metric Selection Mode",
                     ["Select Individual Metrics", "Use Metric Presets"],
                     horizontal=True,
-                    key="profiler_metric_selection"
-                )
+                    key="profiler_metric_selection")
 
                 if metric_selection == "Use Metric Presets":
                     selected_groups = st.multiselect(
-                        "Select Metric Groups", 
+                        "Select Metric Groups",
                         list(profiler_metric_groups.keys()),
                         default=["Offensive"],
-                        key="profiler_preset_groups"
-                    )
+                        key="profiler_preset_groups")
 
                     # Combinar todas as métricas dos grupos selecionados
                     preset_metrics = []
                     for group in selected_groups:
                         # Adicionar apenas métricas que existem no dataframe
-                        available_metrics = [m for m in profiler_metric_groups[group] if m in metric_cols]
+                        available_metrics = [
+                            m for m in profiler_metric_groups[group]
+                            if m in metric_cols
+                        ]
                         preset_metrics.extend(available_metrics)
 
                     # Permitir personalização adicional
                     profile_metrics = st.multiselect(
-                        'Add or Remove Individual Metrics (1-5 recommended)', 
+                        'Add or Remove Individual Metrics (1-5 recommended)',
                         metric_cols,
                         default=preset_metrics[:min(5, len(preset_metrics))],
-                        key="profiler_preset_metrics"
-                    )
+                        key="profiler_preset_metrics")
                 else:
                     # Seleção manual de métricas
-                    profile_metrics = st.multiselect('Select metrics for profiling (1-5)', metric_cols, 
-                                                 default=metric_cols[:min(3, len(metric_cols))],
-                                                 key="profiler_metrics")
+                    profile_metrics = st.multiselect(
+                        'Select metrics for profiling (1-5)',
+                        metric_cols,
+                        default=metric_cols[:min(3, len(metric_cols))],
+                        key="profiler_metrics")
 
                 # Para cada métrica selecionada, adicionar um slider para o percentil mínimo
                 percentile_filters = {}
                 for metric in profile_metrics:
-                    if len(profile_metrics) <= 5:  # Limitar para evitar interface poluída
-                        min_percentile = st.slider(f"Minimum percentile for {metric}", 
-                                                0, 100, 65,  # Padrão em 65º percentil
-                                                key=f"percentile_{metric}")
+                    if len(profile_metrics
+                           ) <= 5:  # Limitar para evitar interface poluída
+                        min_percentile = st.slider(
+                            f"Minimum percentile for {metric}",
+                            0,
+                            100,
+                            65,  # Padrão em 65º percentil
+                            key=f"percentile_{metric}")
                         percentile_filters[metric] = min_percentile
 
             # Aplicar filtros
@@ -3745,37 +4450,59 @@ if selected_leagues:
                     for metric, min_percentile in percentile_filters.items():
                         if min_percentile > 0:
                             # Calcular o valor correspondente ao percentil na distribuição da fonte de dados selecionada
-                            percentile_value = np.percentile(profiler_df[metric].dropna(), min_percentile)
-                            df_filtered = df_filtered[df_filtered[metric] >= percentile_value].copy()
+                            percentile_value = np.percentile(
+                                profiler_df[metric].dropna(), min_percentile)
+                            df_filtered = df_filtered[df_filtered[metric] >=
+                                                      percentile_value].copy()
 
                     # Mostrar resultados com indicação da fonte de dados
                     source_text = f" from {st.session_state.benchmark_name}" if use_benchmark_profile else ""
-                    st.subheader(f"Players matching criteria: {len(df_filtered)}{source_text}")
+                    st.subheader(
+                        f"Players matching criteria: {len(df_filtered)}{source_text}"
+                    )
 
                     if len(df_filtered) > 0:
                         # Ordenar os jogadores por uma métrica de performance global (média dos percentis)
-                        df_filtered['Overall Score'] = df_filtered[profile_metrics].apply(
-                            lambda row: np.mean([calc_percentile(profiler_df[m], row[m])*100 for m in profile_metrics]), 
-                            axis=1)
+                        df_filtered['Overall Score'] = df_filtered[
+                            profile_metrics].apply(lambda row: np.mean([
+                                calc_percentile(profiler_df[m], row[m]) * 100
+                                for m in profile_metrics
+                            ]),
+                                                   axis=1)
 
                         # Ordenar por "Overall Score" descendente
-                        df_sorted = df_filtered.sort_values('Overall Score', ascending=False).reset_index(drop=True)
+                        df_sorted = df_filtered.sort_values(
+                            'Overall Score',
+                            ascending=False).reset_index(drop=True)
 
                         # Adicionar colunas de percentil para cada métrica
                         for metric in profile_metrics:
-                            df_sorted[f"{metric} (percentile)"] = df_sorted[metric].apply(
-                                lambda x: f"{calc_percentile(profiler_df[metric], x)*100:.1f}%")
+                            df_sorted[f"{metric} (percentile)"] = df_sorted[
+                                metric].apply(
+                                    lambda x:
+                                    f"{calc_percentile(profiler_df[metric], x)*100:.1f}%"
+                                )
 
                         # Selecionar colunas para exibição
-                        display_cols = ['Player', 'Team', 'Age', 'Position', 'Minutes played', 'Overall Score']
-                        display_cols.extend([metric for metric in profile_metrics])
-                        display_cols.extend([f"{metric} (percentile)" for metric in profile_metrics])
+                        display_cols = [
+                            'Player', 'Team', 'Age', 'Position',
+                            'Minutes played', 'Overall Score'
+                        ]
+                        display_cols.extend(
+                            [metric for metric in profile_metrics])
+                        display_cols.extend([
+                            f"{metric} (percentile)"
+                            for metric in profile_metrics
+                        ])
 
                         # Mostrar os resultados com formatação de percentil
                         st.dataframe(df_sorted[display_cols].style.format({
-                            'Overall Score': '{:.1f}',
-                            'Age': '{:.1f}',
-                            'Minutes played': '{:.0f}'
+                            'Overall Score':
+                            '{:.1f}',
+                            'Age':
+                            '{:.1f}',
+                            'Minutes played':
+                            '{:.0f}'
                         }))
 
                         # Exportar para CSV
@@ -3785,49 +4512,65 @@ if selected_leagues:
                             csv,
                             "player_profile_results.csv",
                             "text/csv",
-                            key='download-profile-csv'
-                        )
+                            key='download-profile-csv')
 
                         # Visualização dos jogadores filtrados
-                        if len(profile_metrics) >= 2 and st.checkbox("Show scatter plot of filtered players", value=True):
+                        if len(profile_metrics) >= 2 and st.checkbox(
+                                "Show scatter plot of filtered players",
+                                value=True):
                             col1, col2 = st.columns(2)
                             with col1:
-                                x_metric = st.selectbox('X-Axis Metric', profile_metrics, index=0, key="profile_x_metric")
+                                x_metric = st.selectbox('X-Axis Metric',
+                                                        profile_metrics,
+                                                        index=0,
+                                                        key="profile_x_metric")
                             with col2:
-                                y_metric = st.selectbox('Y-Axis Metric', profile_metrics, 
-                                                      index=min(1, len(profile_metrics)-1), key="profile_y_metric")
+                                y_metric = st.selectbox(
+                                    'Y-Axis Metric',
+                                    profile_metrics,
+                                    index=min(1,
+                                              len(profile_metrics) - 1),
+                                    key="profile_y_metric")
 
                             # Criar scatter plot
                             fig, ax = plt.subplots(figsize=(10, 6))
 
                             # Plotar pontos
-                            sc = ax.scatter(df_sorted[x_metric], df_sorted[y_metric], 
-                                           alpha=0.7, s=60, c=player1_color, edgecolor='white')
+                            sc = ax.scatter(df_sorted[x_metric],
+                                            df_sorted[y_metric],
+                                            alpha=0.7,
+                                            s=60,
+                                            c=player1_color,
+                                            edgecolor='white')
 
                             # Adicionar rótulos para todos os jogadores
                             for i, row in df_sorted.iterrows():
                                 # Adicionar textos abaixo dos pontos
-                                ax.annotate(row['Player'], 
-                                           (row[x_metric], row[y_metric]),
-                                           xytext=(0, -10),
-                                           textcoords='offset points',
-                                           fontsize=8,
-                                           ha='center',
-                                           va='top',
-                                           alpha=0.9,
-                                           color=player1_color,
-                                           bbox=dict(
-                                               facecolor='white',
-                                               alpha=0.7,
-                                               edgecolor=player1_color,
-                                               boxstyle="round,pad=0.1",
-                                               linewidth=0.5
-                                           ),
-                                           zorder=10)
+                                ax.annotate(row['Player'],
+                                            (row[x_metric], row[y_metric]),
+                                            xytext=(0, -10),
+                                            textcoords='offset points',
+                                            fontsize=8,
+                                            ha='center',
+                                            va='top',
+                                            alpha=0.9,
+                                            color=player1_color,
+                                            bbox=dict(facecolor='white',
+                                                      alpha=0.7,
+                                                      edgecolor=player1_color,
+                                                      boxstyle="round,pad=0.1",
+                                                      linewidth=0.5),
+                                            zorder=10)
 
                             # Adicionar linhas médias usando a fonte de dados selecionada
-                            ax.axvline(profiler_df[x_metric].mean(), color='gray', linestyle='--', alpha=0.5)
-                            ax.axhline(profiler_df[y_metric].mean(), color='gray', linestyle='--', alpha=0.5)
+                            ax.axvline(profiler_df[x_metric].mean(),
+                                       color='gray',
+                                       linestyle='--',
+                                       alpha=0.5)
+                            ax.axhline(profiler_df[y_metric].mean(),
+                                       color='gray',
+                                       linestyle='--',
+                                       alpha=0.5)
 
                             # Configurar rótulos e título
                             ax.set_xlabel(x_metric, fontsize=12)
@@ -3835,23 +4578,28 @@ if selected_leagues:
 
                             # Adicionar informação sobre a fonte de dados no título
                             source_name = f" ({st.session_state.benchmark_name})" if use_benchmark_profile else ""
-                            ax.set_title(f"Profile Results: {x_metric} vs {y_metric}{source_name}", fontsize=14)
+                            ax.set_title(
+                                f"Profile Results: {x_metric} vs {y_metric}{source_name}",
+                                fontsize=14)
                             ax.grid(True, alpha=0.3)
 
                             # Exibir o gráfico
                             st.pyplot(fig)
 
                             # Exportar gráfico
-                            if st.button('Export Scatter Plot (300 DPI)', key='export_profile_scatter'):
+                            if st.button('Export Scatter Plot (300 DPI)',
+                                         key='export_profile_scatter'):
                                 img_bytes = fig_to_bytes(fig)
                                 st.download_button(
-                                    "⬇️ Download Scatter Plot", 
-                                    data=img_bytes, 
-                                    file_name=f"profile_scatter_{x_metric}_vs_{y_metric}.png", 
-                                    mime="image/png"
-                                )
+                                    "⬇️ Download Scatter Plot",
+                                    data=img_bytes,
+                                    file_name=
+                                    f"profile_scatter_{x_metric}_vs_{y_metric}.png",
+                                    mime="image/png")
                     else:
-                        st.warning("No players match the selected criteria. Try relaxing some filters.")
+                        st.warning(
+                            "No players match the selected criteria. Try relaxing some filters."
+                        )
 
                 except Exception as e:
                     st.error(f"Error in profiler: {str(e)}")
