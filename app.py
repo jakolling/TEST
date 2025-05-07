@@ -531,11 +531,39 @@ def create_pizza_chart(params=None, values_p1=None, values_p2=None, values_avg=N
                 size=12, ha="center", color="#666666"
             )
 
-        # Adicionar créditos na parte inferior
+        # Adicionar créditos no canto inferior direito em itálico
         fig.text(
-            0.5, 0.02, "made by Joao Alberto Kolling\ndata via WyScout/SkillCorner",
-            size=10, ha="center", color="#666666"
+            0.95, 0.02, "made by Joao Alberto Kolling\ndata via WyScout/SkillCorner",
+            size=8, ha="right", color="#666666", style='italic'
         )
+        
+        # Adicionar valores nominais próximos aos percentis se disponíveis 
+        try:
+            # Obter os valores nominais da sessão de estado se disponíveis
+            if hasattr(st.session_state, 'nominal_values_p1') and st.session_state.nominal_values_p1 is not None:
+                nominal_values = st.session_state.nominal_values_p1
+                # Adicionar valores nominais ao gráfico
+                for i, (param, nom_value) in enumerate(zip(params, nominal_values)):
+                    angle = (i / len(params)) * 2 * np.pi
+                    # Calcular a posição radial (um pouco além do valor percentil)
+                    radius = values_p1[i] / 100 * 0.85  # Usar 85% do raio máximo
+                    
+                    # Formatação concisa do valor nominal
+                    if isinstance(nom_value, float):
+                        formatted_value = f"{nom_value:.1f}"
+                    else:
+                        formatted_value = f"{nom_value}"
+                        
+                    # Adicionar texto com o valor nominal
+                    ax.text(
+                        np.cos(angle) * (radius + 0.08), np.sin(angle) * (radius + 0.08),
+                        formatted_value,
+                        color='darkgreen', fontsize=7, ha='center', va='center',
+                        bbox=dict(facecolor='#EEFFEE', alpha=0.8, edgecolor='darkgreen', pad=1, boxstyle='round'),
+                        zorder=15
+                    )
+        except Exception as e:
+            print(f"Erro ao adicionar valores nominais: {str(e)}")
 
         # Remover grade e ticks
         ax.grid(False)
@@ -777,10 +805,10 @@ def create_comparison_pizza_chart(params, values_p1, values_p2=None, values_avg=
 
         # No gráfico de comparação não adicionamos logo
 
-        # Adicionar créditos na parte inferior
+        # Adicionar créditos no canto inferior direito em itálico
         fig.text(
-            0.5, 0.02, "made by Joao Alberto Kolling\ndata via WyScout/SkillCorner",
-            size=10, ha="center", color="#666666"
+            0.95, 0.02, "made by Joao Alberto Kolling\ndata via WyScout/SkillCorner",
+            size=8, ha="right", color="#666666", style='italic'
         )
         
         return fig
@@ -1195,10 +1223,10 @@ def create_similarity_viz(selected_player, similar_players, metrics, df, method=
                 # Título do radar
                 ax_radar.set_title(f"Percentile Radar Comparison with Most Similar Player", fontsize=12)
 
-        # Adicionar créditos na parte inferior
+        # Adicionar créditos no canto inferior direito em itálico
         fig.text(
-            0.5, 0.01, "made by Joao Alberto Kolling\ndata via WyScout/SkillCorner",
-            size=9, ha="center", color="#666666"
+            0.95, 0.01, "made by Joao Alberto Kolling\ndata via WyScout/SkillCorner",
+            size=8, ha="right", color="#666666", style='italic'
         )
 
         # Adjust spacing and layout - use larger bottom margin to fix the "bottom" error
@@ -1907,6 +1935,11 @@ if selected_leagues:
             values_p1_arg = p1pct if show_p1 else None
             values_p2_arg = p2pct if show_p2 else None
             values_avg_arg = gmpct if show_avg else None
+            
+            # Armazenar os valores nominais na sessão para uso no gráfico
+            st.session_state.nominal_values_p1 = [d1[m] for m in sel] if show_p1 else None
+            st.session_state.nominal_values_p2 = [d2[m] for m in sel] if show_p2 else None
+            
             # Flag para usar o chart comparativo para comparações entre jogadores ou jogador vs média
             use_comparison_chart = False
             if show_p1 and (show_p2 or show_avg):
