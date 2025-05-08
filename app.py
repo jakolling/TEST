@@ -568,6 +568,33 @@ def calc_percentile(series, value, benchmark_series=None):
     Returns:
         Percentile rank on 0-1 scale
     """
+    # IMPORTANTE: Usar o dataframe filtrado APENAS por minutos para cálculos de percentis
+    # Se df_percentiles está disponível na sessão, usamos ele em vez do dataframe filtrado
+    # (df_percentiles é filtrado apenas por minutos e mpg, NÃO por idade ou posição)
+    if 'df_percentiles' in st.session_state and benchmark_series is None:
+        metric_name = series.name
+        # Verificar se a métrica existe no dataframe de percentis
+        if metric_name in st.session_state.df_percentiles.columns:
+            # Usar a série da métrica no dataframe de percentis (sem filtros de idade/posição)
+            percentile_series = st.session_state.df_percentiles[metric_name]
+            # Aplicar o resto da lógica com a série filtrada corretamente
+            
+            # Se o valor é zero, verificamos se deve ser percentil 0 ou 0.5
+            if value == 0:
+                # Verificar se todos os valores são zero
+                check_series = percentile_series.dropna()
+                if len(check_series) > 0 and check_series.max() == 0:
+                    return 0.5  # Todos são zero
+                elif len(check_series) > 0 and check_series.max() > 0:
+                    return 0.0  # Existem valores maiores
+                    
+            # Calcular percentil de forma normal usando a série correta
+            calc_series = percentile_series.dropna()
+            if len(calc_series) == 0:
+                return 0.5
+            return (calc_series <= value).sum() / len(calc_series)
+    
+    # Fluxo original para casos onde não temos df_percentiles ou estamos usando benchmark
     # Se o valor é zero e assumimos que a métrica não pode ser negativa,
     # retornamos 0 como percentil, a menos que TODOS os valores sejam 0
     if value == 0:
@@ -2897,13 +2924,26 @@ if selected_leagues:
             if not df_filtered.empty:
                 df_minutes = df_filtered
 
-    # Cria dataframe para cálculos de grupo
+    # Cria dataframe para cálculos de grupo filtrando apenas por minutos jogados e minutos por jogo
+    # Não aplicamos filtros de idade e posição para os cálculos de percentis
+    df_percentiles = df.copy()
+    # Aplicar apenas filtros de minutos e mpg para percentis
+    df_percentiles = df_percentiles[df_percentiles['Minutes played'].between(*minutes_range)].copy()
+    # Calcular minutos por jogo
+    df_percentiles['Minutes per game'] = df_percentiles['Minutes played'] / df_percentiles['Matches played'].replace(0, np.nan)
+    df_percentiles['Minutes per game'] = df_percentiles['Minutes per game'].fillna(0).clip(0, 120)
+    df_percentiles = df_percentiles[df_percentiles['Minutes per game'].between(*mpg_range)]
+    
+    # Usar df_minutes apenas para exibição e seleção de jogadores (manter todos os filtros)
     if 'Position_split' in df_minutes.columns and sel_pos:
         df_group = df_minutes[df_minutes['Position_split'].apply(
             lambda x: any(pos in x for pos in sel_pos))]
     else:
         df_group = df_minutes.copy()
 
+    # Salvar o dataframe de percentis na sessão para uso em cálculos futuros
+    st.session_state.df_percentiles = df_percentiles
+    
     context = get_context_info(df_minutes, minutes_range, mpg_range, age_range,
                                sel_pos)
     players = sorted(df_minutes['Player'].unique())
