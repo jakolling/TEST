@@ -2195,13 +2195,23 @@ with st.sidebar.expander("📤 Upload Excel Files", expanded=True):
             st.session_state.cached_leagues = None
             st.session_state.data_needs_reload = True
             
-            # Limpar dicionário de arquivos carregados
-            st.session_state.uploaded_files = {}
+            # Inicializar dicionário de arquivos carregados se não existir
+            if 'uploaded_files' not in st.session_state:
+                st.session_state.uploaded_files = {}
+            
+            # Verificar se atingimos o limite de 15 ligas
+            current_league_count = len(st.session_state.uploaded_files)
+            max_leagues = 15
             
             with st.spinner("Processing uploaded files..."):
                 for file in uploaded_files:
                     # Verificar se este arquivo já foi processado
                     if file.name not in st.session_state.uploaded_files:
+                        # Verificar o limite de ligas
+                        if current_league_count >= max_leagues:
+                            st.warning(f"Maximum limit of {max_leagues} leagues reached. Remove some files to add more.")
+                            break
+                        
                         # Processar o arquivo
                         df, league_name = process_uploaded_file(file)
                         
@@ -2212,6 +2222,7 @@ with st.sidebar.expander("📤 Upload Excel Files", expanded=True):
                                 'league_name': league_name
                             }
                             st.success(f"Processed: {file.name} ({len(df)} players)")
+                            current_league_count += 1
             
             # Incrementar a chave para forçar o recarregamento do uploader (evita problemas com cache)
             st.session_state.file_upload_key += 1
@@ -2227,6 +2238,37 @@ with st.sidebar.expander("📤 Upload Excel Files", expanded=True):
         total_players = sum(len(info['df']) for info in st.session_state.uploaded_files.values())
         
         st.success(f"You have {len(st.session_state.uploaded_files)} files loaded ({total_players} players total)")
+        
+        # Mostrar tabela com arquivos carregados e opção de remover individualmente
+        file_names = list(st.session_state.uploaded_files.keys())
+        league_names = [st.session_state.uploaded_files[f]['league_name'] for f in file_names]
+        player_counts = [len(st.session_state.uploaded_files[f]['df']) for f in file_names]
+        
+        # Criar DataFrame para exibição
+        files_df = pd.DataFrame({
+            'File': file_names,
+            'League': league_names,
+            'Players': player_counts
+        })
+        
+        # Exibir tabela com os arquivos
+        st.dataframe(files_df)
+        
+        # Opção para remover arquivos específicos
+        remove_file = st.selectbox("Select file to remove", 
+                                  ["None"] + file_names,
+                                  index=0,
+                                  help="Select a file to remove from the loaded files")
+        
+        if remove_file != "None" and st.button(f"Remove '{remove_file}'"):
+            # Remover o arquivo do dicionário de arquivos
+            if remove_file in st.session_state.uploaded_files:
+                del st.session_state.uploaded_files[remove_file]
+                st.session_state.cached_df = None
+                st.session_state.cached_leagues = None
+                st.session_state.data_needs_reload = True
+                st.success(f"Removed file: {remove_file}")
+                st.rerun()
         
         # Permitir selecionar quais arquivos carregados usar
         selected_leagues = st.multiselect(
@@ -2593,7 +2635,10 @@ if selected_leagues:
         st.session_state.temp_positions = st.session_state.last_positions.copy() if st.session_state.last_positions else []
     
     # Inicializar o dataframe filtrado
-    df_minutes = df.copy()
+    # IMPORTANTE: Criamos duas cópias - uma para filtros de minutos apenas (para percentis)
+    # e outra para todos os filtros (para visualização)
+    df_percentiles = df.copy()  # Este será filtrado APENAS por minutos para cálculo de percentis
+    df_filtered = df.copy()     # Este será filtrado por todos os critérios para visualização
 
     # Carregar os valores atuais dos filtros
     try:
@@ -2837,54 +2882,79 @@ if selected_leagues:
     # Apenas processar os filtros quando o botão for clicado
     if apply_filters:
         with st.spinner("Processing filters..."):
-            # Filtrar por minutos jogados
+            # Criamos dois DataFrames:
+            # 1. df_percentiles - Filtrado APENAS por minutos e mpg para cálculo de percentis
+            # 2. df_filtered - Filtrado por TODOS os critérios para visualização
+            
+            # 1. Primeiro, filtrar ambos por minutos jogados (obrigatório para ambos)
             minutes_range = st.session_state.temp_minutes_range
-            df_minutes = df[df['Minutes played'].between(*minutes_range)].copy()
+            df_percentiles = df[df['Minutes played'].between(*minutes_range)].copy()
+            df_filtered = df_percentiles.copy()  # Começamos com o mesmo filtro
             
             # Verificar se temos jogadores após o filtro
-            if df_minutes.empty:
+            if df_percentiles.empty:
                 st.warning("No players match the selected minutes range. Using all players.")
-                df_minutes = df.copy()
+                df_percentiles = df.copy()
+                df_filtered = df.copy()
                 minutes_range = (min_min, max_min)
             
-            # Calcular minutos por jogo
-            df_minutes['Minutes per game'] = df_minutes['Minutes played'] / df_minutes['Matches played'].replace(0, np.nan)
-            df_minutes['Minutes per game'] = df_minutes['Minutes per game'].fillna(0).clip(0, 120)
+            # Calcular minutos por jogo para ambos
+            df_percentiles['Minutes per game'] = df_percentiles['Minutes played'] / df_percentiles['Matches played'].replace(0, np.nan)
+            df_percentiles['Minutes per game'] = df_percentiles['Minutes per game'].fillna(0).clip(0, 120)
+            df_filtered['Minutes per game'] = df_percentiles['Minutes per game'].copy()
             
-            # Filtrar por minutos por jogo
+            # Filtrar ambos por minutos por jogo (obrigatório para percentis)
             mpg_range = st.session_state.temp_mpg_range
-            df_filtered = df_minutes[df_minutes['Minutes per game'].between(*mpg_range)]
+            df_percentiles = df_percentiles[df_percentiles['Minutes per game'].between(*mpg_range)]
+            df_filtered = df_filtered[df_filtered['Minutes per game'].between(*mpg_range)]
             
             # Verificar se temos jogadores após o filtro
-            if df_filtered.empty:
+            if df_percentiles.empty:
                 st.warning("No players match the selected minutes per game range. Using previous filter.")
-                df_filtered = df_minutes
+                df_percentiles = df[df['Minutes played'].between(*minutes_range)].copy()
+                df_filtered = df_percentiles.copy()
                 mpg_range = (min_mpg, max_mpg)
-            else:
-                df_minutes = df_filtered
+                
+                # Recalcular minutos por jogo
+                df_percentiles['Minutes per game'] = df_percentiles['Minutes played'] / df_percentiles['Matches played'].replace(0, np.nan)
+                df_percentiles['Minutes per game'] = df_percentiles['Minutes per game'].fillna(0).clip(0, 120)
+                df_filtered['Minutes per game'] = df_percentiles['Minutes per game'].copy()
             
-            # Filtrar por idade
+            # Salvar o DataFrame de percentis (filtrado apenas por minutos e mpg)
+            # Este será usado no cálculo de percentis em vez do DataFrame totalmente filtrado
+            st.session_state.df_percentiles = df_percentiles.copy()
+            
+            # 2. Agora, aplicar filtros adicionais APENAS ao DataFrame de visualização
+            
+            # Filtrar por idade (apenas df_filtered)
             age_range = st.session_state.temp_age_range
-            df_filtered = df_minutes[df_minutes['Age'].between(*age_range)]
+            df_age_filtered = df_filtered[df_filtered['Age'].between(*age_range)]
             
             # Verificar se temos jogadores após o filtro
-            if df_filtered.empty:
+            if df_age_filtered.empty:
                 st.warning("No players match the selected age range. Using previous filter.")
                 age_range = (min_age, max_age)
             else:
-                df_minutes = df_filtered
+                df_filtered = df_age_filtered
             
-            # Filtrar por posição
+            # Filtrar por posição (apenas df_filtered)
             sel_pos = st.session_state.temp_positions
-            if 'Position' in df_minutes.columns and sel_pos:
-                df_minutes['Position_split'] = df_minutes['Position'].astype(str).apply(lambda x: [p.strip() for p in x.split(',')])
-                df_filtered = df_minutes[df_minutes['Position_split'].apply(lambda x: any(pos in x for pos in sel_pos))]
+            if 'Position' in df_filtered.columns and sel_pos:
+                df_filtered['Position_split'] = df_filtered['Position'].astype(str).apply(lambda x: [p.strip() for p in x.split(',')])
+                df_pos_filtered = df_filtered[df_filtered['Position_split'].apply(lambda x: any(pos in x for pos in sel_pos))]
                 
                 # Verificar se temos jogadores após o filtro
-                if df_filtered.empty:
+                if df_pos_filtered.empty:
                     st.warning("No players match the selected positions. Using previous filter.")
                 else:
-                    df_minutes = df_filtered
+                    df_filtered = df_pos_filtered
+            
+            # Mostrar informações sobre os filtros aplicados
+            st.success(f"Dataset for percentile calculation: {len(df_percentiles)} players")
+            st.success(f"Dataset for visualization (with age/position filters): {len(df_filtered)} players")
+            
+            # Salvar o DataFrame final filtrado para visualização
+            df_minutes = df_filtered
             
             # Salvar as seleções finais no session_state para persistência
             st.session_state.last_minutes_range = minutes_range
@@ -2924,25 +2994,27 @@ if selected_leagues:
             if not df_filtered.empty:
                 df_minutes = df_filtered
 
-    # Cria dataframe para cálculos de grupo filtrando apenas por minutos jogados e minutos por jogo
-    # Não aplicamos filtros de idade e posição para os cálculos de percentis
-    df_percentiles = df.copy()
-    # Aplicar apenas filtros de minutos e mpg para percentis
-    df_percentiles = df_percentiles[df_percentiles['Minutes played'].between(*minutes_range)].copy()
-    # Calcular minutos por jogo
-    df_percentiles['Minutes per game'] = df_percentiles['Minutes played'] / df_percentiles['Matches played'].replace(0, np.nan)
-    df_percentiles['Minutes per game'] = df_percentiles['Minutes per game'].fillna(0).clip(0, 120)
-    df_percentiles = df_percentiles[df_percentiles['Minutes per game'].between(*mpg_range)]
-    
     # Usar df_minutes apenas para exibição e seleção de jogadores (manter todos os filtros)
     if 'Position_split' in df_minutes.columns and sel_pos:
         df_group = df_minutes[df_minutes['Position_split'].apply(
             lambda x: any(pos in x for pos in sel_pos))]
     else:
         df_group = df_minutes.copy()
-
-    # Salvar o dataframe de percentis na sessão para uso em cálculos futuros
-    st.session_state.df_percentiles = df_percentiles
+    
+    # Verificar se temos o dataframe de percentis criado (deve ter sido criado no bloco "apply_filters")
+    if 'df_percentiles' not in st.session_state or st.session_state.df_percentiles is None:
+        # Se não foi criado ainda, criamos agora como fallback
+        st.warning("Creating percentile dataset using current filters (fallback mode)")
+        # Cria dataframe para cálculos de grupo filtrando apenas por minutos jogados e minutos por jogo
+        df_percentiles = df.copy()
+        # Aplicar apenas filtros de minutos e mpg para percentis
+        df_percentiles = df_percentiles[df_percentiles['Minutes played'].between(*minutes_range)].copy()
+        # Calcular minutos por jogo
+        df_percentiles['Minutes per game'] = df_percentiles['Minutes played'] / df_percentiles['Matches played'].replace(0, np.nan)
+        df_percentiles['Minutes per game'] = df_percentiles['Minutes per game'].fillna(0).clip(0, 120)
+        df_percentiles = df_percentiles[df_percentiles['Minutes per game'].between(*mpg_range)]
+        # Salvar o dataframe de percentis na sessão para uso em cálculos futuros
+        st.session_state.df_percentiles = df_percentiles
     
     context = get_context_info(df_minutes, minutes_range, mpg_range, age_range,
                                sel_pos)
