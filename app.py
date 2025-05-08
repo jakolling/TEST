@@ -2129,6 +2129,22 @@ with st.sidebar.expander("📤 Upload Excel Files", expanded=True):
             default=uploaded_leagues[:min(3, len(uploaded_leagues))]
         )
         
+        # Opção para escolher como calcular os percentis
+        if 'combine_leagues' not in st.session_state:
+            st.session_state.combine_leagues = True
+            
+        combine_leagues = st.checkbox(
+            "Combine all selected leagues into one dataset for percentile calculation",
+            value=st.session_state.combine_leagues,
+            help="When checked, all leagues are combined into one dataset and percentiles are calculated globally. When unchecked, percentiles are calculated separately within each league."
+        )
+        
+        # Atualizar o estado da sessão se houver mudança
+        if combine_leagues != st.session_state.combine_leagues:
+            st.session_state.combine_leagues = combine_leagues
+            st.session_state.cached_df = None  # Forçar recálculo
+            st.session_state.data_needs_reload = True
+        
         # Se todos os arquivos forem removidos, limpar o cache
         if not selected_leagues and st.session_state.uploaded_files:
             if st.button("Clear All Uploaded Files"):
