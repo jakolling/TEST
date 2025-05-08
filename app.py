@@ -2279,7 +2279,7 @@ with st.sidebar.expander("📤 Upload Excel Files", expanded=True):
         
         # Opção para escolher como calcular os percentis
         if 'combine_leagues' not in st.session_state:
-            st.session_state.combine_leagues = True
+            st.session_state.combine_leagues = False  # Alterado para False (padrão)
             
         combine_leagues = st.checkbox(
             "Combine all selected leagues into one dataset for percentile calculation",
@@ -2368,7 +2368,7 @@ if not st.session_state.uploaded_files:
 
     # Opção para escolher como calcular os percentis
     if 'combine_leagues' not in st.session_state:
-        st.session_state.combine_leagues = True
+        st.session_state.combine_leagues = False  # Alterado para False (padrão)
 
     combine_leagues = st.checkbox(
         "Combine all selected leagues into one dataset for percentile calculation",
