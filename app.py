@@ -7,6 +7,24 @@ st.set_page_config(page_title='Football Analytics',
                    layout='wide',
                    page_icon="⚽")
 
+# Inicializar session_state para nossas variáveis principais
+if 'saved_similarity_metrics' not in st.session_state:
+    st.session_state.saved_similarity_metrics = []
+
+if 'saved_bar_metrics' not in st.session_state:
+    st.session_state.saved_bar_metrics = []
+
+if 'saved_scatter_x_metric' not in st.session_state:
+    st.session_state.saved_scatter_x_metric = None
+
+if 'saved_scatter_y_metric' not in st.session_state:
+    st.session_state.saved_scatter_y_metric = None
+
+if 'benchmark_loaded' not in st.session_state:
+    st.session_state.benchmark_loaded = False
+    st.session_state.benchmark_df = None
+    st.session_state.benchmark_name = None
+
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -317,6 +335,19 @@ if 'last_age_range' not in st.session_state:
     st.session_state.last_age_range = [15, 40]
 if 'last_positions' not in st.session_state:
     st.session_state.last_positions = []
+    
+# Inicializar variáveis temporárias para filtros com valores baseados nos filtros atuais
+if 'temp_minutes_range' not in st.session_state:
+    st.session_state.temp_minutes_range = st.session_state.last_minutes_range
+
+if 'temp_mpg_range' not in st.session_state:
+    st.session_state.temp_mpg_range = st.session_state.last_mpg_range
+    
+if 'temp_age_range' not in st.session_state:
+    st.session_state.temp_age_range = st.session_state.last_age_range
+    
+if 'temp_positions' not in st.session_state:
+    st.session_state.temp_positions = st.session_state.last_positions.copy() if st.session_state.last_positions else []
 
 # Variáveis para Pizza Chart
 if 'saved_pizza_p1' not in st.session_state:
@@ -2473,128 +2504,224 @@ if selected_leagues:
             f"Required columns are missing: {', '.join(missing_cols)}")
         st.stop()
 
-    # Filtros Principais (com validação)
+    # Adicionar controle para processamento de filtros
+    st.sidebar.subheader("Player Filters")
+    
+    # Inicializar variáveis para armazenar as seleções temporárias
+    if 'temp_minutes_range' not in st.session_state:
+        st.session_state.temp_minutes_range = st.session_state.last_minutes_range
+    if 'temp_mpg_range' not in st.session_state:
+        st.session_state.temp_mpg_range = st.session_state.last_mpg_range
+    if 'temp_age_range' not in st.session_state:
+        st.session_state.temp_age_range = st.session_state.last_age_range
+    if 'temp_positions' not in st.session_state:
+        st.session_state.temp_positions = st.session_state.last_positions.copy() if st.session_state.last_positions else []
+    
+    # Inicializar o dataframe filtrado
+    df_minutes = df.copy()
+
+    # Carregar os valores atuais dos filtros
     try:
-        min_min, max_min = int(df['Minutes played'].min()), int(
-            df['Minutes played'].max())
+        # Filtro de minutos jogados
+        min_min, max_min = int(df['Minutes played'].min()), int(df['Minutes played'].max())
         
-        # Usar valores salvos no session_state se estiverem dentro do intervalo válido
-        default_minutes = st.session_state.last_minutes_range
+        # Usar valores temporários salvos
+        default_minutes = st.session_state.temp_minutes_range
         if default_minutes[0] < min_min or default_minutes[1] > max_min:
             default_minutes = (min_min, max_min)
+            st.session_state.temp_minutes_range = default_minutes
         
-        minutes_range = st.sidebar.slider('Minutes Played', min_min, max_min,
-                                          default_minutes)
-        df_minutes = df[df['Minutes played'].between(*minutes_range)].copy()
-
-        # Verificar se temos jogadores após o filtro
-        if df_minutes.empty:
-            st.warning(
-                "No players match the selected minutes range. Using all players."
-            )
-            df_minutes = df.copy()
-            minutes_range = (min_min, max_min)
+        # Slider para minutos sem filtrar automaticamente
+        temp_minutes_range = st.sidebar.slider(
+            'Minutes Played', 
+            min_min, max_min,
+            default_minutes,
+            key="minutes_slider"
+        )
+        # Armazenar valor temporário
+        st.session_state.temp_minutes_range = temp_minutes_range
         
-        # Salvar a seleção atual no session_state
-        st.session_state.last_minutes_range = minutes_range
     except Exception as e:
-        st.error(f"Error filtering by minutes: {str(e)}")
-        df_minutes = df.copy()
-        minutes_range = (min_min, max_min)
-        st.session_state.last_minutes_range = minutes_range
-
+        st.error(f"Error setting up minutes slider: {str(e)}")
+        min_min, max_min = 0, 9000
+        st.session_state.temp_minutes_range = (min_min, max_min)
+    
     # Calcular minutos por jogo com tratamento adequado para divisão por zero
     try:
-        df_minutes['Minutes per game'] = df_minutes[
-            'Minutes played'] / df_minutes['Matches played'].replace(
-                0, np.nan)
-        df_minutes['Minutes per game'] = df_minutes['Minutes per game'].fillna(
-            0).clip(0, 120)
-
-        min_mpg, max_mpg = int(df_minutes['Minutes per game'].min()), int(
-            df_minutes['Minutes per game'].max())
+        # Criar cópia temporária para calcular MPG
+        temp_df = df.copy()
+        temp_df['Minutes per game'] = temp_df['Minutes played'] / temp_df['Matches played'].replace(0, np.nan)
+        temp_df['Minutes per game'] = temp_df['Minutes per game'].fillna(0).clip(0, 120)
         
-        # Usar valores salvos no session_state se estiverem dentro do intervalo válido
-        default_mpg = st.session_state.last_mpg_range
+        min_mpg, max_mpg = int(temp_df['Minutes per game'].min()), int(temp_df['Minutes per game'].max())
+        
+        # Usar valores temporários salvos
+        default_mpg = st.session_state.temp_mpg_range
         if default_mpg[0] < min_mpg or default_mpg[1] > max_mpg:
             default_mpg = (min_mpg, max_mpg)
-            
-        mpg_range = st.sidebar.slider('Minutes per Game', min_mpg, max_mpg,
-                                      default_mpg)
-        df_filtered = df_minutes[df_minutes['Minutes per game'].between(
-            *mpg_range)]
-
-        # Verificar se ainda temos jogadores
-        if df_filtered.empty:
-            st.warning(
-                "No players match the selected minutes per game range. Using previous filter."
-            )
-            df_filtered = df_minutes
-            mpg_range = (min_mpg, max_mpg)
-        else:
-            df_minutes = df_filtered
-            
-        # Salvar a seleção atual no session_state
-        st.session_state.last_mpg_range = mpg_range
+            st.session_state.temp_mpg_range = default_mpg
+        
+        # Slider para MPG sem filtrar automaticamente
+        temp_mpg_range = st.sidebar.slider(
+            'Minutes per Game', 
+            min_mpg, max_mpg,
+            default_mpg,
+            key="mpg_slider"
+        )
+        # Armazenar valor temporário
+        st.session_state.temp_mpg_range = temp_mpg_range
+        
     except Exception as e:
-        st.error(f"Error calculating minutes per game: {str(e)}")
-        mpg_range = (0, 120)
-        st.session_state.last_mpg_range = mpg_range
-
+        st.error(f"Error setting up minutes per game slider: {str(e)}")
+        min_mpg, max_mpg = 0, 120
+        st.session_state.temp_mpg_range = (min_mpg, max_mpg)
+    
     # Filtro de idade
     try:
         # Forçar mínimo de 15 anos para incluir jovens como Lamine Yamal
-        data_min_age = int(df_minutes['Age'].min())
+        data_min_age = int(df['Age'].min())
         min_age = min(data_min_age, 15)  # Usa 15 ou o valor mínimo dos dados, o que for menor
-        max_age = int(df_minutes['Age'].max())
-            
-        # Usar valores salvos no session_state se estiverem dentro do intervalo válido
-        default_age = st.session_state.last_age_range
+        max_age = int(df['Age'].max())
+        
+        # Usar valores temporários salvos
+        default_age = st.session_state.temp_age_range
         if default_age[0] < min_age or default_age[1] > max_age:
             default_age = (min_age, max_age)
-            
-        age_range = st.sidebar.slider('Age Range', min_age, max_age,
-                                      default_age)
-        df_filtered = df_minutes[df_minutes['Age'].between(*age_range)]
-
-        # Verificar se ainda temos jogadores
-        if df_filtered.empty:
-            st.warning(
-                "No players match the selected age range. Using previous filter."
-            )
-            age_range = (min_age, max_age)
-        else:
-            df_minutes = df_filtered
-            
-        # Salvar a seleção atual no session_state
-        st.session_state.last_age_range = age_range
+            st.session_state.temp_age_range = default_age
+        
+        # Slider para idade sem filtrar automaticamente
+        temp_age_range = st.sidebar.slider(
+            'Age Range', 
+            min_age, max_age,
+            default_age,
+            key="age_slider"
+        )
+        # Armazenar valor temporário
+        st.session_state.temp_age_range = temp_age_range
+        
     except Exception as e:
-        st.error(f"Error filtering by age: {str(e)}")
-        age_range = (15, 40)  # Valores padrão seguros
-        st.session_state.last_age_range = age_range
-
+        st.error(f"Error setting up age slider: {str(e)}")
+        min_age, max_age = 15, 40
+        st.session_state.temp_age_range = (min_age, max_age)
+    
     # Coleta posições
-    if 'Position' in df_minutes.columns:
-        df_minutes['Position_split'] = df_minutes['Position'].astype(
-            str).apply(lambda x: [p.strip() for p in x.split(',')])
-        all_pos = sorted(
-            {p
-             for lst in df_minutes['Position_split']
-             for p in lst})
-             
-        # Verificar se há posições salvas e se elas ainda são válidas
-        if st.session_state.last_positions and all(pos in all_pos for pos in st.session_state.last_positions):
-            default_positions = st.session_state.last_positions
+    if 'Position' in df.columns:
+        # Criar um conjunto de todas as posições disponíveis
+        all_positions = set()
+        for pos_list in df['Position'].astype(str).apply(lambda x: [p.strip() for p in x.split(',')]):
+            all_positions.update(pos_list)
+        
+        all_pos = sorted(all_positions)
+        
+        # Verificar se há posições temporárias salvas e se elas ainda são válidas
+        if st.session_state.temp_positions and all(pos in all_pos for pos in st.session_state.temp_positions):
+            default_positions = st.session_state.temp_positions
         else:
             default_positions = all_pos
-            
-        sel_pos = st.sidebar.multiselect('Positions', all_pos, default=default_positions)
+            st.session_state.temp_positions = default_positions
         
-        # Salvar a seleção atual no session_state
-        st.session_state.last_positions = sel_pos
+        # Multiselect para posições sem filtrar automaticamente
+        temp_sel_pos = st.sidebar.multiselect('Positions', all_pos, default=default_positions, key="positions_select")
+        
+        # Armazenar valor temporário
+        st.session_state.temp_positions = temp_sel_pos
     else:
-        sel_pos = []
-        st.session_state.last_positions = []
+        all_pos = []
+        temp_sel_pos = []
+        st.session_state.temp_positions = []
+    
+    # Botão para aplicar todos os filtros
+    apply_filters = st.sidebar.button("Apply Filters", key="apply_filters_button")
+    
+    # Apenas processar os filtros quando o botão for clicado
+    if apply_filters:
+        with st.spinner("Processing filters..."):
+            # Filtrar por minutos jogados
+            minutes_range = st.session_state.temp_minutes_range
+            df_minutes = df[df['Minutes played'].between(*minutes_range)].copy()
+            
+            # Verificar se temos jogadores após o filtro
+            if df_minutes.empty:
+                st.warning("No players match the selected minutes range. Using all players.")
+                df_minutes = df.copy()
+                minutes_range = (min_min, max_min)
+            
+            # Calcular minutos por jogo
+            df_minutes['Minutes per game'] = df_minutes['Minutes played'] / df_minutes['Matches played'].replace(0, np.nan)
+            df_minutes['Minutes per game'] = df_minutes['Minutes per game'].fillna(0).clip(0, 120)
+            
+            # Filtrar por minutos por jogo
+            mpg_range = st.session_state.temp_mpg_range
+            df_filtered = df_minutes[df_minutes['Minutes per game'].between(*mpg_range)]
+            
+            # Verificar se temos jogadores após o filtro
+            if df_filtered.empty:
+                st.warning("No players match the selected minutes per game range. Using previous filter.")
+                df_filtered = df_minutes
+                mpg_range = (min_mpg, max_mpg)
+            else:
+                df_minutes = df_filtered
+            
+            # Filtrar por idade
+            age_range = st.session_state.temp_age_range
+            df_filtered = df_minutes[df_minutes['Age'].between(*age_range)]
+            
+            # Verificar se temos jogadores após o filtro
+            if df_filtered.empty:
+                st.warning("No players match the selected age range. Using previous filter.")
+                age_range = (min_age, max_age)
+            else:
+                df_minutes = df_filtered
+            
+            # Filtrar por posição
+            sel_pos = st.session_state.temp_positions
+            if 'Position' in df_minutes.columns and sel_pos:
+                df_minutes['Position_split'] = df_minutes['Position'].astype(str).apply(lambda x: [p.strip() for p in x.split(',')])
+                df_filtered = df_minutes[df_minutes['Position_split'].apply(lambda x: any(pos in x for pos in sel_pos))]
+                
+                # Verificar se temos jogadores após o filtro
+                if df_filtered.empty:
+                    st.warning("No players match the selected positions. Using previous filter.")
+                else:
+                    df_minutes = df_filtered
+            
+            # Salvar as seleções finais no session_state para persistência
+            st.session_state.last_minutes_range = minutes_range
+            st.session_state.last_mpg_range = mpg_range
+            st.session_state.last_age_range = age_range
+            st.session_state.last_positions = sel_pos
+            
+            # Feedback ao usuário
+            st.sidebar.success(f"Filters applied: {len(df_minutes)} players match the criteria")
+    else:
+        # Se os filtros não foram aplicados, usar os últimos filtros válidos
+        # Filtrar por minutos jogados
+        minutes_range = st.session_state.last_minutes_range
+        df_minutes = df[df['Minutes played'].between(*minutes_range)].copy()
+        
+        # Calcular minutos por jogo
+        df_minutes['Minutes per game'] = df_minutes['Minutes played'] / df_minutes['Matches played'].replace(0, np.nan)
+        df_minutes['Minutes per game'] = df_minutes['Minutes per game'].fillna(0).clip(0, 120)
+        
+        # Filtrar por minutos por jogo
+        mpg_range = st.session_state.last_mpg_range
+        df_filtered = df_minutes[df_minutes['Minutes per game'].between(*mpg_range)]
+        if not df_filtered.empty:
+            df_minutes = df_filtered
+        
+        # Filtrar por idade
+        age_range = st.session_state.last_age_range
+        df_filtered = df_minutes[df_minutes['Age'].between(*age_range)]
+        if not df_filtered.empty:
+            df_minutes = df_filtered
+        
+        # Filtrar por posição
+        sel_pos = st.session_state.last_positions
+        if 'Position' in df_minutes.columns and sel_pos:
+            df_minutes['Position_split'] = df_minutes['Position'].astype(str).apply(lambda x: [p.strip() for p in x.split(',')])
+            df_filtered = df_minutes[df_minutes['Position_split'].apply(lambda x: any(pos in x for pos in sel_pos))]
+            if not df_filtered.empty:
+                df_minutes = df_filtered
 
     # Cria dataframe para cálculos de grupo
     if 'Position_split' in df_minutes.columns and sel_pos:
@@ -2823,19 +2950,35 @@ if selected_leagues:
                     m for m in st.session_state.saved_pizza_metrics
                     if m in metric_cols
                 ]
-                default_metrics = valid_metrics if valid_metrics else metric_cols[:
-                                                                                  9]
+                default_metrics = valid_metrics if valid_metrics else metric_cols[:9]
             else:
                 default_metrics = metric_cols[:9]
-
-            # Let user select metrics manually
-            sel = st.multiselect('Metrics for Pizza Chart (6-15)',
-                                 metric_cols,
-                                 default=default_metrics,
-                                 key="pizza_custom_metrics")
-
-        # Guardar as métricas selecionadas na session_state para uso futuro
-        st.session_state.saved_pizza_metrics = sel
+                
+            # Criar variáveis temporárias para seleção de métricas
+            if 'temp_pizza_metrics' not in st.session_state:
+                st.session_state.temp_pizza_metrics = default_metrics
+                
+            # Let user select metrics manually (sem aplicar imediatamente)
+            temp_metrics = st.multiselect(
+                'Metrics for Pizza Chart (6-15)',
+                metric_cols,
+                default=st.session_state.temp_pizza_metrics,
+                key="pizza_temp_metrics"
+            )
+            
+            # Atualizar a seleção temporária
+            st.session_state.temp_pizza_metrics = temp_metrics
+            
+            # Botão para aplicar as métricas selecionadas
+            apply_metrics = st.button("Apply Selected Metrics", key="apply_pizza_metrics")
+            
+            if apply_metrics:
+                # Aplicar as métricas selecionadas
+                st.session_state.saved_pizza_metrics = st.session_state.temp_pizza_metrics
+                st.rerun()
+            
+            # Usar as métricas já confirmadas para o processamento
+            sel = st.session_state.saved_pizza_metrics
 
         if 6 <= len(sel) <= 15:
             # Dados do jogador 1 (sempre da base principal)
@@ -3223,18 +3366,35 @@ if selected_leagues:
                     m for m in st.session_state.saved_bar_metrics
                     if m in metric_cols
                 ]
-                default_metrics = valid_metrics if valid_metrics else metric_cols[:
-                                                                                  1]
+                default_metrics = valid_metrics if valid_metrics else metric_cols[:1]
             else:
                 default_metrics = metric_cols[:1]
-
-            selected_metrics = st.multiselect('Select metrics (max 5)',
-                                              metric_cols,
-                                              default=default_metrics,
-                                              key='bar_metrics')
-
-            # Guardar as métricas selecionadas na session_state para uso futuro
-            st.session_state.saved_bar_metrics = selected_metrics
+                
+            # Criar variáveis temporárias para seleção de métricas
+            if 'temp_bar_metrics' not in st.session_state:
+                st.session_state.temp_bar_metrics = default_metrics
+                
+            # Let user select metrics manually (sem aplicar imediatamente)
+            temp_metrics = st.multiselect(
+                'Select metrics (max 5)',
+                metric_cols,
+                default=st.session_state.temp_bar_metrics,
+                key="bar_temp_metrics"
+            )
+            
+            # Atualizar a seleção temporária
+            st.session_state.temp_bar_metrics = temp_metrics
+            
+            # Botão para aplicar as métricas selecionadas
+            apply_metrics = st.button("Apply Selected Metrics", key="apply_bar_metrics")
+            
+            if apply_metrics:
+                # Aplicar as métricas selecionadas
+                st.session_state.saved_bar_metrics = st.session_state.temp_bar_metrics
+                st.rerun()
+            
+            # Usar as métricas já confirmadas para o processamento
+            selected_metrics = st.session_state.saved_bar_metrics
 
             if len(selected_metrics) > 5:
                 st.error("Maximum 5 metrics allowed!")
@@ -3697,21 +3857,57 @@ if selected_leagues:
                     ]
                     preset_metrics.extend(available_metrics)
 
+                # Criar variáveis temporárias para armazenar métricas
+                if 'temp_sim_metrics' not in st.session_state:
+                    st.session_state.temp_sim_metrics = preset_metrics
+                
                 # Allow further customization
-                sim_metric_options = st.multiselect(
+                temp_metrics = st.multiselect(
                     'Add or Remove Individual Metrics',
                     metric_cols,
-                    default=preset_metrics,
-                    key="similarity_preset_metrics"  # Adicionando chave única
+                    default=st.session_state.temp_sim_metrics,
+                    key="similarity_temp_metrics"
                 )
+                
+                # Atualizar a seleção temporária
+                st.session_state.temp_sim_metrics = temp_metrics
+                
+                # Botão para aplicar as métricas selecionadas
+                apply_metrics = st.button("Apply Selected Metrics", key="apply_sim_preset_metrics")
+                
+                if apply_metrics:
+                    # Aplicar as métricas selecionadas
+                    st.session_state.saved_similarity_metrics = st.session_state.temp_sim_metrics
+                    st.rerun()
+                
+                # Usar as métricas já confirmadas para o processamento
+                sim_metric_options = st.session_state.saved_similarity_metrics
             else:
+                # Criar variáveis temporárias para armazenar métricas custom
+                if 'temp_sim_custom_metrics' not in st.session_state:
+                    st.session_state.temp_sim_custom_metrics = metric_cols[:min(8, len(metric_cols))]
+                
                 # Let user select metrics manually
-                sim_metric_options = st.multiselect(
+                temp_metrics = st.multiselect(
                     'Choose Individual Metrics (6-15 recommended for PCA)',
                     metric_cols,
-                    default=metric_cols[:min(8, len(metric_cols))],
-                    key="similarity_custom_metrics"  # Adicionando chave única
+                    default=st.session_state.temp_sim_custom_metrics,
+                    key="similarity_temp_custom_metrics"
                 )
+                
+                # Atualizar a seleção temporária
+                st.session_state.temp_sim_custom_metrics = temp_metrics
+                
+                # Botão para aplicar as métricas selecionadas
+                apply_metrics = st.button("Apply Selected Metrics", key="apply_sim_custom_metrics")
+                
+                if apply_metrics:
+                    # Aplicar as métricas selecionadas
+                    st.session_state.saved_similarity_metrics = st.session_state.temp_sim_custom_metrics
+                    st.rerun()
+                
+                # Usar as métricas já confirmadas para o processamento
+                sim_metric_options = st.session_state.saved_similarity_metrics
 
             # Advanced options in expander
             with st.expander("Advanced Filtering Options", expanded=False):
