@@ -2557,14 +2557,32 @@ if selected_leagues:
             default_minutes = (min_min, max_min)
             st.session_state.temp_minutes_range = default_minutes
         
-        # Slider para minutos sem filtrar automaticamente
-        temp_minutes_range = st.sidebar.slider(
-            'Minutes Played', 
-            min_min, max_min,
-            default_minutes,
-            key="minutes_slider"
-        )
-        # Armazenar valor temporário
+        # Caixas de texto para entrada direta de valores de minutos
+        st.sidebar.subheader("Minutes Played")
+        col1, col2 = st.sidebar.columns(2)
+        
+        with col1:
+            min_minutes_input = st.number_input(
+                "Min", 
+                min_value=min_min, 
+                max_value=max_min, 
+                value=default_minutes[0], 
+                step=50,
+                key="min_minutes_input"
+            )
+        
+        with col2:
+            max_minutes_input = st.number_input(
+                "Max", 
+                min_value=min_min, 
+                max_value=max_min, 
+                value=default_minutes[1], 
+                step=50,
+                key="max_minutes_input"
+            )
+            
+        # Armazenar valores temporários
+        temp_minutes_range = (min_minutes_input, max_minutes_input)
         st.session_state.temp_minutes_range = temp_minutes_range
         
     except Exception as e:
@@ -2587,14 +2605,32 @@ if selected_leagues:
             default_mpg = (min_mpg, max_mpg)
             st.session_state.temp_mpg_range = default_mpg
         
-        # Slider para MPG sem filtrar automaticamente
-        temp_mpg_range = st.sidebar.slider(
-            'Minutes per Game', 
-            min_mpg, max_mpg,
-            default_mpg,
-            key="mpg_slider"
-        )
-        # Armazenar valor temporário
+        # Caixas de texto para entrada direta de valores de minutos por jogo
+        st.sidebar.subheader("Minutes per Game")
+        col1, col2 = st.sidebar.columns(2)
+        
+        with col1:
+            min_mpg_input = st.number_input(
+                "Min", 
+                min_value=min_mpg, 
+                max_value=max_mpg, 
+                value=default_mpg[0], 
+                step=5,
+                key="min_mpg_input"
+            )
+        
+        with col2:
+            max_mpg_input = st.number_input(
+                "Max", 
+                min_value=min_mpg, 
+                max_value=max_mpg, 
+                value=default_mpg[1], 
+                step=5,
+                key="max_mpg_input"
+            )
+            
+        # Armazenar valores temporários
+        temp_mpg_range = (min_mpg_input, max_mpg_input)
         st.session_state.temp_mpg_range = temp_mpg_range
         
     except Exception as e:
@@ -2615,14 +2651,32 @@ if selected_leagues:
             default_age = (min_age, max_age)
             st.session_state.temp_age_range = default_age
         
-        # Slider para idade sem filtrar automaticamente
-        temp_age_range = st.sidebar.slider(
-            'Age Range', 
-            min_age, max_age,
-            default_age,
-            key="age_slider"
-        )
-        # Armazenar valor temporário
+        # Caixas de texto para entrada direta de valores de idade
+        st.sidebar.subheader("Age Range")
+        col1, col2 = st.sidebar.columns(2)
+        
+        with col1:
+            min_age_input = st.number_input(
+                "Min", 
+                min_value=min_age, 
+                max_value=max_age, 
+                value=default_age[0], 
+                step=1,
+                key="min_age_input"
+            )
+        
+        with col2:
+            max_age_input = st.number_input(
+                "Max", 
+                min_value=min_age, 
+                max_value=max_age, 
+                value=default_age[1], 
+                step=1,
+                key="max_age_input"
+            )
+            
+        # Armazenar valores temporários
+        temp_age_range = (min_age_input, max_age_input)
         st.session_state.temp_age_range = temp_age_range
         
     except Exception as e:
