@@ -2911,7 +2911,7 @@ if selected_leagues:
     # Create tabs for different analyses
     tabs = st.tabs([
         'Pizza Chart', 'Bars', 'Scatter', 'Similarity', 'Correlation',
-        'Composite Index (PCA)', 'Profiler'
+        'Composite Index (PCA)', 'Profiler', 'Custom Metrics Groups'
     ])
 
     # =============================================
@@ -5169,6 +5169,48 @@ if selected_leagues:
                     @st.cache_data
                     def convert_df_to_csv(df):
                         return df.to_csv(index=False).encode('utf-8')
+                    
+                    @st.cache_data
+                    def save_metrics_group_to_csv(group_name, metrics_list):
+                        """
+                        Salva um grupo de métricas como CSV para download
+                        
+                        Args:
+                            group_name: Nome do grupo de métricas
+                            metrics_list: Lista de métricas no grupo
+                            
+                        Returns:
+                            CSV string
+                        """
+                        # Criar DataFrame com o nome do grupo e as métricas
+                        metrics_df = pd.DataFrame({
+                            'group_name': [group_name] * len(metrics_list),
+                            'metric_name': metrics_list
+                        })
+                        
+                        return metrics_df.to_csv(index=False).encode('utf-8')
+                    
+                    def load_metrics_from_csv(uploaded_file):
+                        """
+                        Carrega métricas de um arquivo CSV
+                        
+                        Args:
+                            uploaded_file: Arquivo CSV carregado via st.file_uploader
+                            
+                        Returns:
+                            tuple: (nome do grupo, lista de métricas)
+                        """
+                        try:
+                            metrics_df = pd.read_csv(uploaded_file)
+                            if 'group_name' in metrics_df.columns and 'metric_name' in metrics_df.columns:
+                                group_name = metrics_df['group_name'].iloc[0]
+                                metrics_list = metrics_df['metric_name'].tolist()
+                                return group_name, metrics_list
+                            else:
+                                return None, []
+                        except Exception as e:
+                            st.error(f"Error loading metrics file: {e}")
+                            return None, []
 
                     csv = convert_df_to_csv(pca_df)
 
@@ -5491,6 +5533,150 @@ if selected_leagues:
                 except Exception as e:
                     st.error(f"Error in profiler: {str(e)}")
                     st.exception(e)
+        
+        # =============================================
+        # Custom Metrics Groups (Aba 8)
+        # =============================================
+        with tabs[7]:
+            st.header('Custom Metrics Groups')
+            st.subheader('Create, save and load your own metric groups')
+            
+            # Explicação sobre a funcionalidade
+            st.info("""
+            This tab allows you to create your own custom metric groups that can be saved as CSV files and loaded later.
+            Custom metric groups can be used in Pizza Charts, Bar Charts, and all other visualizations just like the pre-defined groups.
+            """)
+            
+            # Divisão em duas colunas
+            col1, col2 = st.columns(2)
+            
+            # Coluna 1: Criar e salvar grupos personalizados
+            with col1:
+                st.subheader("Create Custom Metric Group")
+                
+                # Nome do grupo personalizado
+                custom_group_name = st.text_input(
+                    "Enter a name for your custom metric group",
+                    value="My Custom Group",
+                    key="custom_group_name"
+                )
+                
+                # Selecionar métricas para o grupo
+                custom_metrics = st.multiselect(
+                    "Select metrics for your custom group",
+                    metric_cols,
+                    key="custom_metrics_selection"
+                )
+                
+                # Botão para salvar o grupo como CSV
+                if st.button("Save Metric Group as CSV", key="save_metric_group"):
+                    if not custom_metrics:
+                        st.error("Please select at least one metric for your custom group.")
+                    else:
+                        # Salvar grupo como CSV para download
+                        # Criar DataFrame com o nome do grupo e as métricas
+                        metrics_df = pd.DataFrame({
+                            'group_name': [custom_group_name] * len(custom_metrics),
+                            'metric_name': custom_metrics
+                        })
+                        
+                        # Converter para CSV
+                        csv_data = metrics_df.to_csv(index=False).encode('utf-8')
+                        file_name = f"{custom_group_name.replace(' ', '_').lower()}_metrics.csv"
+                        
+                        st.download_button(
+                            "⬇️ Download Metrics Group",
+                            csv_data,
+                            file_name,
+                            "text/csv",
+                            key="download_metrics_group"
+                        )
+                        
+                        st.success(f"Metric group '{custom_group_name}' with {len(custom_metrics)} metrics is ready for download.")
+            
+            # Coluna 2: Carregar grupos personalizados
+            with col2:
+                st.subheader("Load Custom Metric Group")
+                
+                # Upload de arquivo CSV
+                uploaded_file = st.file_uploader(
+                    "Upload a metrics group CSV file",
+                    type=["csv"],
+                    key="metrics_group_uploader"
+                )
+                
+                if uploaded_file is not None:
+                    # Processar arquivo carregado
+                    try:
+                        metrics_df = pd.read_csv(uploaded_file)
+                        if 'group_name' in metrics_df.columns and 'metric_name' in metrics_df.columns:
+                            group_name = metrics_df['group_name'].iloc[0]
+                            metrics_list = metrics_df['metric_name'].tolist()
+                            
+                            # Mostrar informações do grupo carregado
+                            st.success(f"Successfully loaded '{group_name}' with {len(metrics_list)} metrics.")
+                            
+                            # Verificar quais métricas estão disponíveis no dataset atual
+                            available_metrics = [m for m in metrics_list if m in metric_cols]
+                            unavailable_metrics = [m for m in metrics_list if m not in metric_cols]
+                            
+                            if len(unavailable_metrics) > 0:
+                                st.warning(f"{len(unavailable_metrics)} metrics from this group are not available in the current dataset and will be ignored.")
+                            
+                            # Mostrar as métricas do grupo
+                            st.subheader(f"Metrics in '{group_name}'")
+                            
+                            # Criar duas colunas para exibir métricas disponíveis e indisponíveis
+                            metrics_col1, metrics_col2 = st.columns(2)
+                            
+                            with metrics_col1:
+                                st.markdown("**Available Metrics:**")
+                                for m in available_metrics:
+                                    st.markdown(f"- {m}")
+                            
+                            if unavailable_metrics:
+                                with metrics_col2:
+                                    st.markdown("**Unavailable Metrics:**")
+                                    for m in unavailable_metrics:
+                                        st.markdown(f"- {m}")
+                            
+                            # Botão para aplicar o grupo às métricas selecionadas
+                            if st.button("Apply This Metrics Group", key="apply_loaded_group"):
+                                if available_metrics:
+                                    # Adicionar o grupo personalizado carregado ao dicionário de grupos de métricas
+                                    pizza_metric_groups[group_name] = available_metrics
+                                    
+                                    # Atualizar a variável para o modo de seleção de métricas
+                                    st.session_state.temp_pizza_preset_metrics = available_metrics
+                                    st.session_state.saved_pizza_metrics = available_metrics
+                                    
+                                    # Mostrar mensagem de sucesso
+                                    st.success(f"Group '{group_name}' has been added to available metric groups and can now be used in visualizations!")
+                                    
+                                    # Instruções para usar o grupo
+                                    st.info("Go to the Pizza Chart or Bars tab, select 'Use Metric Presets' and you will see your custom group in the dropdown list.")
+                                else:
+                                    st.error("No available metrics in this group for the current dataset.")
+                        else:
+                            st.error("Invalid metrics group file. Please upload a valid CSV file with 'group_name' and 'metric_name' columns.")
+                    except Exception as e:
+                        st.error(f"Error loading metrics file: {e}")
+                
+            # Preview dos grupos existentes
+            st.subheader("Preview Existing Metric Groups")
+            
+            # Exibir grupos existentes em formato de tabela para referência
+            groups_data = []
+            for group_name, metrics in pizza_metric_groups.items():
+                groups_data.append({
+                    "Group Name": group_name,
+                    "Number of Metrics": len(metrics),
+                    "Example Metrics": ", ".join(metrics[:3]) + ("..." if len(metrics) > 3 else "")
+                })
+                
+            groups_df = pd.DataFrame(groups_data)
+            st.dataframe(groups_df)
+
 else:
     st.info("👈 Please upload Wyscout Excel files to begin analysis")
 
