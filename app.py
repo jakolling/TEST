@@ -3008,6 +3008,12 @@ if selected_leagues:
                     st.warning("No second player available")
                     p2 = None
 
+        # Carregar grupos personalizados salvos na sessão
+        if 'custom_metric_groups' in st.session_state:
+            custom_groups = st.session_state.custom_metric_groups
+        else:
+            custom_groups = {}
+
         # Predefined metric groups for pizza charts
         pizza_metric_groups = {
             "Overall": [
@@ -3048,6 +3054,14 @@ if selected_leagues:
                 'Received passes per 90'
             ]
         }
+        
+        # Adicionar grupos personalizados salvos na session state
+        if 'custom_metric_groups' in st.session_state:
+            # Adicionar cada grupo personalizado ao dicionário de grupos de métricas
+            for group_name, metrics in st.session_state.custom_metric_groups.items():
+                # Garantir que não sobrescreva grupos existentes acidentalmente
+                if group_name not in pizza_metric_groups:
+                    pizza_metric_groups[group_name] = metrics
 
         # Let user select metric selection mode
         metric_selection_mode = st.radio(
@@ -3556,7 +3570,63 @@ if selected_leagues:
                     else:
                         st.warning("No second player available")
                         p2 = None
-
+                        
+            # Carregar grupos personalizados salvos na sessão
+            if 'custom_metric_groups' in st.session_state:
+                custom_groups = st.session_state.custom_metric_groups
+            else:
+                custom_groups = {}
+                
+            # Opção para usar grupos de métricas predefinidos
+            use_presets = st.checkbox("Use metric presets", key="bar_use_presets", value=False)
+            
+            if use_presets:
+                # Definir grupos predefinidos de métricas para comparação
+                bar_metric_groups = {
+                    "Offensive": [
+                        'Goals per 90', 'Shots per 90', 'xG per 90', 'npxG per 90',
+                        'G-xG', 'npxG per Shot', 'Box Efficiency'
+                    ],
+                    "Passing": [
+                        'Passes per 90', 'Accurate passes, %',
+                        'Forward passes per 90', 'Progressive passes per 90',
+                        'Key passes per 90'
+                    ],
+                    "Defensive": [
+                        'Interceptions per 90', 'Tackles per 90',
+                        'Defensive duels per 90', 'Aerial duels won per 90'
+                    ]
+                }
+                
+                # Adicionar grupos personalizados
+                for group_name, metrics in custom_groups.items():
+                    if group_name not in bar_metric_groups:
+                        bar_metric_groups[group_name] = metrics
+                
+                # Seleção de grupos de métricas
+                selected_groups = st.multiselect(
+                    "Select Metric Groups",
+                    list(bar_metric_groups.keys()),
+                    default=[list(bar_metric_groups.keys())[0]],
+                    key="bar_preset_groups")
+                
+                # Combinar todas as métricas dos grupos selecionados
+                preset_metrics = []
+                for group in selected_groups:
+                    # Adicionar apenas métricas que existem no dataframe
+                    available_metrics = [
+                        m for m in bar_metric_groups[group]
+                        if m in metric_cols
+                    ]
+                    preset_metrics.extend(available_metrics)
+                
+                # Remover duplicatas e limitar ao máximo de 5 métricas
+                preset_metrics = list(dict.fromkeys(preset_metrics))[:5]
+                
+                # Usar as métricas dos grupos para comparação
+                if preset_metrics:
+                    st.session_state.saved_bar_metrics = preset_metrics
+            
             # Definir métricas padrão com base na session_state ou primeiras métricas
             if 'saved_bar_metrics' in st.session_state and st.session_state.saved_bar_metrics:
                 # Filtrar para manter apenas métricas que ainda existem no dataframe
@@ -3700,39 +3770,138 @@ if selected_leagues:
                     key="scatter_use_benchmark")
             else:
                 include_benchmark = False
+                
+            # Carregar grupos personalizados salvos na sessão
+            if 'custom_metric_groups' in st.session_state:
+                custom_groups = st.session_state.custom_metric_groups
+            else:
+                custom_groups = {}
+                
+            # Define preset metric groups for scatter plot
+            scatter_metric_groups = {
+                "Offensive": [
+                    'Goals per 90', 'Shots per 90', 'xG per 90', 'npxG per 90',
+                    'Shots on target per 90', 'Successful dribbles per 90'
+                ],
+                "Passing": [
+                    'Passes per 90', 'Accurate passes, %',
+                    'Forward passes per 90', 'Progressive passes per 90',
+                    'Key passes per 90', 'Assists per 90', 'xA per 90'
+                ],
+                "Defensive": [
+                    'Interceptions per 90', 'Tackles per 90',
+                    'Defensive duels per 90', 'Aerial duels won per 90',
+                    'Recoveries per 90'
+                ],
+                "Physical": [
+                    'Accelerations per 90', 'Sprint distance per 90',
+                    'Distance covered per 90'
+                ],
+                "Advanced Metrics": [
+                    'npxG', 'G-xG', 'npxG per Shot', 'Box Efficiency'
+                ]
+            }
+            
+            # Adicionar grupos personalizados ao dicionário de grupos de métricas
+            for group_name, metrics in custom_groups.items():
+                if group_name not in scatter_metric_groups:
+                    scatter_metric_groups[group_name] = metrics
 
-            col1, col2 = st.columns(2)
-            with col1:
-                # Verificar se a métrica X anteriormente selecionada ainda está disponível
-                x_index = 0
-                if st.session_state.saved_scatter_x_metric in metric_cols:
-                    x_index = metric_cols.index(
-                        st.session_state.saved_scatter_x_metric)
+            # Opção para usar presets ou seleção manual
+            metric_selection_mode = st.radio(
+                "Metric Selection Mode",
+                ["Direct Selection", "Use Metric Presets"],
+                horizontal=True,
+                key="scatter_metric_selection_mode"
+            )
 
-                # Selecionar métrica X mantendo a seleção anterior quando possível
-                x_metric = st.selectbox('X-Axis Metric',
-                                        metric_cols,
-                                        index=x_index,
-                                        key='scatter_x')
+            if metric_selection_mode == "Use Metric Presets":
+                # Selecionar grupo de métricas
+                selected_group = st.selectbox(
+                    "Select Metrics Group",
+                    list(scatter_metric_groups.keys()),
+                    key="scatter_metric_group"
+                )
+                
+                # Mostrar métricas disponíveis no grupo selecionado
+                group_metrics = [m for m in scatter_metric_groups[selected_group] if m in metric_cols]
+                
+                if len(group_metrics) < 2:
+                    st.warning(f"The selected group '{selected_group}' has less than 2 metrics available in the current dataset. Please select another group or use direct selection.")
+                else:
+                    st.info(f"Available metrics in group '{selected_group}': {', '.join(group_metrics)}")
+                    
+                    # Selecionar métricas X e Y a partir do grupo
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        # Verificar se a métrica X anteriormente selecionada está no grupo
+                        x_index = 0
+                        if st.session_state.saved_scatter_x_metric in group_metrics:
+                            x_index = group_metrics.index(st.session_state.saved_scatter_x_metric)
+                        
+                        # Selecionar métrica X mantendo a seleção anterior quando possível
+                        x_metric = st.selectbox('X-Axis Metric', 
+                                              group_metrics,
+                                              index=x_index,
+                                              key='scatter_x_preset')
+                        
+                        # Atualizar nossa variável de armazenamento
+                        st.session_state.saved_scatter_x_metric = x_metric
+                        
+                    with col2:
+                        # Verificar se a métrica Y anteriormente selecionada está no grupo
+                        available_y_metrics = [m for m in group_metrics if m != x_metric]
+                        
+                        if not available_y_metrics:
+                            st.warning("Not enough metrics in group for Y-axis. Please select a different group.")
+                            y_metric = x_metric  # Fallback to prevent errors
+                        else:
+                            y_index = 0
+                            if st.session_state.saved_scatter_y_metric in available_y_metrics:
+                                y_index = available_y_metrics.index(st.session_state.saved_scatter_y_metric)
+                            elif len(available_y_metrics) > 1:
+                                y_index = 1  # Default to second metric if available
+                            
+                            # Selecionar métrica Y mantendo a seleção anterior quando possível
+                            y_metric = st.selectbox('Y-Axis Metric',
+                                                  available_y_metrics,
+                                                  index=y_index,
+                                                  key='scatter_y_preset')
+                            
+                            # Atualizar nossa variável de armazenamento
+                            st.session_state.saved_scatter_y_metric = y_metric
+            else:
+                # Seleção direta das métricas
+                col1, col2 = st.columns(2)
+                with col1:
+                    # Verificar se a métrica X anteriormente selecionada ainda está disponível
+                    x_index = 0
+                    if st.session_state.saved_scatter_x_metric in metric_cols:
+                        x_index = metric_cols.index(st.session_state.saved_scatter_x_metric)
 
-                # Atualizar nossa variável de armazenamento (não o widget diretamente)
-                st.session_state.saved_scatter_x_metric = x_metric
+                    # Selecionar métrica X mantendo a seleção anterior quando possível
+                    x_metric = st.selectbox('X-Axis Metric',
+                                          metric_cols,
+                                          index=x_index,
+                                          key='scatter_x')
 
-            with col2:
-                # Verificar se a métrica Y anteriormente selecionada ainda está disponível
-                y_index = min(1, len(metric_cols) - 1)  # Valor padrão
-                if st.session_state.saved_scatter_y_metric in metric_cols:
-                    y_index = metric_cols.index(
-                        st.session_state.saved_scatter_y_metric)
+                    # Atualizar nossa variável de armazenamento (não o widget diretamente)
+                    st.session_state.saved_scatter_x_metric = x_metric
 
-                # Selecionar métrica Y mantendo a seleção anterior quando possível
-                y_metric = st.selectbox('Y-Axis Metric',
-                                        metric_cols,
-                                        index=y_index,
-                                        key='scatter_y')
+                with col2:
+                    # Verificar se a métrica Y anteriormente selecionada ainda está disponível
+                    y_index = min(1, len(metric_cols) - 1)  # Valor padrão
+                    if st.session_state.saved_scatter_y_metric in metric_cols:
+                        y_index = metric_cols.index(st.session_state.saved_scatter_y_metric)
 
-                # Atualizar nossa variável de armazenamento (não o widget diretamente)
-                st.session_state.saved_scatter_y_metric = y_metric
+                    # Selecionar métrica Y mantendo a seleção anterior quando possível
+                    y_metric = st.selectbox('Y-Axis Metric',
+                                          metric_cols,
+                                          index=y_index,
+                                          key='scatter_y')
+
+                    # Atualizar nossa variável de armazenamento (não o widget diretamente)
+                    st.session_state.saved_scatter_y_metric = y_metric
 
             # Configurar o título base
             title = f"Scatter Analysis: {x_metric} vs {y_metric}"
@@ -4010,6 +4179,12 @@ if selected_leagues:
             st.subheader("Select Metrics for Similarity Calculation")
 
             # Predefined metric groups for easy selection - always using per 90 metrics
+            # Carregar grupos personalizados salvos na sessão
+            if 'custom_metric_groups' in st.session_state:
+                custom_groups = st.session_state.custom_metric_groups
+            else:
+                custom_groups = {}
+                
             metric_groups = {
                 "Overall": [
                     'Progressive runs per 90', 'Progressive passes per 90',
@@ -4051,6 +4226,11 @@ if selected_leagues:
                     'Received passes per 90'
                 ]
             }
+            
+            # Adicionar grupos personalizados ao dicionário de grupos de métricas
+            for group_name, metrics in custom_groups.items():
+                if group_name not in metric_groups:
+                    metric_groups[group_name] = metrics
 
             # Let user first select a preset group or custom
             metric_selection_mode = st.radio(
@@ -5278,6 +5458,12 @@ if selected_leagues:
                     use_benchmark_profile = False
 
             with col2:
+                # Carregar grupos personalizados salvos na sessão
+                if 'custom_metric_groups' in st.session_state:
+                    custom_groups = st.session_state.custom_metric_groups
+                else:
+                    custom_groups = {}
+                    
                 # Definir presets de métricas para o profiler
                 profiler_metric_groups = {
                     "Overall": [
@@ -5317,6 +5503,14 @@ if selected_leagues:
                         'Received passes per 90'
                     ]
                 }
+                
+                # Adicionar grupos personalizados salvos na session state
+                if 'custom_metric_groups' in st.session_state:
+                    # Adicionar cada grupo personalizado ao dicionário de grupos de métricas
+                    for group_name, metrics in custom_groups.items():
+                        # Garantir que não sobrescreva grupos existentes acidentalmente
+                        if group_name not in profiler_metric_groups:
+                            profiler_metric_groups[group_name] = metrics
 
                 # Opção para selecionar por grupo ou personalizar
                 metric_selection = st.radio(
@@ -5643,12 +5837,32 @@ if selected_leagues:
                             # Botão para aplicar o grupo às métricas selecionadas
                             if st.button("Apply This Metrics Group", key="apply_loaded_group"):
                                 if available_metrics:
-                                    # Adicionar o grupo personalizado carregado ao dicionário de grupos de métricas
+                                    # Adicionar o grupo personalizado carregado a todos os dicionários de grupos de métricas
+                                    # 1. Pizza Metric Groups
                                     pizza_metric_groups[group_name] = available_metrics
                                     
-                                    # Atualizar a variável para o modo de seleção de métricas
+                                    # 2. Buscar outros grupos de métricas no aplicativo e atualizar
+                                    # Profiler metric groups (aba Profiler)
+                                    if 'profiler_metric_groups' in locals():
+                                        profiler_metric_groups[group_name] = available_metrics
+                                    
+                                    # Salvamos o grupo na session_state para persistência
+                                    if 'custom_metric_groups' not in st.session_state:
+                                        st.session_state.custom_metric_groups = {}
+                                    
+                                    # Armazenar o grupo na session_state para garantir persistência
+                                    st.session_state.custom_metric_groups[group_name] = available_metrics
+                                    
+                                    # Atualizar as variáveis para o modo de seleção de métricas
                                     st.session_state.temp_pizza_preset_metrics = available_metrics
                                     st.session_state.saved_pizza_metrics = available_metrics
+                                    
+                                    # Se houver variáveis relacionadas a outras abas, atualizamos também
+                                    if 'saved_bar_metrics' in st.session_state:
+                                        st.session_state.saved_bar_metrics = available_metrics
+                                        
+                                    if 'saved_scatter_metrics' in st.session_state:
+                                        st.session_state.saved_scatter_metrics = available_metrics
                                     
                                     # Mostrar mensagem de sucesso
                                     st.success(f"Group '{group_name}' has been added to available metric groups and can now be used in visualizations!")
