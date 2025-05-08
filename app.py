@@ -22,6 +22,14 @@ if 'saved_scatter_y_metric' not in st.session_state:
 
 if 'benchmark_loaded' not in st.session_state:
     st.session_state.benchmark_loaded = False
+    
+# Adicionar controle de abas para evitar que o app volte para a aba original
+if 'current_tab' not in st.session_state:
+    st.session_state.current_tab = 0
+    
+# Função para atualizar a aba atual
+def update_tab(tab_index):
+    st.session_state.current_tab = tab_index
     st.session_state.benchmark_df = None
     st.session_state.benchmark_name = None
     
@@ -2909,10 +2917,38 @@ if selected_leagues:
     metric_cols = [col for col in numeric_cols if col not in exclude_cols]
 
     # Create tabs for different analyses
-    tabs = st.tabs([
+    # Definir nomes das abas
+    tab_names = [
         'Pizza Chart', 'Bars', 'Scatter', 'Similarity', 'Correlation',
         'Composite Index (PCA)', 'Profiler', 'Custom Metrics Groups'
-    ])
+    ]
+    
+    # Callback para mudar aba
+    def tab_changed():
+        st.session_state.current_tab = st.session_state.tab_selector
+    
+    # Usar um índice de tab persistente através da sessão
+    if 'current_tab' not in st.session_state:
+        st.session_state.current_tab = 0
+    
+    # Selector de abas discreto para gerenciar qual aba está ativa
+    # Colocando-o em um container vazio, ele não será visível
+    with st.container():
+        st.selectbox(
+            "Select Tab:", 
+            options=range(len(tab_names)),
+            format_func=lambda i: tab_names[i],
+            index=st.session_state.current_tab,
+            key="tab_selector",
+            on_change=tab_changed,
+            label_visibility="collapsed"
+        )
+    
+    # Criar as abas visuais
+    tabs = st.tabs(tab_names)
+    
+    # Exibir qual aba está ativa (opcional, apenas para debugging)
+    # st.sidebar.text(f"Aba ativa: {tab_names[st.session_state.current_tab]}")
 
     # =============================================
     # Pizza Chart (Aba 1) - Estilo Sofyan Amrabat
