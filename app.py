@@ -156,64 +156,87 @@ AVAILABLE_LEAGUES = load_available_leagues(st.session_state.data_source)
 def load_league_data(selected_leagues):
     """
     Carrega dados das ligas selecionadas.
+    Suporta tanto carregar de arquivos locais quanto de arquivos enviados pelo usuário.
     Se st.session_state.combine_leagues for True, combina todas as ligas em um único dataframe.
     Se False, processa cada liga separadamente para cálculo de percentis.
-    Carrega dados de arquivos locais da pasta attached_assets (SkillCorner) ou wyscout_data (WyScout).
-    Otimizado para melhor performance com conjuntos de dados grandes.
     """
     dfs = []
     league_dfs = {}  # Para armazenar cada dataframe separadamente por liga
     total_players = 0
     
-    # Usar spinner para melhorar a experiência de carregamento
+    # Usando spinner para melhorar a experiência de carregamento
     with st.spinner(f"Loading data from {len(selected_leagues)} leagues..."):
-        # Carregar cada liga selecionada
-        for league_name in selected_leagues:
-            try:
-                file_path = AVAILABLE_LEAGUES[league_name]
+        # Verificar se estamos usando arquivos carregados pelo usuário
+        if st.session_state.uploaded_files:
+            # Carregar dados dos arquivos enviados pelo usuário
+            for file_name, file_info in st.session_state.uploaded_files.items():
+                league_name = file_info['league_name']
                 
-                # Carregar do arquivo local - com otimização para performance
-                # Verificar se o arquivo existe para evitar erros
-                if not os.path.exists(file_path):
-                    st.error(f"File not found: {file_path}")
-                    continue
-                
-                # Usar try-except específico para o pandas para capturar erros de formatação
+                # Verificar se esta liga foi selecionada
+                if league_name in selected_leagues:
+                    # Adicionar o DataFrame já processado
+                    df = file_info['df']
+                    dfs.append(df)
+                    league_dfs[league_name] = df
+                    total_players += len(df)
+                    
+                    st.success(f"Loaded from uploaded file: {league_name} ({len(df)} players)")
+        else:
+            # Método tradicional: carregar de arquivos locais
+            for league_name in selected_leagues:
                 try:
-                    # Carregar arquivo Excel com engine otimizada
-                    df = pd.read_excel(file_path, engine='openpyxl')
-                except Exception as excel_error:
-                    st.error(f"Error reading Excel file {league_name}: {str(excel_error)}")
-                    continue
-
-                # Processamento comum para ambos os casos - com otimizações
-                # Usar inplace=False para evitar warnings do pandas
-                df = df.dropna(how="all")
-                df = df.loc[:, df.columns.notnull()]
-                df.columns = [str(c).strip() for c in df.columns]
-                df['Data Origin'] = league_name
-                df['Season'] = "2023/2024"
-
-                # Calcular métricas ofensivas para cada liga
-                df = calculate_offensive_metrics(df)
+                    # Verificar se a liga está disponível
+                    if league_name not in AVAILABLE_LEAGUES:
+                        st.warning(f"League '{league_name}' not found in available data.")
+                        continue
+                    
+                    # Obter caminho do arquivo    
+                    file_path = AVAILABLE_LEAGUES[league_name]
+                    
+                    # Verificar se o arquivo existe
+                    if not os.path.exists(file_path):
+                        st.error(f"File not found: {file_path}")
+                        continue
+                    
+                    # Tentar carregar o arquivo Excel
+                    df = None
+                    try:
+                        df = pd.read_excel(file_path, engine='openpyxl')
+                    except Exception as excel_error:
+                        st.error(f"Error reading Excel file {league_name}: {str(excel_error)}")
+                        continue
+                    
+                    if df is None or df.empty:
+                        st.warning(f"No data found in file for {league_name}")
+                        continue
+                        
+                    # Processamento básico
+                    df = df.dropna(how="all")
+                    df = df.loc[:, df.columns.notnull()]
+                    df.columns = [str(c).strip() for c in df.columns]
+                    df['Data Origin'] = league_name
+                    df['Season'] = "2023/2024"
+                    
+                    # Calcular métricas avançadas
+                    df = calculate_offensive_metrics(df)
+                    
+                    # Otimização de tipos de dados
+                    for col in df.columns:
+                        if df[col].dtype == 'float64' and col not in ['xG', 'npxG', 'G-xG', 'xA']:
+                            df[col] = pd.to_numeric(df[col], downcast='float')
+                        elif df[col].dtype == 'int64':
+                            df[col] = pd.to_numeric(df[col], downcast='integer')
+                    
+                    # Adicionar ao conjunto de dados
+                    dfs.append(df)
+                    league_dfs[league_name] = df
+                    total_players += len(df)
+                    
+                    st.success(f"Loaded {league_name}: {len(df)} players")
                 
-                # Otimização de memória: converter tipos de dados para reduzir uso de memória
-                # Para colunas numéricas, converter para tipos mais eficientes
-                for col in df.columns:
-                    if df[col].dtype == 'float64' and col not in ['xG', 'npxG', 'G-xG', 'xA']:
-                        df[col] = pd.to_numeric(df[col], downcast='float')
-                    elif df[col].dtype == 'int64':
-                        df[col] = pd.to_numeric(df[col], downcast='integer')
-
-                dfs.append(df)
-                league_dfs[league_name] = df
-                total_players += len(df)
-
-                st.success(
-                    f"Loaded {league_name}: {len(df)} players"
-                )
-            except Exception as e:
-                st.error(f"Error loading {league_name}: {str(e)}")
+                except Exception as e:
+                    st.error(f"Error loading {league_name}: {str(e)}")
+                    continue
 
     if not dfs:
         st.warning("No data was loaded. Please select at least one league and try again.")
@@ -272,6 +295,10 @@ def load_league_data(selected_leagues):
 # Inicializar o session_state para manter os dados entre recargas
 if 'file_metadata' not in st.session_state:
     st.session_state.file_metadata = {}
+    
+# Armazenar arquivos carregados pelo usuário
+if 'uploaded_files' not in st.session_state:
+    st.session_state.uploaded_files = {}
 
 # Session state para persistência de filtros e seleções
 if 'last_players' not in st.session_state:
@@ -1903,6 +1930,10 @@ if 'last_data_update' not in st.session_state:
     st.session_state.last_data_update = None
 if 'data_needs_reload' not in st.session_state:
     st.session_state.data_needs_reload = True
+if 'uploaded_files' not in st.session_state:
+    st.session_state.uploaded_files = {}
+if 'file_upload_key' not in st.session_state:
+    st.session_state.file_upload_key = 0
 
 # Cabeçalho com logo
 col1, col2, col3 = st.columns([1, 3, 1])
@@ -2000,64 +2031,176 @@ if st.session_state.data_source == 'wyscout':
         else:
             st.sidebar.success(f"Found {len(excel_files)} Excel files in '{wyscout_dir}' directory.")
 
-with st.sidebar.expander("⚙️ Select Leagues", expanded=True):
-    current_source_text = "WyScout" if st.session_state.data_source == 'wyscout' else "SkillCorner Integrated"
-    st.markdown(f"**Current data source: {current_source_text}**")
+# Função para processar arquivos carregados via upload
+def process_uploaded_file(uploaded_file, league_name=None):
+    """
+    Processa um arquivo Excel carregado via upload.
+    
+    Args:
+        uploaded_file: Arquivo Excel carregado via st.file_uploader
+        league_name: Nome opcional da liga para identificação (usa nome do arquivo se não for fornecido)
+    
+    Returns:
+        DataFrame processado, nome da liga
+    """
+    try:
+        # Carregar o arquivo em um DataFrame
+        df = pd.read_excel(uploaded_file)
+        
+        # Limpeza básica
+        df.dropna(how="all", inplace=True)
+        df = df.loc[:, df.columns.notnull()]
+        df.columns = [str(c).strip() for c in df.columns]
+        
+        # Obter nome da liga do nome do arquivo se não for fornecido
+        if league_name is None:
+            # Pegar o nome do arquivo sem extensão
+            league_name = os.path.splitext(uploaded_file.name)[0]
+        
+        # Adicionar informações de origem
+        df['Data Origin'] = league_name
+        df['Season'] = "2023/2024"
+        
+        # Calcular métricas ofensivas
+        df = calculate_offensive_metrics(df)
+        
+        return df, league_name
+    except Exception as e:
+        st.error(f"Error processing uploaded file {uploaded_file.name}: {str(e)}")
+        return None, None
 
-    if len(AVAILABLE_LEAGUES) == 0:
-        st.warning(
-            f"No {current_source_text} data files found. Please add data files to the appropriate folder."
-        )
-        # Mostrar mensagem específica para fonte de dados
-        if st.session_state.data_source == 'wyscout':
-            st.info(
-                "Please add your WyScout Excel files to the 'wyscout_data' folder."
-            )
-        else:
-            st.info(
-                "Please add your SkillCorner Excel files to the 'attached_assets' folder."
-            )
-        
-        # Atualizar a variável de seleção específica da fonte atual
-        if st.session_state.data_source == 'wyscout':
-            st.session_state.selected_leagues_wyscout = []
-            selected_leagues = []
-        else:
-            st.session_state.selected_leagues_skillcorner = []
-            selected_leagues = []
-    else:
-        # Verificar se há ligas disponíveis que não estão mais na lista de opções
-        # para limpar seleções inválidas
-        valid_leagues = list(AVAILABLE_LEAGUES.keys())
-        
-        # Obter a seleção anterior específica para a fonte de dados atual
-        if st.session_state.data_source == 'wyscout':
-            previous_selection = st.session_state.selected_leagues_wyscout
-        else:
-            previous_selection = st.session_state.selected_leagues_skillcorner
+# Interface para upload e seleção de arquivos/ligas
+with st.sidebar.expander("📤 Upload Excel Files", expanded=True):
+    st.markdown("### Upload your own Excel files")
+    
+    # Upload de arquivos Excel
+    uploaded_files = st.file_uploader(
+        "Upload Excel files with player data",
+        type=["xlsx"],
+        accept_multiple_files=True,
+        key=f"file_uploader_{st.session_state.file_upload_key}"
+    )
+    
+    # Processar arquivos carregados
+    if uploaded_files:
+        if st.button("Process Uploaded Files"):
+            # Limpar cache anterior se necessário
+            st.session_state.cached_df = None
+            st.session_state.cached_leagues = None
+            st.session_state.data_needs_reload = True
             
-        # Filtrar para manter apenas ligas válidas
-        filtered_selection = [
-            league for league in previous_selection
-            if league in valid_leagues
-        ]
+            # Limpar dicionário de arquivos carregados
+            st.session_state.uploaded_files = {}
+            
+            with st.spinner("Processing uploaded files..."):
+                for file in uploaded_files:
+                    # Verificar se este arquivo já foi processado
+                    if file.name not in st.session_state.uploaded_files:
+                        # Processar o arquivo
+                        df, league_name = process_uploaded_file(file)
+                        
+                        if df is not None:
+                            # Armazenar o DataFrame no session_state
+                            st.session_state.uploaded_files[file.name] = {
+                                'df': df,
+                                'league_name': league_name
+                            }
+                            st.success(f"Processed: {file.name} ({len(df)} players)")
+            
+            # Incrementar a chave para forçar o recarregamento do uploader (evita problemas com cache)
+            st.session_state.file_upload_key += 1
+            
+            # Recarregar a página para aplicar as alterações
+            st.rerun()
+    
+    # Mostrar arquivos já carregados
+    if st.session_state.uploaded_files:
+        st.markdown("### Uploaded Files")
         
-        # Se não houver seleção válida, definir o padrão para a primeira liga disponível
-        default_selection = filtered_selection
-        if not default_selection and AVAILABLE_LEAGUES:
-            default_selection = [list(AVAILABLE_LEAGUES.keys())[0]]
+        uploaded_leagues = [info['league_name'] for info in st.session_state.uploaded_files.values()]
+        total_players = sum(len(info['df']) for info in st.session_state.uploaded_files.values())
         
-        # Usar st.multiselect com o valor salvo específico para a fonte atual
+        st.success(f"You have {len(st.session_state.uploaded_files)} files loaded ({total_players} players total)")
+        
+        # Permitir selecionar quais arquivos carregados usar
         selected_leagues = st.multiselect(
             "Select leagues to analyze",
-            options=valid_leagues,
-            default=default_selection)
+            options=uploaded_leagues,
+            default=uploaded_leagues[:min(3, len(uploaded_leagues))]
+        )
         
-        # Atualizar a seleção específica da fonte atual no session_state
-        if st.session_state.data_source == 'wyscout':
-            st.session_state.selected_leagues_wyscout = selected_leagues
+        # Se todos os arquivos forem removidos, limpar o cache
+        if not selected_leagues and st.session_state.uploaded_files:
+            if st.button("Clear All Uploaded Files"):
+                st.session_state.uploaded_files = {}
+                st.session_state.cached_df = None
+                st.session_state.cached_leagues = None
+                st.session_state.data_needs_reload = True
+                st.rerun()
+    else:
+        st.info("No files uploaded yet. Please upload Excel files with player data.")
+        selected_leagues = []
+
+# Se não houver arquivos carregados via upload, mostrar a seleção tradicional de ligas
+if not st.session_state.uploaded_files:
+    with st.sidebar.expander("⚙️ Select Leagues", expanded=True):
+        current_source_text = "WyScout" if st.session_state.data_source == 'wyscout' else "SkillCorner Integrated"
+        st.markdown(f"**Current data source: {current_source_text}**")
+    
+        if len(AVAILABLE_LEAGUES) == 0:
+            st.warning(
+                f"No {current_source_text} data files found. Please add data files to the appropriate folder."
+            )
+            # Mostrar mensagem específica para fonte de dados
+            if st.session_state.data_source == 'wyscout':
+                st.info(
+                    "Please add your WyScout Excel files to the 'wyscout_data' folder."
+                )
+            else:
+                st.info(
+                    "Please add your SkillCorner Excel files to the 'attached_assets' folder."
+                )
+            
+            # Atualizar a variável de seleção específica da fonte atual
+            if st.session_state.data_source == 'wyscout':
+                st.session_state.selected_leagues_wyscout = []
+                selected_leagues = []
+            else:
+                st.session_state.selected_leagues_skillcorner = []
+                selected_leagues = []
         else:
-            st.session_state.selected_leagues_skillcorner = selected_leagues
+            # Verificar se há ligas disponíveis que não estão mais na lista de opções
+            # para limpar seleções inválidas
+            valid_leagues = list(AVAILABLE_LEAGUES.keys())
+            
+            # Obter a seleção anterior específica para a fonte de dados atual
+            if st.session_state.data_source == 'wyscout':
+                previous_selection = st.session_state.selected_leagues_wyscout
+            else:
+                previous_selection = st.session_state.selected_leagues_skillcorner
+                
+            # Filtrar para manter apenas ligas válidas
+            filtered_selection = [
+                league for league in previous_selection
+                if league in valid_leagues
+            ]
+            
+            # Se não houver seleção válida, definir o padrão para a primeira liga disponível
+            default_selection = filtered_selection
+            if not default_selection and AVAILABLE_LEAGUES:
+                default_selection = [list(AVAILABLE_LEAGUES.keys())[0]]
+            
+            # Usar st.multiselect com o valor salvo específico para a fonte atual
+            selected_leagues = st.multiselect(
+                "Select leagues to analyze",
+                options=valid_leagues,
+                default=default_selection)
+            
+            # Atualizar a seleção específica da fonte atual no session_state
+            if st.session_state.data_source == 'wyscout':
+                st.session_state.selected_leagues_wyscout = selected_leagues
+            else:
+                st.session_state.selected_leagues_skillcorner = selected_leagues
 
     # Opção para escolher como calcular os percentis
     if 'combine_leagues' not in st.session_state:
