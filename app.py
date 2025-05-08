@@ -4545,6 +4545,63 @@ if selected_leagues:
                         lambda x: any(pos in ref_player_pos for pos in x)
                         if isinstance(x, list) else False)]
 
+                # Option for PCA specific settings
+                st.subheader("PCA Specific Settings")
+                
+                # Option to use different metrics for PCA than for detail display
+                use_diff_pca_metrics = st.checkbox(
+                    "Use different metrics for PCA analysis",
+                    value=False,
+                    help="When enabled, you can select a specific metric group to be used only for the PCA clustering and similarity calculation"
+                )
+                
+                if use_diff_pca_metrics:
+                    # Use the same pattern as with other metric groups
+                    st.info("Select metrics specifically for PCA calculation")
+                    
+                    # Define PCA metric groups
+                    pca_metric_selection_mode = st.radio(
+                        "PCA Metric Selection Mode",
+                        ["Custom (Select Individual Metrics)", "Use Metric Presets"],
+                        horizontal=True,
+                        key="pca_metric_selection_mode"
+                    )
+                    
+                    if pca_metric_selection_mode == "Use Metric Presets":
+                        # Let user select a preset group
+                        pca_selected_group = st.selectbox(
+                            "Select Metric Group for PCA",
+                            list(metric_groups.keys()),
+                            key="pca_preset_group"
+                        )
+                        
+                        # Get metrics from the selected group
+                        pca_metrics = []
+                        for metric in metric_groups[pca_selected_group]:
+                            if metric in metric_cols:
+                                pca_metrics.append(metric)
+                        
+                        if len(pca_metrics) < 2:
+                            st.warning(f"The selected group '{pca_selected_group}' has fewer than 2 valid metrics. Using the main metrics for PCA.")
+                            pca_metrics = sim_metric_options
+                        else:
+                            st.success(f"Using {len(pca_metrics)} metrics from group '{pca_selected_group}' for PCA analysis")
+                    else:
+                        # Custom metric selection for PCA
+                        pca_metrics = st.multiselect(
+                            "Select metrics for PCA (6-15 recommended)",
+                            metric_cols,
+                            default=sim_metric_options[:min(8, len(sim_metric_options))],
+                            key="pca_custom_metrics"
+                        )
+                        
+                        if len(pca_metrics) < 2:
+                            st.warning("At least 2 metrics are required for PCA. Using the main metrics.")
+                            pca_metrics = sim_metric_options
+                else:
+                    # Use the same metrics as selected for the similarity analysis
+                    pca_metrics = sim_metric_options
+                
                 # Compute similar players with progress indicator
                 if len(sim_metric_options) >= 2 and len(df_sim) > 1:
                     try:
@@ -4599,24 +4656,24 @@ if selected_leagues:
 
                             # Show information about the dataset
                             st.info(
-                                f"Analyzing {len(df_sim)} players with {len(sim_metric_options)} metrics"
+                                f"Analyzing {len(df_sim)} players with {len(pca_metrics)} metrics for PCA"
                             )
 
-                            # Check if we have all necessary metrics
+                            # Check if we have all necessary metrics for PCA
                             missing_metrics = [
-                                m for m in sim_metric_options
+                                m for m in pca_metrics
                                 if m not in df_sim.columns
                             ]
                             if missing_metrics:
                                 st.warning(
-                                    f"Metrics not found: {missing_metrics}")
+                                    f"Metrics not found for PCA: {missing_metrics}")
                                 # Remove missing metrics
-                                sim_metric_options = [
-                                    m for m in sim_metric_options
+                                pca_metrics = [
+                                    m for m in pca_metrics
                                     if m not in missing_metrics
                                 ]
                                 st.info(
-                                    f"Using only available metrics: {sim_metric_options}"
+                                    f"Using only available metrics for PCA: {pca_metrics}"
                                 )
 
                             # If using PCA+K-Means, pass the number of clusters
@@ -4628,7 +4685,7 @@ if selected_leagues:
                                     )
                                     pca_df = create_pca_kmeans_df(
                                         df_sim,
-                                        sim_metric_options,
+                                        pca_metrics,
                                         n_clusters=num_clusters)
 
                                     if pca_df is None:
@@ -4641,7 +4698,7 @@ if selected_leagues:
                                     similar_players = compute_player_similarity(
                                         df=df_sim,
                                         player=sim_player,
-                                        metrics=sim_metric_options,
+                                        metrics=pca_metrics,
                                         n=num_similar,
                                         method=method)
                                 except Exception as pca_error:
