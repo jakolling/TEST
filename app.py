@@ -3424,6 +3424,10 @@ if selected_leagues:
                     else:
                         st.warning("No valid metrics found in the pasted text. Please check the format and try again.")
                 
+            # Garantir que todos os itens em temp_bar_metrics estão em metric_cols para evitar erros
+            valid_temp_metrics = [m for m in st.session_state.temp_bar_metrics if m in metric_cols]
+            st.session_state.temp_bar_metrics = valid_temp_metrics if valid_temp_metrics else metric_cols[:min(1, len(metric_cols))]
+                
             # Let user select metrics manually (sem aplicar imediatamente)
             temp_metrics = st.multiselect(
                 'Select metrics (max 5)',
@@ -3972,6 +3976,10 @@ if selected_leagues:
                             st.rerun()
                         else:
                             st.warning("No valid metrics found in the pasted text. Please check the format and try again.")
+                
+                # Garantir que todos os itens em temp_sim_custom_metrics estão em metric_cols para evitar erros
+                valid_temp_metrics = [m for m in st.session_state.temp_sim_custom_metrics if m in metric_cols]
+                st.session_state.temp_sim_custom_metrics = valid_temp_metrics if valid_temp_metrics else metric_cols[:min(8, len(metric_cols))]
                 
                 # Let user select metrics manually
                 temp_metrics = st.multiselect(
