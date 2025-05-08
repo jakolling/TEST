@@ -2982,7 +2982,13 @@ if selected_leagues:
                 
             # Criar variáveis temporárias para seleção de métricas
             if 'temp_pizza_metrics' not in st.session_state:
-                st.session_state.temp_pizza_metrics = default_metrics
+                # Verificar que os valores padrão são válidos (presentes em metric_cols)
+                valid_metrics = [m for m in default_metrics if m in metric_cols]
+                st.session_state.temp_pizza_metrics = valid_metrics if valid_metrics else metric_cols[:min(9, len(metric_cols))]
+            
+            # Garantir que todos os itens em temp_pizza_metrics estão em metric_cols para evitar erros
+            valid_temp_metrics = [m for m in st.session_state.temp_pizza_metrics if m in metric_cols]
+            st.session_state.temp_pizza_metrics = valid_temp_metrics if valid_temp_metrics else metric_cols[:min(9, len(metric_cols))]
                 
             # Let user select metrics manually (sem aplicar imediatamente)
             temp_metrics = st.multiselect(
