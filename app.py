@@ -2694,17 +2694,89 @@ if selected_leagues:
         all_pos = sorted(all_positions)
         
         # Verificar se há posições temporárias salvas e se elas ainda são válidas
-        if st.session_state.temp_positions and all(pos in all_pos for pos in st.session_state.temp_positions):
-            default_positions = st.session_state.temp_positions
-        else:
+        if 'temp_positions' not in st.session_state or not st.session_state.temp_positions:
             default_positions = all_pos
             st.session_state.temp_positions = default_positions
         
-        # Multiselect para posições sem filtrar automaticamente
-        temp_sel_pos = st.sidebar.multiselect('Positions', all_pos, default=default_positions, key="positions_select")
+        # Usar container para posições
+        st.sidebar.subheader('Positions')
+        positions_container = st.sidebar.container()
         
-        # Armazenar valor temporário
-        st.session_state.temp_positions = temp_sel_pos
+        # Criar checkbox para selecionar/deselecionar todas as posições
+        select_all = st.sidebar.checkbox(
+            "Select All Positions", 
+            value=len(st.session_state.temp_positions) == len(all_pos),
+            key="select_all_positions"
+        )
+        
+        if select_all:
+            st.session_state.temp_positions = all_pos
+        
+        # Expandable para mostrar opções de posições
+        with st.sidebar.expander("Show position selection", expanded=False):
+            # Inicializar a lista temporária se não existir
+            if 'temp_pos_checkboxes' not in st.session_state:
+                st.session_state.temp_pos_checkboxes = {pos: pos in st.session_state.temp_positions for pos in all_pos}
+            
+            # Criar checkboxes para cada posição
+            position_changed = False
+            
+            # Dividir posições em grupos para colocar em colunas
+            half_length = (len(all_pos) + 1) // 2
+            first_half = all_pos[:half_length]
+            second_half = all_pos[half_length:]
+            
+            cols = st.columns(2)
+            
+            # Primeira coluna
+            with cols[0]:
+                for pos in first_half:
+                    # Atualizar valor do checkbox se select_all mudou
+                    if select_all:
+                        st.session_state.temp_pos_checkboxes[pos] = True
+                    
+                    # Criar checkbox
+                    checked = st.checkbox(
+                        pos, 
+                        value=st.session_state.temp_pos_checkboxes[pos],
+                        key=f"pos_{pos}"
+                    )
+                    
+                    # Atualizar estado se mudou
+                    if checked != st.session_state.temp_pos_checkboxes[pos]:
+                        st.session_state.temp_pos_checkboxes[pos] = checked
+                        position_changed = True
+            
+            # Segunda coluna
+            with cols[1]:
+                for pos in second_half:
+                    # Atualizar valor do checkbox se select_all mudou
+                    if select_all:
+                        st.session_state.temp_pos_checkboxes[pos] = True
+                    
+                    # Criar checkbox
+                    checked = st.checkbox(
+                        pos, 
+                        value=st.session_state.temp_pos_checkboxes[pos],
+                        key=f"pos_{pos}_b"
+                    )
+                    
+                    # Atualizar estado se mudou
+                    if checked != st.session_state.temp_pos_checkboxes[pos]:
+                        st.session_state.temp_pos_checkboxes[pos] = checked
+                        position_changed = True
+            
+            # Atualizar seleção baseada nos checkboxes
+            temp_sel_pos = [pos for pos in all_pos if st.session_state.temp_pos_checkboxes[pos]]
+            
+            if not temp_sel_pos:
+                st.warning("At least one position must be selected")
+                temp_sel_pos = all_pos
+                for pos in all_pos:
+                    st.session_state.temp_pos_checkboxes[pos] = True
+            
+            # Armazenar valor temporário
+            st.session_state.temp_positions = temp_sel_pos
     else:
         all_pos = []
         temp_sel_pos = []
