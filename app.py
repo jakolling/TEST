@@ -40,32 +40,53 @@ def load_available_leagues(data_source='skillcorner'):
     """
     Detecta automaticamente todos os arquivos Excel (.xlsx) de uma fonte específica
     e os adiciona como ligas disponíveis.
+    Limitado a 15 arquivos para melhorar performance.
     
     Args:
         data_source: 'skillcorner' para os dados integrados SkillCorner da pasta attached_assets, 
                     'wyscout' para os dados WyScout da pasta wyscout_data
     """
     leagues_dict = {}
+    max_files = 15  # Limitar a 15 arquivos para melhorar performance
 
     if data_source == 'skillcorner':
         # Buscar arquivos locais na pasta attached_assets (SkillCorner Integrated)
         assets_dir = "attached_assets"
 
         # Verificar se a pasta existe
+        file_count = 0
         if os.path.exists(assets_dir) and os.path.isdir(assets_dir):
+            # Obter lista de arquivos Excel e ordenar por data de modificação (mais recentes primeiro)
+            excel_files = []
             for filename in os.listdir(assets_dir):
                 if filename.endswith(".xlsx"):
-                    # Usar o nome do arquivo (sem extensão) como nome da liga
-                    league_name = os.path.splitext(filename)[0]
-                    # Remover sufixos comuns como "WySC" ou números de versão para deixar o nome mais limpo
-                    league_name = league_name.replace(" - WySC",
-                                                      "").replace(" WySC", "")
-                    league_name = league_name.split(" (")[
-                        0]  # Remover qualquer coisa após "(" como "(1)"
+                    file_path = os.path.join(assets_dir, filename)
+                    try:
+                        mod_time = os.path.getmtime(file_path)
+                        excel_files.append((filename, mod_time))
+                    except:
+                        excel_files.append((filename, 0))
+            
+            # Ordenar por data de modificação (mais recentes primeiro)
+            excel_files.sort(key=lambda x: x[1], reverse=True)
+            
+            # Processar até o limite máximo de arquivos
+            for filename, _ in excel_files[:max_files]:
+                # Usar o nome do arquivo (sem extensão) como nome da liga
+                league_name = os.path.splitext(filename)[0]
+                # Remover sufixos comuns como "WySC" ou números de versão para deixar o nome mais limpo
+                league_name = league_name.replace(" - WySC",
+                                                  "").replace(" WySC", "")
+                league_name = league_name.split(" (")[
+                    0]  # Remover qualquer coisa após "(" como "(1)"
 
-                    # Adicionar ao dicionário
-                    leagues_dict[league_name] = os.path.join(
-                        assets_dir, filename)
+                # Adicionar ao dicionário
+                leagues_dict[league_name] = os.path.join(
+                    assets_dir, filename)
+                file_count += 1
+                
+                if file_count >= max_files:
+                    break
 
         # Caso não encontre nenhum arquivo, usar valores padrão
         if not leagues_dict:
@@ -82,15 +103,34 @@ def load_available_leagues(data_source='skillcorner'):
         wyscout_dir = "wyscout_data"
 
         # Verificar se a pasta existe
+        file_count = 0
         if os.path.exists(wyscout_dir) and os.path.isdir(wyscout_dir):
+            # Obter lista de arquivos Excel e ordenar por data de modificação (mais recentes primeiro)
+            excel_files = []
             for filename in os.listdir(wyscout_dir):
                 if filename.endswith(".xlsx"):
-                    # Usar o nome do arquivo como nome da liga para WyScout
-                    league_name = os.path.splitext(filename)[0]
+                    file_path = os.path.join(wyscout_dir, filename)
+                    try:
+                        mod_time = os.path.getmtime(file_path)
+                        excel_files.append((filename, mod_time))
+                    except:
+                        excel_files.append((filename, 0))
+            
+            # Ordenar por data de modificação (mais recentes primeiro)
+            excel_files.sort(key=lambda x: x[1], reverse=True)
+            
+            # Processar até o limite máximo de arquivos
+            for filename, _ in excel_files[:max_files]:
+                # Usar o nome do arquivo como nome da liga para WyScout
+                league_name = os.path.splitext(filename)[0]
 
-                    # Adicionar ao dicionário
-                    leagues_dict[league_name] = os.path.join(
-                        wyscout_dir, filename)
+                # Adicionar ao dicionário
+                leagues_dict[league_name] = os.path.join(
+                    wyscout_dir, filename)
+                file_count += 1
+                
+                if file_count >= max_files:
+                    break
         
         # Caso não encontre nenhum arquivo WyScout, informar ao usuário
         if not leagues_dict:
@@ -112,45 +152,71 @@ if 'selected_leagues_wyscout' not in st.session_state:
 AVAILABLE_LEAGUES = load_available_leagues(st.session_state.data_source)
 
 
-@st.cache_data(ttl=300)  # Cache por 5 minutos
+@st.cache_data(ttl=600)  # Cache por 10 minutos para melhorar performance
 def load_league_data(selected_leagues):
     """
     Carrega dados das ligas selecionadas.
     Se st.session_state.combine_leagues for True, combina todas as ligas em um único dataframe.
     Se False, processa cada liga separadamente para cálculo de percentis.
     Carrega dados de arquivos locais da pasta attached_assets (SkillCorner) ou wyscout_data (WyScout).
+    Otimizado para melhor performance com conjuntos de dados grandes.
     """
     dfs = []
     league_dfs = {}  # Para armazenar cada dataframe separadamente por liga
+    total_players = 0
+    
+    # Usar spinner para melhorar a experiência de carregamento
+    with st.spinner(f"Loading data from {len(selected_leagues)} leagues..."):
+        # Carregar cada liga selecionada
+        for league_name in selected_leagues:
+            try:
+                file_path = AVAILABLE_LEAGUES[league_name]
+                
+                # Carregar do arquivo local - com otimização para performance
+                # Verificar se o arquivo existe para evitar erros
+                if not os.path.exists(file_path):
+                    st.error(f"File not found: {file_path}")
+                    continue
+                
+                # Usar try-except específico para o pandas para capturar erros de formatação
+                try:
+                    # Carregar arquivo Excel com engine otimizada
+                    df = pd.read_excel(file_path, engine='openpyxl')
+                except Exception as excel_error:
+                    st.error(f"Error reading Excel file {league_name}: {str(excel_error)}")
+                    continue
 
-    # Carregar cada liga selecionada
-    for league_name in selected_leagues:
-        try:
-            file_path = AVAILABLE_LEAGUES[league_name]
-            
-            # Carregar do arquivo local
-            df = pd.read_excel(file_path)
+                # Processamento comum para ambos os casos - com otimizações
+                # Usar inplace=False para evitar warnings do pandas
+                df = df.dropna(how="all")
+                df = df.loc[:, df.columns.notnull()]
+                df.columns = [str(c).strip() for c in df.columns]
+                df['Data Origin'] = league_name
+                df['Season'] = "2023/2024"
 
-            # Processamento comum para ambos os casos
-            df.dropna(how="all", inplace=True)
-            df = df.loc[:, df.columns.notnull()]
-            df.columns = [str(c).strip() for c in df.columns]
-            df['Data Origin'] = league_name
-            df['Season'] = "2023/2024"
+                # Calcular métricas ofensivas para cada liga
+                df = calculate_offensive_metrics(df)
+                
+                # Otimização de memória: converter tipos de dados para reduzir uso de memória
+                # Para colunas numéricas, converter para tipos mais eficientes
+                for col in df.columns:
+                    if df[col].dtype == 'float64' and col not in ['xG', 'npxG', 'G-xG', 'xA']:
+                        df[col] = pd.to_numeric(df[col], downcast='float')
+                    elif df[col].dtype == 'int64':
+                        df[col] = pd.to_numeric(df[col], downcast='integer')
 
-            # Calcular métricas ofensivas para cada liga
-            df = calculate_offensive_metrics(df)
+                dfs.append(df)
+                league_dfs[league_name] = df
+                total_players += len(df)
 
-            dfs.append(df)
-            league_dfs[league_name] = df
-
-            st.success(
-                f"Dados de {league_name} carregados com sucesso! ({len(df)} jogadores)"
-            )
-        except Exception as e:
-            st.error(f"Erro ao carregar {league_name}: {str(e)}")
+                st.success(
+                    f"Loaded {league_name}: {len(df)} players"
+                )
+            except Exception as e:
+                st.error(f"Error loading {league_name}: {str(e)}")
 
     if not dfs:
+        st.warning("No data was loaded. Please select at least one league and try again.")
         return pd.DataFrame()
 
     # Verificar o modo de processamento
@@ -160,43 +226,47 @@ def load_league_data(selected_leagues):
 
     if combine_leagues:
         # Modo padrão: combinar todas as ligas e calcular percentis globalmente
-        combined_df = pd.concat(dfs, ignore_index=True)
-        return combined_df
+        with st.spinner(f"Combining data from {len(dfs)} leagues ({total_players} players)..."):
+            combined_df = pd.concat(dfs, ignore_index=True)
+            st.success(f"Successfully loaded combined data with {len(combined_df)} players.")
+            return combined_df
     else:
         # Modo novo: calcular percentis separadamente para cada liga e depois combinar
         processed_dfs = []
+        with st.spinner("Calculating league-specific percentiles..."):
+            # Identificar todas as colunas métricas (excluindo colunas categóricas/identificadoras)
+            # Assumindo que o primeiro dataframe tem todas as colunas que queremos processar
+            first_df = dfs[0]
+            metric_cols = [
+                col for col in first_df.columns if col not in
+                ['Player', 'Team', 'Position', 'Data Origin', 'Season']
+            ]
 
-        # Identificar todas as colunas métricas (excluindo colunas categóricas/identificadoras)
-        # Assumindo que o primeiro dataframe tem todas as colunas que queremos processar
-        first_df = dfs[0]
-        metric_cols = [
-            col for col in first_df.columns if col not in
-            ['Player', 'Team', 'Position', 'Data Origin', 'Season']
-        ]
-
-        # Processar cada liga separadamente
-        for league_name, league_df in league_dfs.items():
-            # Para cada métrica no dataframe, calcular percentil dentro de cada liga
-            for col in metric_cols:
-                if col in league_df.columns and league_df[col].dtype in [
-                        np.float64, np.int64
-                ]:
+            # Processar cada liga separadamente - com otimização para evitar cálculos desnecessários
+            for league_name, league_df in league_dfs.items():
+                # Para cada métrica no dataframe, calcular percentil dentro de cada liga
+                # Processar apenas colunas numéricas para evitar erros e cálculos desnecessários
+                numeric_cols = [col for col in metric_cols if col in league_df.columns and 
+                               pd.api.types.is_numeric_dtype(league_df[col])]
+                
+                # Calcular percentis em lote para melhor performance
+                for col in numeric_cols:
                     # Criar nova coluna com percentis
                     col_percentile = f"{col}_percentile_in_{league_name}"
-                    league_df[col_percentile] = league_df[col].rank(
-                        pct=True) * 100
+                    league_df[col_percentile] = league_df[col].rank(pct=True) * 100
 
-            processed_dfs.append(league_df)
+                processed_dfs.append(league_df)
 
-        # Combinar todos os dataframes processados
-        combined_df = pd.concat(processed_dfs, ignore_index=True)
+            # Combinar todos os dataframes processados
+            combined_df = pd.concat(processed_dfs, ignore_index=True)
 
-        # Exibir informação sobre o modo de processamento
-        st.info(
-            "Percentiles calculated separately within each league. Check new columns with '_percentile_in_' suffix for league-specific percentiles."
-        )
-
-        return combined_df
+            # Exibir informação sobre o modo de processamento
+            st.info(
+                "Percentiles calculated separately within each league. Check columns with '_percentile_in_' suffix for league-specific percentiles."
+            )
+            
+            st.success(f"Successfully loaded data with {len(combined_df)} players and league-specific percentiles.")
+            return combined_df
 
 
 # Inicializar o session_state para manter os dados entre recargas
@@ -1824,8 +1894,15 @@ def compute_player_similarity(df, player, metrics, n=5, method='pca_kmeans'):
 # Main Application
 # =============================================
 
-
-# Não precisamos chamar initialize_session_state novamente aqui, já foi chamado no início
+# Inicializar variáveis adicionais de cache no session_state
+if 'cached_df' not in st.session_state:
+    st.session_state.cached_df = None
+if 'cached_leagues' not in st.session_state:
+    st.session_state.cached_leagues = None
+if 'last_data_update' not in st.session_state:
+    st.session_state.last_data_update = None
+if 'data_needs_reload' not in st.session_state:
+    st.session_state.data_needs_reload = True
 
 # Cabeçalho com logo
 col1, col2, col3 = st.columns([1, 3, 1])
@@ -1875,12 +1952,15 @@ data_source = st.sidebar.checkbox(
 )
 
 # Atualizar a fonte de dados no estado da sessão
+previous_source = st.session_state.data_source
 if data_source:
     # Checkbox marcado = WyScout
     if st.session_state.data_source != 'wyscout':
         st.session_state.data_source = 'wyscout'
         # Recarregar as ligas disponíveis
         AVAILABLE_LEAGUES = load_available_leagues('wyscout')
+        # Marcar que os dados precisam ser recarregados
+        st.session_state.data_needs_reload = True
         # Limpar os filtros avançados ao mudar de fonte para evitar inconsistências
         st.session_state.last_players = []
         st.session_state.saved_pizza_p1 = None
@@ -1891,10 +1971,17 @@ else:
         st.session_state.data_source = 'skillcorner'
         # Recarregar as ligas disponíveis
         AVAILABLE_LEAGUES = load_available_leagues('skillcorner')
+        # Marcar que os dados precisam ser recarregados
+        st.session_state.data_needs_reload = True
         # Limpar os filtros avançados ao mudar de fonte para evitar inconsistências
         st.session_state.last_players = []
         st.session_state.saved_pizza_p1 = None
         st.session_state.saved_pizza_p2 = None
+
+# Se mudou de fonte de dados, limpar o cache
+if previous_source != st.session_state.data_source:
+    st.session_state.cached_df = None
+    st.session_state.cached_leagues = None
 
 # Criar a pasta para dados WyScout se ela não existir
 if st.session_state.data_source == 'wyscout':
@@ -2174,25 +2261,57 @@ st.sidebar.subheader("Dataframe Filters")
 
 # CONTEÚDO PRINCIPAL - Começa aqui (fora do sidebar)
 if selected_leagues:
-    try:
-        df = load_league_data(selected_leagues)
-
-        if df.empty:
-            st.error(
-                "Failed to load data from uploaded files or no data available."
-            )
+    # Verificar se podemos usar dados em cache
+    need_to_reload = False
+    
+    # Verificar se os dados já estão em cache e se são as mesmas ligas
+    if (st.session_state.cached_df is None or 
+        st.session_state.cached_leagues is None or 
+        st.session_state.data_needs_reload or
+        set(st.session_state.cached_leagues) != set(selected_leagues)):
+        need_to_reload = True
+    
+    if need_to_reload:
+        try:
+            # Mostrar status de carregamento
+            with st.spinner(f"Loading data from {len(selected_leagues)} leagues..."):
+                df = load_league_data(selected_leagues)
+                
+                # Salvar no cache do session_state
+                st.session_state.cached_df = df
+                st.session_state.cached_leagues = selected_leagues.copy()
+                st.session_state.last_data_update = pd.Timestamp.now()
+                st.session_state.data_needs_reload = False
+                
+                # Indicar ao usuário que os dados foram atualizados
+                st.success(f"Data refreshed at {st.session_state.last_data_update.strftime('%H:%M:%S')}")
+        except Exception as e:
+            st.error(f"Error loading data: {str(e)}")
+            st.exception(e)
             st.stop()
+    else:
+        # Usar dados do cache
+        df = st.session_state.cached_df
+        if st.session_state.last_data_update:
+            st.info(f"Using cached data from {st.session_state.last_data_update.strftime('%H:%M:%S')} - {len(selected_leagues)} leagues ({len(df)} players)")
+        
+        # Botão para forçar recarregar dados se necessário
+        if st.button("Refresh Data", help="Force reload data from the selected leagues"):
+            st.session_state.data_needs_reload = True
+            st.rerun()
 
-        # Verificar se colunas essenciais existem
-        required_cols = ['Player', 'Minutes played', 'Matches played', 'Age']
-        missing_cols = [col for col in required_cols if col not in df.columns]
-        if missing_cols:
-            st.error(
-                f"Required columns are missing: {', '.join(missing_cols)}")
-            st.stop()
-    except Exception as e:
-        st.error(f"Error processing data: {str(e)}")
-        st.exception(e)
+    if df.empty:
+        st.error(
+            "Failed to load data from selected leagues or no data available."
+        )
+        st.stop()
+
+    # Verificar se colunas essenciais existem
+    required_cols = ['Player', 'Minutes played', 'Matches played', 'Age']
+    missing_cols = [col for col in required_cols if col not in df.columns]
+    if missing_cols:
+        st.error(
+            f"Required columns are missing: {', '.join(missing_cols)}")
         st.stop()
 
     # Filtros Principais (com validação)
