@@ -1373,6 +1373,20 @@ def create_scatter_plot(df, x_metric, y_metric, title=None):
     # Definir cor consistente
     player1_color = "#1A78CF"  # Azul real para jogador 1
 
+    # Identificar a coluna que contém os nomes dos jogadores
+    player_column = None
+    for possible_column in ['Player', 'player', 'NAME', 'Name', 'name']:
+        if possible_column in df.columns:
+            player_column = possible_column
+            break
+    
+    # Se não encontrar nenhuma coluna de jogador, criar índices numéricos em vez de nomes
+    if player_column is None:
+        st.warning("Player column not found. Using numeric indices instead.")
+        df = df.copy()
+        df['PlayerIndex'] = [f"Player {i+1}" for i in range(len(df))]
+        player_column = 'PlayerIndex'
+
     # Criar um dict para armazenar nomes de todos os jogadores
     player_names = {}
 
@@ -1380,7 +1394,7 @@ def create_scatter_plot(df, x_metric, y_metric, title=None):
     max_labels = min(50, len(df))
 
     # Plot all players (diminuir tamanho dos pontos para um visual mais limpo)
-    all_players = df['Player'].values
+    all_players = df[player_column].values
     x_values = df[x_metric].values
     y_values = df[y_metric].values
 
