@@ -2292,6 +2292,7 @@ with st.sidebar.expander("📤 Upload Excel Files", expanded=True):
             st.session_state.combine_leagues = combine_leagues
             st.session_state.cached_df = None  # Forçar recálculo
             st.session_state.data_needs_reload = True
+            st.info("Setting has been changed. Data will be recalculated with the new percentile method.")
         
         # Se todos os arquivos forem removidos, limpar o cache
         if not selected_leagues and st.session_state.uploaded_files:
@@ -2380,6 +2381,9 @@ if not st.session_state.uploaded_files:
     # Atualizar o estado da sessão se houver mudança
     if combine_leagues != st.session_state.combine_leagues:
         st.session_state.combine_leagues = combine_leagues
+        st.session_state.cached_df = None  # Forçar recálculo
+        st.session_state.data_needs_reload = True
+        st.info("Setting has been changed. Data will be recalculated with the new percentile method.")
 
     # Separador visual
     st.sidebar.markdown("---")
