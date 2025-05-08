@@ -24,6 +24,32 @@ if 'benchmark_loaded' not in st.session_state:
     st.session_state.benchmark_loaded = False
     st.session_state.benchmark_df = None
     st.session_state.benchmark_name = None
+    
+# Função auxiliar para processar listas de métricas coladas pelo usuário
+def process_pasted_metrics(pasted_text, available_metrics):
+    """
+    Processa uma lista de métricas colada pelo usuário e retorna aquelas que existem na lista de métricas disponíveis.
+    
+    Args:
+        pasted_text: Texto colado pelo usuário, com métricas separadas por linhas ou vírgulas
+        available_metrics: Lista de métricas disponíveis no dataset
+        
+    Returns:
+        Lista de métricas válidas encontradas no texto colado
+    """
+    if not pasted_text:
+        return []
+        
+    # Substituir vírgulas por quebras de linha para padronizar
+    text = pasted_text.replace(',', '\n')
+    
+    # Dividir o texto em linhas e limpar espaços extras
+    metrics_list = [line.strip() for line in text.split('\n') if line.strip()]
+    
+    # Filtrar apenas as métricas que existem no dataset
+    valid_metrics = [m for m in metrics_list if m in available_metrics]
+    
+    return valid_metrics
 
 import pandas as pd
 import numpy as np
@@ -3373,6 +3399,24 @@ if selected_leagues:
             # Criar variáveis temporárias para seleção de métricas
             if 'temp_bar_metrics' not in st.session_state:
                 st.session_state.temp_bar_metrics = default_metrics
+            
+            # Opção para colar lista de métricas
+            with st.expander("📋 Paste metrics list"):
+                metrics_text = st.text_area(
+                    "Paste metrics (one per line or comma-separated)",
+                    height=150,
+                    key="bar_metrics_paste"
+                )
+                
+                if st.button("Process pasted metrics", key="process_bar_metrics"):
+                    # Processar as métricas coladas
+                    valid_metrics = process_pasted_metrics(metrics_text, metric_cols)
+                    if valid_metrics:
+                        st.session_state.temp_bar_metrics = valid_metrics
+                        st.success(f"Found {len(valid_metrics)} valid metrics!")
+                        st.rerun()
+                    else:
+                        st.warning("No valid metrics found in the pasted text. Please check the format and try again.")
                 
             # Let user select metrics manually (sem aplicar imediatamente)
             temp_metrics = st.multiselect(
@@ -3861,6 +3905,24 @@ if selected_leagues:
                 if 'temp_sim_metrics' not in st.session_state:
                     st.session_state.temp_sim_metrics = preset_metrics
                 
+                # Opção para colar lista de métricas
+                with st.expander("📋 Paste metrics list"):
+                    metrics_text = st.text_area(
+                        "Paste metrics (one per line or comma-separated)",
+                        height=150,
+                        key="sim_metrics_paste"
+                    )
+                    
+                    if st.button("Process pasted metrics", key="process_sim_metrics"):
+                        # Processar as métricas coladas
+                        valid_metrics = process_pasted_metrics(metrics_text, metric_cols)
+                        if valid_metrics:
+                            st.session_state.temp_sim_metrics = valid_metrics
+                            st.success(f"Found {len(valid_metrics)} valid metrics!")
+                            st.rerun()
+                        else:
+                            st.warning("No valid metrics found in the pasted text. Please check the format and try again.")
+                
                 # Allow further customization
                 temp_metrics = st.multiselect(
                     'Add or Remove Individual Metrics',
@@ -3886,6 +3948,24 @@ if selected_leagues:
                 # Criar variáveis temporárias para armazenar métricas custom
                 if 'temp_sim_custom_metrics' not in st.session_state:
                     st.session_state.temp_sim_custom_metrics = metric_cols[:min(8, len(metric_cols))]
+                
+                # Opção para colar lista de métricas
+                with st.expander("📋 Paste metrics list"):
+                    metrics_text = st.text_area(
+                        "Paste metrics (one per line or comma-separated)",
+                        height=150,
+                        key="sim_custom_metrics_paste"
+                    )
+                    
+                    if st.button("Process pasted metrics", key="process_sim_custom_metrics"):
+                        # Processar as métricas coladas
+                        valid_metrics = process_pasted_metrics(metrics_text, metric_cols)
+                        if valid_metrics:
+                            st.session_state.temp_sim_custom_metrics = valid_metrics
+                            st.success(f"Found {len(valid_metrics)} valid metrics!")
+                            st.rerun()
+                        else:
+                            st.warning("No valid metrics found in the pasted text. Please check the format and try again.")
                 
                 # Let user select metrics manually
                 temp_metrics = st.multiselect(
