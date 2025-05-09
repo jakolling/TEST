@@ -5508,6 +5508,13 @@ if selected_leagues:
                     metric_cols,
                     default=metric_cols[:5],
                     key='pca_metrics')
+                
+                # Checkboxes para exibir jogador 1 e jogador 2 no gráfico
+                col1, col2 = st.columns(2)
+                with col1:
+                    show_player1 = st.checkbox("Display Player 1 in PCA chart", value=True, key="show_player1_pca")
+                with col2:
+                    show_player2 = st.checkbox("Display Player 2 in PCA chart", value=True, key="show_player2_pca")
 
                 if len(pca_metrics) < 3:
                     st.warning("Please select at least 3 metrics")
@@ -5580,7 +5587,8 @@ if selected_leagues:
                     p1_idx = df_group[df_group['Player'] == p1].index
                     p2_idx = df_group[df_group['Player'] == p2].index
 
-                    if len(p1_idx) > 0 and p1 != 'None':
+                    # Only show Player 1 if checkbox is checked
+                    if show_player1 and len(p1_idx) > 0 and p1 != 'None':
                         p1_idx = p1_idx[0]
                         p1_idx_in_group = df_group.index.get_indexer([p1_idx
                                                                       ])[0]
@@ -5610,7 +5618,8 @@ if selected_leagues:
                                           linewidth=0.5),
                                 zorder=11)
 
-                    if len(p2_idx) > 0 and p2 != 'None':
+                    # Only show Player 2 if checkbox is checked
+                    if show_player2 and len(p2_idx) > 0 and p2 != 'None':
                         p2_idx = p2_idx[0]
                         p2_idx_in_group = df_group.index.get_indexer([p2_idx
                                                                       ])[0]
