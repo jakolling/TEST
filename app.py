@@ -5509,12 +5509,44 @@ if selected_leagues:
                     default=metric_cols[:5],
                     key='pca_metrics')
                 
-                # Checkboxes para exibir jogador 1 e jogador 2 no gráfico
+                # Interface para selecionar jogadores para exibir no gráfico de PCA
                 col1, col2 = st.columns(2)
+                
+                # Selecionar jogador adicional para o gráfico (coluna 1)
                 with col1:
+                    st.subheader("Player 1")
+                    # Utilizar o mesmo jogador 1 que já foi selecionado acima
+                    st.info(f"Player 1: {p1}")
                     show_player1 = st.checkbox("Display Player 1 in PCA chart", value=True, key="show_player1_pca")
+                
+                # Selecionar jogador adicional para o gráfico (coluna 2)
                 with col2:
+                    st.subheader("Player 2")
+                    # Utilizar o mesmo jogador 2 que já foi selecionado acima
+                    st.info(f"Player 2: {p2}")
                     show_player2 = st.checkbox("Display Player 2 in PCA chart", value=True, key="show_player2_pca")
+                
+                # Selecionar jogadores adicionais para o gráfico
+                st.subheader("Additional Players")
+                col3, col4 = st.columns(2)
+                
+                with col3:
+                    # Lista de todos os jogadores disponíveis para seleção
+                    custom_player1 = st.selectbox(
+                        "Select custom player 1",
+                        options=["None"] + sorted(df_group['Player'].unique().tolist()),
+                        key="custom_player1_pca"
+                    )
+                    show_custom_player1 = st.checkbox("Display custom player 1", value=False, key="show_custom_player1_pca")
+                
+                with col4:
+                    # Lista de todos os jogadores disponíveis para seleção
+                    custom_player2 = st.selectbox(
+                        "Select custom player 2",
+                        options=["None"] + sorted(df_group['Player'].unique().tolist()),
+                        key="custom_player2_pca"
+                    )
+                    show_custom_player2 = st.checkbox("Display custom player 2", value=False, key="show_custom_player2_pca")
 
                 if len(pca_metrics) < 3:
                     st.warning("Please select at least 3 metrics")
@@ -5648,6 +5680,74 @@ if selected_leagues:
                                           boxstyle="round,pad=0.1",
                                           linewidth=0.5),
                                 zorder=11)
+                                
+                    # Exibir jogador customizado 1
+                    if show_custom_player1 and custom_player1 != 'None':
+                        custom_player1_idx = df_group[df_group['Player'] == custom_player1].index
+                        if len(custom_player1_idx) > 0:
+                            custom_player1_idx = custom_player1_idx[0]
+                            custom_player1_idx_in_group = df_group.index.get_indexer([custom_player1_idx])[0]
+                            if custom_player1_idx_in_group >= 0:  # Player is in the filtered group
+                                # Cor verde para o jogador customizado 1
+                                custom_player1_color = "#2CA02C"  # Verde
+                                ax.scatter(pca_result[custom_player1_idx_in_group, 0],
+                                           pca_result[custom_player1_idx_in_group, 1],
+                                           s=100,
+                                           c=custom_player1_color,
+                                           edgecolor='black',
+                                           label=custom_player1,
+                                           zorder=10)
+                                ax.annotate(
+                                    custom_player1,
+                                    (pca_result[custom_player1_idx_in_group, 0],
+                                     pca_result[custom_player1_idx_in_group, 1]),
+                                    xytext=(0, -9),  # Posição abaixo do ponto
+                                    textcoords='offset points',
+                                    fontsize=9,  # Fonte um pouco maior
+                                    fontweight='bold',
+                                    ha='center',  # Centralizado
+                                    va='top',  # Alinhado ao topo do texto
+                                    color=custom_player1_color,  # Cor do jogador
+                                    bbox=dict(facecolor='white',
+                                              alpha=0.7,
+                                              edgecolor=custom_player1_color,
+                                              boxstyle="round,pad=0.1",
+                                              linewidth=0.5),
+                                    zorder=11)
+                    
+                    # Exibir jogador customizado 2
+                    if show_custom_player2 and custom_player2 != 'None':
+                        custom_player2_idx = df_group[df_group['Player'] == custom_player2].index
+                        if len(custom_player2_idx) > 0:
+                            custom_player2_idx = custom_player2_idx[0]
+                            custom_player2_idx_in_group = df_group.index.get_indexer([custom_player2_idx])[0]
+                            if custom_player2_idx_in_group >= 0:  # Player is in the filtered group
+                                # Cor roxa para o jogador customizado 2
+                                custom_player2_color = "#9467BD"  # Roxo
+                                ax.scatter(pca_result[custom_player2_idx_in_group, 0],
+                                           pca_result[custom_player2_idx_in_group, 1],
+                                           s=100,
+                                           c=custom_player2_color,
+                                           edgecolor='black',
+                                           label=custom_player2,
+                                           zorder=10)
+                                ax.annotate(
+                                    custom_player2,
+                                    (pca_result[custom_player2_idx_in_group, 0],
+                                     pca_result[custom_player2_idx_in_group, 1]),
+                                    xytext=(0, -9),  # Posição abaixo do ponto
+                                    textcoords='offset points',
+                                    fontsize=9,  # Fonte um pouco maior
+                                    fontweight='bold',
+                                    ha='center',  # Centralizado
+                                    va='top',  # Alinhado ao topo do texto
+                                    color=custom_player2_color,  # Cor do jogador
+                                    bbox=dict(facecolor='white',
+                                              alpha=0.7,
+                                              edgecolor=custom_player2_color,
+                                              boxstyle="round,pad=0.1",
+                                              linewidth=0.5),
+                                    zorder=11)
 
                     # Plot feature vectors
                     coeff = pca.components_.T
@@ -5683,9 +5783,12 @@ if selected_leagues:
                     ax.axhline(y=0, color='k', linestyle='-', alpha=0.3)
                     ax.axvline(x=0, color='k', linestyle='-', alpha=0.3)
 
-                    # Add legend
-                    if p1 != 'None' or p2 != 'None':
-                        ax.legend(loc='best')
+                    # Add legend for all displayed players
+                    if (show_player1 and p1 != 'None') or \
+                       (show_player2 and p2 != 'None') or \
+                       (show_custom_player1 and custom_player1 != 'None') or \
+                       (show_custom_player2 and custom_player2 != 'None'):
+                        ax.legend(loc='best', fontsize=9)
 
                     # Display PCA plot
                     st.pyplot(fig)
