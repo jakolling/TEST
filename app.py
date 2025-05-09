@@ -1297,8 +1297,26 @@ def create_bar_chart(metrics,
                      p2_values,
                      avg_values,
                      title=None,
-                     subtitle=None):
-    """Create horizontal bar chart using matplotlib"""
+                     subtitle=None,
+                     p3_name=None,
+                     p3_values=None,
+                     p4_name=None,
+                     p4_values=None,
+                     p5_name=None,
+                     p5_values=None):
+    """Create horizontal bar chart using matplotlib with up to 5 players"""
+    # Calcular quantos jogadores temos (contando apenas os que têm nome e valores)
+    player_count = 2  # Sempre temos pelo menos 2 jogadores
+    
+    if p3_name and p3_values:
+        player_count += 1
+        
+    if p4_name and p4_values:
+        player_count += 1
+        
+    if p5_name and p5_values:
+        player_count += 1
+    
     # Aumentar o espaço superior para evitar sobreposição do título com legendas
     fig, axes = plt.subplots(len(metrics), 1, figsize=(10, 3 * len(metrics)))
 
@@ -1306,22 +1324,52 @@ def create_bar_chart(metrics,
     if len(metrics) == 1:
         axes = [axes]
 
-    # Definir cores consistentes com o gráfico pizza
-    player1_color = "#1A78CF"  # Azul real para jogador 1
-    player2_color = "#E41A1C"  # Vermelho para jogador 2
+    # Definir cores para os jogadores (usar uma paleta que suporte até 5 jogadores)
+    player_colors = {
+        0: "#1A78CF",  # Azul real para jogador 1
+        1: "#E41A1C",  # Vermelho para jogador 2
+        2: "#FF7F0E",  # Laranja para jogador 3
+        3: "#9467BD",  # Roxo para jogador 4
+        4: "#8C564B"   # Marrom para jogador 5
+    }
+    
+    # Lista com nomes e valores dos jogadores
+    players = [
+        (p1_name, p1_values),
+        (p2_name, p2_values)
+    ]
+    
+    # Adicionar jogadores extras se presentes
+    if p3_name and p3_values:
+        players.append((p3_name, p3_values))
+    if p4_name and p4_values:
+        players.append((p4_name, p4_values))
+    if p5_name and p5_values:
+        players.append((p5_name, p5_values))
 
     for i, metric in enumerate(metrics):
         ax = axes[i]
 
-        # Plot bars (usando as cores azul real e vermelho)
-        y_pos = [0, 1]
-        ax.barh(y_pos[0], p1_values[i], color=player1_color, height=0.6)
-        ax.barh(y_pos[1], p2_values[i], color=player2_color, height=0.6)
+        # Calcular posições verticais para as barras (invertidas, de baixo para cima)
+        y_pos = list(range(len(players)))
+
+        # Plotar barras para cada jogador
+        for j, (player_name, player_values) in enumerate(players):
+            # Plotar a barra para o jogador atual
+            ax.barh(y_pos[j], player_values[i], color=player_colors[j], height=0.6)
+            
+            # Adicionar valor no final da barra
+            ax.text(player_values[i],
+                    y_pos[j],
+                    f' {player_values[i]:.2f}',
+                    va='center',
+                    color=player_colors[j],
+                    fontweight='bold')
 
         # Plot average line
         ax.axvline(x=avg_values[i], color='#2ca02c', linestyle='--', alpha=0.7)
         ax.text(avg_values[i],
-                0.5,
+                len(players) / 2,  # Posicionar no meio das barras
                 f'Group Avg',
                 va='center',
                 ha='right',
@@ -1335,24 +1383,10 @@ def create_bar_chart(metrics,
 
         # Add player labels
         ax.set_yticks(y_pos)
-        ax.set_yticklabels([p1_name, p2_name])
+        ax.set_yticklabels([p[0] for p in players])
 
         # Add grid
         ax.grid(axis='x', linestyle='--', alpha=0.6)
-
-        # Add value labels
-        ax.text(p1_values[i],
-                y_pos[0],
-                f' {p1_values[i]:.2f}',
-                va='center',
-                color=player1_color,
-                fontweight='bold')
-        ax.text(p2_values[i],
-                y_pos[1],
-                f' {p2_values[i]:.2f}',
-                va='center',
-                color=player2_color,
-                fontweight='bold')
 
     # Ajustar layout primeiro para dar espaço adequado ao título
     plt.tight_layout(pad=1.2, h_pad=0.8, w_pad=0.5, rect=[0, 0, 1, 0.92])
@@ -1371,28 +1405,26 @@ def create_bar_chart(metrics,
         plt.Rectangle((0, 0),
                       1,
                       1,
-                      facecolor=player1_color,
+                      facecolor=player_colors[j],
                       edgecolor='white',
-                      label=p1_name),
-        plt.Rectangle((0, 0),
-                      1,
-                      1,
-                      facecolor=player2_color,
-                      edgecolor='white',
-                      label=p2_name),
+                      label=players[j][0]) for j in range(len(players))
+    ]
+    
+    # Adicionar linha de média à legenda
+    legend_elements.append(
         plt.Line2D([0], [0],
                    color='#2ca02c',
                    lw=2,
                    linestyle='--',
                    label='Group Average')
-    ]
+    )
 
     # Posicionar a legenda centralizada no topo da figura (acima do título)
     # Isso evita sobreposições com os subplots individuais
     fig.legend(handles=legend_elements,
                loc='lower center',
                bbox_to_anchor=(0.5, 1.0),
-               ncol=3,
+               ncol=min(5, len(legend_elements)),  # Limitar a 5 itens por linha
                frameon=True,
                facecolor='white',
                edgecolor='#CCCCCC')
@@ -3856,66 +3888,171 @@ if selected_leagues:
                 st.error("Maximum 5 metrics allowed!")
 
             elif len(selected_metrics) >= 1 and p2 is not None:
-                # Dados do jogador 1 (sempre da base principal)
-                d1 = df_minutes[df_minutes['Player'] == p1].iloc[0]
-
-                # Dados do jogador 2 (pode ser do benchmark ou da base principal)
-                if use_benchmark:
-                    # Obter dados do benchmark
-                    d2 = filtered_benchmark[filtered_benchmark['Player'] ==
-                                            p2].iloc[0]
-
-                    # A média do grupo é a média do benchmark para comparação consistente
-                    avg_values = [
-                        filtered_benchmark[m].mean() for m in selected_metrics
-                    ]
-
-                    # Texto especial para o subtítulo
-                    benchmark_text = f" | Benchmark: {st.session_state.benchmark_name}"
-                else:
-                    # Fluxo normal - ambos jogadores da base principal
-                    d2 = df_minutes[df_minutes['Player'] == p2].iloc[0]
-
-                    # Group average da base principal
-                    avg_values = [df_group[m].mean() for m in selected_metrics]
-
-                    benchmark_text = ""
-
-                # Valores nominais para os jogadores
-                p1_values = [d1[m] for m in selected_metrics]
-                p2_values = [d2[m] for m in selected_metrics]
+                # Verificar se os jogadores existem no DataFrame filtrado
+                player1_data = df_minutes[df_minutes['Player'] == p1]
+                player_valid = True
                 
-                # Formatação dos nomes com os times
-                p1_team = d1['Team']
-                p2_team = d2['Team']
-                p1_display = f"{p1} ({p1_team})"
-                p2_display = f"{p2} ({p2_team})"
+                if player1_data.empty:
+                    st.error(f"Player '{p1}' not found in filtered dataset. Try adjusting filters or selecting another player.")
+                    player_valid = False
+                
+                # Verificar jogador 2 também
+                if player_valid:
+                    # Dados do jogador 1 (sempre da base principal)
+                    d1 = player1_data.iloc[0]
+    
+                    # Dados do jogador 2 (pode ser do benchmark ou da base principal)
+                    if use_benchmark:
+                        # Verificar se o jogador 2 existe no benchmark
+                        player2_data = filtered_benchmark[filtered_benchmark['Player'] == p2]
+                        
+                        if player2_data.empty:
+                            st.error(f"Benchmark player '{p2}' not found. Try selecting another player.")
+                            player_valid = False
+                        else:
+                            # Obter dados do benchmark
+                            d2 = player2_data.iloc[0]
+    
+                            # A média do grupo é a média do benchmark para comparação consistente
+                            avg_values = [
+                                filtered_benchmark[m].mean() for m in selected_metrics
+                            ]
+    
+                            # Texto especial para o subtítulo
+                            benchmark_text = f" | Benchmark: {st.session_state.benchmark_name}"
+                    else:
+                        # Verificar se o jogador 2 existe na base principal
+                        player2_data = df_minutes[df_minutes['Player'] == p2]
+                        
+                        if player2_data.empty:
+                            st.error(f"Player '{p2}' not found in filtered dataset. Try adjusting filters or selecting another player.")
+                            player_valid = False
+                        else:
+                            # Fluxo normal - ambos jogadores da base principal
+                            d2 = player2_data.iloc[0]
+    
+                            # Group average da base principal
+                            avg_values = [df_group[m].mean() for m in selected_metrics]
+    
+                            benchmark_text = ""
 
-                title = "Metric Comparison"
-                subtitle = (
-                    f"Context: {context['leagues']} ({context['seasons']}) | "
-                    f"Players: {context['total_players']} | Filters: {context['min_age']}-{context['max_age']} years{benchmark_text}"
-                )
-
-                fig = create_bar_chart(metrics=selected_metrics,
-                                       p1_name=p1_display,
-                                       p1_values=p1_values,
-                                       p2_name=p2_display,
-                                       p2_values=p2_values,
-                                       avg_values=avg_values,
-                                       title=title,
-                                       subtitle=subtitle)
-
-                # Display bar chart
-                st.pyplot(fig)
-
-                # Export button
-                if st.button('Export Bar Chart (300 DPI)', key='export_bar'):
-                    img_bytes = fig_to_bytes(fig)
-                    st.download_button("⬇️ Download Bar Chart",
-                                       data=img_bytes,
-                                       file_name=f"bar_{p1}_vs_{p2}.png",
-                                       mime="image/png")
+                if player_valid:
+                    # Checkbox para ativar a seleção de jogadores adicionais
+                    show_additional_players = st.checkbox("Show additional players (up to 3)", value=False, key="show_additional_players")
+                    
+                    # Definir jogadores adicionais se solicitado
+                    p3_data = p4_data = p5_data = None
+                    p3_display = p4_display = p5_display = None
+                    p3_values = p4_values = p5_values = None
+                    
+                    if show_additional_players:
+                        # Criar uma lista de jogadores disponíveis (excluindo p1 e p2)
+                        available_players = [p for p in players if p != p1 and p != p2]
+                        
+                        # Criar três colunas para a seleção dos jogadores adicionais
+                        col1, col2, col3 = st.columns(3)
+                        
+                        # Selecionar jogador adicional 1
+                        with col1:
+                            if available_players:
+                                p3 = st.selectbox("Select Player 3", 
+                                                 available_players, 
+                                                 key="bar_p3")
+                                
+                                # Verificar se o jogador existe no DataFrame
+                                player3_data = df_minutes[df_minutes['Player'] == p3]
+                                if not player3_data.empty:
+                                    # Obter dados do jogador 3
+                                    p3_data = player3_data.iloc[0]
+                                    p3_values = [p3_data[m] for m in selected_metrics]
+                                    p3_team = p3_data['Team']
+                                    p3_display = f"{p3} ({p3_team})"
+                                    
+                                    # Remover p3 da lista de jogadores disponíveis
+                                    available_players = [p for p in available_players if p != p3]
+                                else:
+                                    st.warning(f"Player '{p3}' not found in the filtered dataset. Not included in visualization.")
+                        
+                        # Selecionar jogador adicional 2
+                        with col2:
+                            if available_players:
+                                p4 = st.selectbox("Select Player 4", 
+                                                 available_players, 
+                                                 key="bar_p4")
+                                
+                                # Verificar se o jogador existe no DataFrame
+                                player4_data = df_minutes[df_minutes['Player'] == p4]
+                                if not player4_data.empty:
+                                    # Obter dados do jogador 4
+                                    p4_data = player4_data.iloc[0]
+                                    p4_values = [p4_data[m] for m in selected_metrics]
+                                    p4_team = p4_data['Team']
+                                    p4_display = f"{p4} ({p4_team})"
+                                    
+                                    # Remover p4 da lista de jogadores disponíveis
+                                    available_players = [p for p in available_players if p != p4]
+                                else:
+                                    st.warning(f"Player '{p4}' not found in the filtered dataset. Not included in visualization.")
+                        
+                        # Selecionar jogador adicional 3
+                        with col3:
+                            if available_players:
+                                p5 = st.selectbox("Select Player 5", 
+                                                 available_players, 
+                                                 key="bar_p5")
+                                
+                                # Verificar se o jogador existe no DataFrame
+                                player5_data = df_minutes[df_minutes['Player'] == p5]
+                                if not player5_data.empty:
+                                    # Obter dados do jogador 5
+                                    p5_data = player5_data.iloc[0]
+                                    p5_values = [p5_data[m] for m in selected_metrics]
+                                    p5_team = p5_data['Team']
+                                    p5_display = f"{p5} ({p5_team})"
+                                else:
+                                    st.warning(f"Player '{p5}' not found in the filtered dataset. Not included in visualization.")
+    
+                    # Valores nominais para os jogadores principais
+                    p1_values = [d1[m] for m in selected_metrics]
+                    p2_values = [d2[m] for m in selected_metrics]
+                    
+                    # Formatação dos nomes com os times
+                    p1_team = d1['Team']
+                    p2_team = d2['Team']
+                    p1_display = f"{p1} ({p1_team})"
+                    p2_display = f"{p2} ({p2_team})"
+    
+                    title = "Metric Comparison"
+                    subtitle = (
+                        f"Context: {context['leagues']} ({context['seasons']}) | "
+                        f"Players: {context['total_players']} | Filters: {context['min_age']}-{context['max_age']} years{benchmark_text}"
+                    )
+    
+                    fig = create_bar_chart(metrics=selected_metrics,
+                                           p1_name=p1_display,
+                                           p1_values=p1_values,
+                                           p2_name=p2_display,
+                                           p2_values=p2_values,
+                                           avg_values=avg_values,
+                                           title=title,
+                                           subtitle=subtitle,
+                                           p3_name=p3_display,
+                                           p3_values=p3_values,
+                                           p4_name=p4_display,
+                                           p4_values=p4_values,
+                                           p5_name=p5_display,
+                                           p5_values=p5_values)
+    
+                    # Display bar chart
+                    st.pyplot(fig)
+    
+                    # Export button
+                    if st.button('Export Bar Chart (300 DPI)', key='export_bar'):
+                        img_bytes = fig_to_bytes(fig)
+                        st.download_button("⬇️ Download Bar Chart",
+                                           data=img_bytes,
+                                           file_name=f"bar_{p1}_vs_{p2}.png",
+                                           mime="image/png")
 
         # =============================================
         # Scatter Plot (Aba 3)
