@@ -2819,6 +2819,12 @@ if selected_leagues:
             # Criar checkboxes para cada posição
             position_changed = False
             
+            # Garantir que temp_pos_checkboxes esteja atualizado com todas as posições atuais
+            # Isso corrige o problema quando novas posições são adicionadas
+            for pos in all_pos:
+                if pos not in st.session_state.temp_pos_checkboxes:
+                    st.session_state.temp_pos_checkboxes[pos] = pos in st.session_state.temp_positions
+            
             # Dividir posições em grupos para colocar em colunas
             half_length = (len(all_pos) + 1) // 2
             first_half = all_pos[:half_length]
@@ -2833,17 +2839,21 @@ if selected_leagues:
                     if select_all:
                         st.session_state.temp_pos_checkboxes[pos] = True
                     
-                    # Criar checkbox
-                    checked = st.checkbox(
-                        pos, 
-                        value=st.session_state.temp_pos_checkboxes[pos],
-                        key=f"pos_{pos}"
-                    )
-                    
-                    # Atualizar estado se mudou
-                    if checked != st.session_state.temp_pos_checkboxes[pos]:
-                        st.session_state.temp_pos_checkboxes[pos] = checked
-                        position_changed = True
+                    # Criar checkbox com tratamento de erro
+                    try:
+                        checked = st.checkbox(
+                            pos, 
+                            value=st.session_state.temp_pos_checkboxes.get(pos, False),
+                            key=f"pos_{pos}"
+                        )
+                        
+                        # Atualizar estado se mudou
+                        if checked != st.session_state.temp_pos_checkboxes.get(pos, False):
+                            st.session_state.temp_pos_checkboxes[pos] = checked
+                            position_changed = True
+                    except Exception as e:
+                        st.error(f"Erro ao processar posição {pos}: {str(e)}")
+                        st.session_state.temp_pos_checkboxes[pos] = False
             
             # Segunda coluna
             with cols[1]:
@@ -2852,17 +2862,21 @@ if selected_leagues:
                     if select_all:
                         st.session_state.temp_pos_checkboxes[pos] = True
                     
-                    # Criar checkbox
-                    checked = st.checkbox(
-                        pos, 
-                        value=st.session_state.temp_pos_checkboxes[pos],
-                        key=f"pos_{pos}_b"
-                    )
-                    
-                    # Atualizar estado se mudou
-                    if checked != st.session_state.temp_pos_checkboxes[pos]:
-                        st.session_state.temp_pos_checkboxes[pos] = checked
-                        position_changed = True
+                    # Criar checkbox com tratamento de erro
+                    try:
+                        checked = st.checkbox(
+                            pos, 
+                            value=st.session_state.temp_pos_checkboxes.get(pos, False),
+                            key=f"pos_{pos}_b"
+                        )
+                        
+                        # Atualizar estado se mudou
+                        if checked != st.session_state.temp_pos_checkboxes.get(pos, False):
+                            st.session_state.temp_pos_checkboxes[pos] = checked
+                            position_changed = True
+                    except Exception as e:
+                        st.error(f"Erro ao processar posição {pos}: {str(e)}")
+                        st.session_state.temp_pos_checkboxes[pos] = False
             
             # Atualizar seleção baseada nos checkboxes
             temp_sel_pos = [pos for pos in all_pos if st.session_state.temp_pos_checkboxes[pos]]
