@@ -1592,35 +1592,81 @@ def create_similarity_viz(selected_player,
         # Create grid layout for subplots
         gs = fig.add_gridspec(3, 6, height_ratios=[2, 2, 1])
 
-        
+        # Se estivermos usando o método PCA+K-Means, mostrar a visualização PCA
         if method == 'pca_kmeans':
+            # Criar o dataframe PCA
             pca_df = create_pca_kmeans_df(df, metrics)
 
             if pca_df is not None:
-                pca_df['Highlight'] = pca_df['Player'].apply(
-                    lambda x: 'Selected' if x == selected_player else ('Similar' if x in [p[0] for p in similar_players] else 'Other')
-                )
+                # Grid para o plot PCA
+                ax_pca = fig.add_subplot(gs[0:2, 0:3])
 
-                import plotly.express as px
-                fig_pca = px.scatter(
-                    pca_df,
-                    x='x',
-                    y='y',
-                    color='Highlight',
-                    hover_name='Player',
-                    hover_data={'Team': True, 'Position': True, 'Age': True},
-                    color_discrete_map={'Selected': '#1A78CF', 'Similar': '#E41A1C', 'Other': 'lightgray'},
-                    title='Player Similarity - PCA Visualization',
-                    width=500,
-                    height=500
-                )
+                # Plotar todos os jogadores em cores baseadas no cluster
+                for cluster_id in pca_df['cluster'].unique():
+                    cluster_data = pca_df[pca_df['cluster'] == cluster_id]
+                    ax_pca.scatter(cluster_data['x'],
+                                   cluster_data['y'],
+                                   alpha=0.5,
+                                   s=50,
+                                   c=cluster_colors[int(cluster_id) %
+                                                    len(cluster_colors)],
+                                   label=f'Cluster {cluster_id+1}')
 
-                fig_pca.update_traces(marker=dict(size=9, line=dict(width=1, color='DarkSlateGrey')))
-                fig_pca.update_layout(legend_title_text='')
+                # Destacar o jogador principal
+                player_point = pca_df[pca_df['Player'] == selected_player]
+                ax_pca.scatter(player_point['x'],
+                               player_point['y'],
+                               s=150,
+                               c=player1_color,
+                               marker='*',
+                               edgecolor='black',
+                               linewidth=1.5,
+                               label=selected_player)
 
-                # Inserir o plotly como imagem no matplotlib usando plotly.io
-                st.plotly_chart(fig_pca, use_container_width=True)
+                # Destacar jogadores similares
+                similar_players_list = [p[0] for p in similar_players]
+                similar_points = pca_df[pca_df['Player'].isin(
+                    similar_players_list)]
+                ax_pca.scatter(similar_points['x'],
+                               similar_points['y'],
+                               s=100,
+                               c=player2_color,
+                               marker='o',
+                               edgecolor='black',
+                               linewidth=1,
+                               label='Similar Players')
 
+                # Adicionar textos para o jogador selecionado e similares
+                for _, row in player_point.iterrows():
+                    ax_pca.annotate(row['Player'], (row['x'], row['y']),
+                                    xytext=(5, 5),
+                                    textcoords='offset points',
+                                    fontsize=12,
+                                    fontweight='bold',
+                                    color=player1_color,
+                                    bbox=dict(facecolor='white',
+                                              alpha=0.8,
+                                              edgecolor=player1_color,
+                                              boxstyle="round,pad=0.2"))
+
+                for _, row in similar_points.iterrows():
+                    ax_pca.annotate(row['Player'], (row['x'], row['y']),
+                                    xytext=(5, 5),
+                                    textcoords='offset points',
+                                    fontsize=10,
+                                    color=player2_color,
+                                    bbox=dict(facecolor='white',
+                                              alpha=0.8,
+                                              edgecolor=player2_color,
+                                              boxstyle="round,pad=0.2"))
+
+                # Configurações do plot PCA
+                ax_pca.set_title('Player Similarity - PCA Visualization',
+                                 fontsize=14)
+                ax_pca.set_xlabel('Principal Component 1', fontsize=10)
+                ax_pca.set_ylabel('Principal Component 2', fontsize=10)
+                ax_pca.legend(loc='upper right', fontsize=8)
+                ax_pca.grid(alpha=0.3)
 
                 # Adicionar uma explicação sobre PCA
                 explanation_text = (
@@ -2892,7 +2938,23 @@ if selected_leagues:
             
             # 1. Primeiro, filtrar ambos por minutos jogados (obrigatório para ambos)
             minutes_range = st.session_state.temp_minutes_range
-            df_percentiles = df[df['Minutes played'].between(*minutes_range)].copy()
+            
+            # Garantir que 'Minutes played' seja numérico e tratar possíveis erros
+            df['Minutes played'] = pd.to_numeric(df['Minutes played'], errors='coerce')
+            
+            # Aplicar filtro com verificação explícita para garantir inclusão de valores no limite
+            min_minutes, max_minutes = minutes_range
+            df_percentiles = df[(df['Minutes played'] >= min_minutes) & (df['Minutes played'] <= max_minutes)].copy()
+            
+            # Debug info
+            st.session_state.debug_info = {
+                'total_players': len(df),
+                'filtered_players': len(df_percentiles),
+                'min_minutes': min_minutes,
+                'max_minutes': max_minutes,
+                'minutes_range': minutes_range
+            }
+            
             df_filtered = df_percentiles.copy()  # Começamos com o mesmo filtro
             
             # Verificar se temos jogadores após o filtro
@@ -2909,8 +2971,17 @@ if selected_leagues:
             
             # Filtrar ambos por minutos por jogo (obrigatório para percentis)
             mpg_range = st.session_state.temp_mpg_range
-            df_percentiles = df_percentiles[df_percentiles['Minutes per game'].between(*mpg_range)]
-            df_filtered = df_filtered[df_filtered['Minutes per game'].between(*mpg_range)]
+            min_mpg, max_mpg = mpg_range
+            
+            # Garantir que 'Minutes per game' seja numérico
+            df_percentiles['Minutes per game'] = pd.to_numeric(df_percentiles['Minutes per game'], errors='coerce')
+            df_filtered['Minutes per game'] = pd.to_numeric(df_filtered['Minutes per game'], errors='coerce')
+            
+            # Aplicar filtro com verificação explícita
+            df_percentiles = df_percentiles[(df_percentiles['Minutes per game'] >= min_mpg) & 
+                                          (df_percentiles['Minutes per game'] <= max_mpg)]
+            df_filtered = df_filtered[(df_filtered['Minutes per game'] >= min_mpg) & 
+                                    (df_filtered['Minutes per game'] <= max_mpg)]
             
             # Verificar se temos jogadores após o filtro
             if df_percentiles.empty:
@@ -2932,7 +3003,14 @@ if selected_leagues:
             
             # Filtrar por idade (apenas df_filtered)
             age_range = st.session_state.temp_age_range
-            df_age_filtered = df_filtered[df_filtered['Age'].between(*age_range)]
+            min_age_filter, max_age_filter = age_range
+            
+            # Garantir que 'Age' seja numérico
+            df_filtered['Age'] = pd.to_numeric(df_filtered['Age'], errors='coerce')
+            
+            # Aplicar filtro com verificação explícita
+            df_age_filtered = df_filtered[(df_filtered['Age'] >= min_age_filter) & 
+                                        (df_filtered['Age'] <= max_age_filter)]
             
             # Verificar se temos jogadores após o filtro
             if df_age_filtered.empty:
@@ -2966,13 +3044,90 @@ if selected_leagues:
             st.session_state.last_age_range = age_range
             st.session_state.last_positions = sel_pos
             
+            # Adicionar informações de debug para ajudar a diagnosticar problemas de filtragem
+            # Verificar se há problemas específicos com o jogador M. Flores
+            try:
+                # Encontrar jogador M. Flores nos dados originais
+                player_name = "M. Flores"
+                flores_data = df[df['Player'] == player_name]
+                
+                if not flores_data.empty:
+                    # Informações sobre o jogador antes da filtragem
+                    flores_minutes = flores_data['Minutes played'].values[0]
+                    flores_mpg = flores_data['Minutes played'].values[0] / flores_data['Matches played'].values[0] if 'Matches played' in flores_data else 0
+                    
+                    # Verificar se o jogador existe no DataFrame filtrado
+                    flores_in_filtered = player_name in df_filtered['Player'].values
+                    
+                    # Adicionar informações ao debug info
+                    st.session_state.debug_info.update({
+                        'flores_found_in_original': True,
+                        'flores_minutes': flores_minutes,
+                        'flores_matches': flores_data['Matches played'].values[0] if 'Matches played' in flores_data else "N/A",
+                        'flores_mpg': flores_mpg,
+                        'flores_in_filtered_df': flores_in_filtered,
+                        'min_minutes_filter': min_minutes,
+                        'max_minutes_filter': max_minutes,
+                    })
+                else:
+                    st.session_state.debug_info.update({
+                        'flores_found_in_original': False
+                    })
+            except Exception as e:
+                st.session_state.debug_info.update({
+                    'debug_error': str(e)
+                })
+            
+            # Adicionar expansor para mostrar informações de debug
+            with st.expander("Debug Information (Click to expand)", expanded=False):
+                st.subheader("Filter Debug Info")
+                st.json(st.session_state.debug_info)
+                
+                # Verificar e mostrar info específica sobre M. Flores
+                if 'flores_found_in_original' in st.session_state.debug_info:
+                    if st.session_state.debug_info['flores_found_in_original']:
+                        st.subheader("M. Flores Data")
+                        st.write(f"Minutes played: {st.session_state.debug_info.get('flores_minutes')}")
+                        st.write(f"Matches played: {st.session_state.debug_info.get('flores_matches')}")
+                        st.write(f"Minutes per game: {st.session_state.debug_info.get('flores_mpg')}")
+                        st.write(f"In filtered DataFrame: {st.session_state.debug_info.get('flores_in_filtered_df')}")
+                        st.write(f"Minutes filter: {st.session_state.debug_info.get('min_minutes_filter')} to {st.session_state.debug_info.get('max_minutes_filter')}")
+                        
+                        # Verificação explícita para comparar os valores
+                        flores_minutes = st.session_state.debug_info.get('flores_minutes')
+                        min_filter = st.session_state.debug_info.get('min_minutes_filter')
+                        max_filter = st.session_state.debug_info.get('max_minutes_filter')
+                        
+                        st.write("Filter validation:")
+                        st.write(f"Is {flores_minutes} >= {min_filter}? {flores_minutes >= min_filter}")
+                        st.write(f"Is {flores_minutes} <= {max_filter}? {flores_minutes <= max_filter}")
+                        st.write(f"Should be included in filter? {flores_minutes >= min_filter and flores_minutes <= max_filter}")
+                    else:
+                        st.warning("M. Flores not found in original dataset")
+            
             # Feedback ao usuário
             st.sidebar.success(f"Filters applied: {len(df_minutes)} players match the criteria")
     else:
         # Se os filtros não foram aplicados, usar os últimos filtros válidos
         # Filtrar por minutos jogados
         minutes_range = st.session_state.last_minutes_range
-        df_minutes = df[df['Minutes played'].between(*minutes_range)].copy()
+        
+        # Garantir que 'Minutes played' seja numérico e tratar possíveis erros
+        df['Minutes played'] = pd.to_numeric(df['Minutes played'], errors='coerce')
+        
+        # Aplicar filtro com verificação explícita
+        min_minutes, max_minutes = minutes_range
+        df_minutes = df[(df['Minutes played'] >= min_minutes) & (df['Minutes played'] <= max_minutes)].copy()
+        
+        # Debug info
+        st.session_state.debug_info = {
+            'total_players': len(df),
+            'filtered_players': len(df_minutes),
+            'min_minutes': min_minutes,
+            'max_minutes': max_minutes,
+            'minutes_range': minutes_range,
+            'filter_applied': False
+        }
         
         # Calcular minutos por jogo
         df_minutes['Minutes per game'] = df_minutes['Minutes played'] / df_minutes['Matches played'].replace(0, np.nan)
@@ -2980,13 +3135,27 @@ if selected_leagues:
         
         # Filtrar por minutos por jogo
         mpg_range = st.session_state.last_mpg_range
-        df_filtered = df_minutes[df_minutes['Minutes per game'].between(*mpg_range)]
+        min_mpg, max_mpg = mpg_range
+        
+        # Garantir que 'Minutes per game' seja numérico
+        df_minutes['Minutes per game'] = pd.to_numeric(df_minutes['Minutes per game'], errors='coerce')
+        
+        # Aplicar filtro com verificação explícita
+        df_filtered = df_minutes[(df_minutes['Minutes per game'] >= min_mpg) & 
+                                (df_minutes['Minutes per game'] <= max_mpg)]
         if not df_filtered.empty:
             df_minutes = df_filtered
         
         # Filtrar por idade
         age_range = st.session_state.last_age_range
-        df_filtered = df_minutes[df_minutes['Age'].between(*age_range)]
+        min_age, max_age = age_range
+        
+        # Garantir que 'Age' seja numérico
+        df_minutes['Age'] = pd.to_numeric(df_minutes['Age'], errors='coerce')
+        
+        # Aplicar filtro com verificação explícita
+        df_filtered = df_minutes[(df_minutes['Age'] >= min_age) & 
+                                (df_minutes['Age'] <= max_age)]
         if not df_filtered.empty:
             df_minutes = df_filtered
         
