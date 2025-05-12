@@ -1592,81 +1592,44 @@ def create_similarity_viz(selected_player,
         # Create grid layout for subplots
         gs = fig.add_gridspec(3, 6, height_ratios=[2, 2, 1])
 
-        # Se estivermos usando o método PCA+K-Means, mostrar a visualização PCA
+        
         if method == 'pca_kmeans':
-            # Criar o dataframe PCA
             pca_df = create_pca_kmeans_df(df, metrics)
 
             if pca_df is not None:
-                # Grid para o plot PCA
+                pca_df['Highlight'] = pca_df['Player'].apply(
+                    lambda x: 'Selected' if x == selected_player else ('Similar' if x in [p[0] for p in similar_players] else 'Other')
+                )
+
+                import plotly.express as px
+                fig_pca = px.scatter(
+                    pca_df,
+                    x='x',
+                    y='y',
+                    color='Highlight',
+                    hover_name='Player',
+                    hover_data={'Team': True, 'Position': True, 'Age': True},
+                    color_discrete_map={'Selected': '#1A78CF', 'Similar': '#E41A1C', 'Other': 'lightgray'},
+                    title='Player Similarity - PCA Visualization',
+                    width=500,
+                    height=500
+                )
+
+                fig_pca.update_traces(marker=dict(size=9, line=dict(width=1, color='DarkSlateGrey')))
+                fig_pca.update_layout(legend_title_text='')
+
+                # Inserir o plotly como imagem no matplotlib usando plotly.io
+                import plotly.io as pio
+                from PIL import Image
+                import io
+
+                img_bytes = pio.to_image(fig_pca, format='png')
+                img = Image.open(io.BytesIO(img_bytes))
+
                 ax_pca = fig.add_subplot(gs[0:2, 0:3])
+                ax_pca.imshow(img)
+                ax_pca.axis('off')
 
-                # Plotar todos os jogadores em cores baseadas no cluster
-                for cluster_id in pca_df['cluster'].unique():
-                    cluster_data = pca_df[pca_df['cluster'] == cluster_id]
-                    ax_pca.scatter(cluster_data['x'],
-                                   cluster_data['y'],
-                                   alpha=0.5,
-                                   s=50,
-                                   c=cluster_colors[int(cluster_id) %
-                                                    len(cluster_colors)],
-                                   label=f'Cluster {cluster_id+1}')
-
-                # Destacar o jogador principal
-                player_point = pca_df[pca_df['Player'] == selected_player]
-                ax_pca.scatter(player_point['x'],
-                               player_point['y'],
-                               s=150,
-                               c=player1_color,
-                               marker='*',
-                               edgecolor='black',
-                               linewidth=1.5,
-                               label=selected_player)
-
-                # Destacar jogadores similares
-                similar_players_list = [p[0] for p in similar_players]
-                similar_points = pca_df[pca_df['Player'].isin(
-                    similar_players_list)]
-                ax_pca.scatter(similar_points['x'],
-                               similar_points['y'],
-                               s=100,
-                               c=player2_color,
-                               marker='o',
-                               edgecolor='black',
-                               linewidth=1,
-                               label='Similar Players')
-
-                # Adicionar textos para o jogador selecionado e similares
-                for _, row in player_point.iterrows():
-                    ax_pca.annotate(row['Player'], (row['x'], row['y']),
-                                    xytext=(5, 5),
-                                    textcoords='offset points',
-                                    fontsize=12,
-                                    fontweight='bold',
-                                    color=player1_color,
-                                    bbox=dict(facecolor='white',
-                                              alpha=0.8,
-                                              edgecolor=player1_color,
-                                              boxstyle="round,pad=0.2"))
-
-                for _, row in similar_points.iterrows():
-                    ax_pca.annotate(row['Player'], (row['x'], row['y']),
-                                    xytext=(5, 5),
-                                    textcoords='offset points',
-                                    fontsize=10,
-                                    color=player2_color,
-                                    bbox=dict(facecolor='white',
-                                              alpha=0.8,
-                                              edgecolor=player2_color,
-                                              boxstyle="round,pad=0.2"))
-
-                # Configurações do plot PCA
-                ax_pca.set_title('Player Similarity - PCA Visualization',
-                                 fontsize=14)
-                ax_pca.set_xlabel('Principal Component 1', fontsize=10)
-                ax_pca.set_ylabel('Principal Component 2', fontsize=10)
-                ax_pca.legend(loc='upper right', fontsize=8)
-                ax_pca.grid(alpha=0.3)
 
                 # Adicionar uma explicação sobre PCA
                 explanation_text = (
