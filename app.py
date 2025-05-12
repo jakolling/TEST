@@ -1619,16 +1619,7 @@ def create_similarity_viz(selected_player,
                 fig_pca.update_layout(legend_title_text='')
 
                 # Inserir o plotly como imagem no matplotlib usando plotly.io
-                import plotly.io as pio
-                from PIL import Image
-                import io
-
-                img_bytes = pio.to_image(fig_pca, format='png')
-                img = Image.open(io.BytesIO(img_bytes))
-
-                ax_pca = fig.add_subplot(gs[0:2, 0:3])
-                ax_pca.imshow(img)
-                ax_pca.axis('off')
+                st.plotly_chart(fig_pca, use_container_width=True)
 
 
                 # Adicionar uma explicação sobre PCA
