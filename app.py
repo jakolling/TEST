@@ -2938,23 +2938,7 @@ if selected_leagues:
             
             # 1. Primeiro, filtrar ambos por minutos jogados (obrigatório para ambos)
             minutes_range = st.session_state.temp_minutes_range
-            
-            # Garantir que 'Minutes played' seja numérico e tratar possíveis erros
-            df['Minutes played'] = pd.to_numeric(df['Minutes played'], errors='coerce')
-            
-            # Aplicar filtro com verificação explícita para garantir inclusão de valores no limite
-            min_minutes, max_minutes = minutes_range
-            df_percentiles = df[(df['Minutes played'] >= min_minutes) & (df['Minutes played'] <= max_minutes)].copy()
-            
-            # Debug info
-            st.session_state.debug_info = {
-                'total_players': len(df),
-                'filtered_players': len(df_percentiles),
-                'min_minutes': min_minutes,
-                'max_minutes': max_minutes,
-                'minutes_range': minutes_range
-            }
-            
+            df_percentiles = df[df['Minutes played'].between(*minutes_range)].copy()
             df_filtered = df_percentiles.copy()  # Começamos com o mesmo filtro
             
             # Verificar se temos jogadores após o filtro
@@ -2971,17 +2955,8 @@ if selected_leagues:
             
             # Filtrar ambos por minutos por jogo (obrigatório para percentis)
             mpg_range = st.session_state.temp_mpg_range
-            min_mpg, max_mpg = mpg_range
-            
-            # Garantir que 'Minutes per game' seja numérico
-            df_percentiles['Minutes per game'] = pd.to_numeric(df_percentiles['Minutes per game'], errors='coerce')
-            df_filtered['Minutes per game'] = pd.to_numeric(df_filtered['Minutes per game'], errors='coerce')
-            
-            # Aplicar filtro com verificação explícita
-            df_percentiles = df_percentiles[(df_percentiles['Minutes per game'] >= min_mpg) & 
-                                          (df_percentiles['Minutes per game'] <= max_mpg)]
-            df_filtered = df_filtered[(df_filtered['Minutes per game'] >= min_mpg) & 
-                                    (df_filtered['Minutes per game'] <= max_mpg)]
+            df_percentiles = df_percentiles[df_percentiles['Minutes per game'].between(*mpg_range)]
+            df_filtered = df_filtered[df_filtered['Minutes per game'].between(*mpg_range)]
             
             # Verificar se temos jogadores após o filtro
             if df_percentiles.empty:
@@ -3003,14 +2978,7 @@ if selected_leagues:
             
             # Filtrar por idade (apenas df_filtered)
             age_range = st.session_state.temp_age_range
-            min_age_filter, max_age_filter = age_range
-            
-            # Garantir que 'Age' seja numérico
-            df_filtered['Age'] = pd.to_numeric(df_filtered['Age'], errors='coerce')
-            
-            # Aplicar filtro com verificação explícita
-            df_age_filtered = df_filtered[(df_filtered['Age'] >= min_age_filter) & 
-                                        (df_filtered['Age'] <= max_age_filter)]
+            df_age_filtered = df_filtered[df_filtered['Age'].between(*age_range)]
             
             # Verificar se temos jogadores após o filtro
             if df_age_filtered.empty:
@@ -3044,254 +3012,13 @@ if selected_leagues:
             st.session_state.last_age_range = age_range
             st.session_state.last_positions = sel_pos
             
-            # Adicionar informações de debug para ajudar a diagnosticar problemas de filtragem
-            # Procurar informações sobre todos os jogadores com nome que contenha "Flores"
-            try:
-                # Encontrar jogadores com nome que contenha "Flores"
-                flores_pattern = "Flores"
-                flores_players_original = df[df['Player'].str.contains(flores_pattern, na=False)]
-                flores_players_filtered = df_filtered[df_filtered['Player'].str.contains(flores_pattern, na=False)]
-                
-                # SOLUÇÃO TEMPORÁRIA: Adicionar qualquer jogador com nome "Flores" ao dataframe filtrado
-                # se ele passar por verificação manual dos filtros
-                flores_to_add = []
-                for idx, row in flores_players_original.iterrows():
-                    player_name = row['Player']
-                    
-                    # Verificar se o jogador já está no dataframe filtrado
-                    if player_name not in df_filtered['Player'].values:
-                        # Verificar se ele deveria passar pelos filtros
-                        minutes_check = False
-                        mpg_check = False
-                        age_check = True
-                        pos_check = True
-                        
-                        # Verificação de minutos
-                        if isinstance(row['Minutes played'], (int, float)):
-                            minutes_check = min_minutes <= row['Minutes played'] <= max_minutes
-                        else:
-                            try:
-                                numeric_minutes = float(row['Minutes played'])
-                                minutes_check = min_minutes <= numeric_minutes <= max_minutes
-                            except:
-                                minutes_check = False
-                        
-                        # Verificação de minutos por jogo
-                        if 'Minutes per game' in row:
-                            mpg = row['Minutes per game']
-                        elif 'Minutes played' in row and 'Matches played' in row and row['Matches played'] > 0:
-                            mpg = row['Minutes played'] / row['Matches played']
-                        else:
-                            mpg = 0
-                        
-                        mpg_check = min_mpg <= mpg <= max_mpg
-                        
-                        # Verificação de idade (se aplicável)
-                        if 'Age' in row:
-                            age = row['Age']
-                            if isinstance(age, (int, float)):
-                                age_check = min_age_filter <= age <= max_age_filter
-                            else:
-                                try:
-                                    numeric_age = float(age)
-                                    age_check = min_age_filter <= numeric_age <= max_age_filter
-                                except:
-                                    age_check = False
-                        
-                        # Verificação de posição (se aplicável)
-                        if 'Position' in row and sel_pos:
-                            pos = row['Position']
-                            pos_list = [p.strip() for p in str(pos).split(',')]
-                            pos_check = any(p in sel_pos for p in pos_list)
-                        
-                        # Se o jogador passar em todos os filtros, adicionar ao dataframe
-                        if minutes_check and mpg_check and age_check and pos_check:
-                            flores_to_add.append(row)
-                
-                # Adicionar jogadores ao dataframe filtrado se necessário
-                if flores_to_add:
-                    for row in flores_to_add:
-                        df_filtered = pd.concat([df_filtered, pd.DataFrame([row])], ignore_index=True)
-                    
-                    # Atualizar o dataframe de visualização também
-                    df_minutes = df_filtered.copy()
-                
-                # Guardar informações detalhadas sobre todos os Flores
-                flores_debug = {
-                    'flores_found_count_original': len(flores_players_original),
-                    'flores_found_count_filtered': len(flores_players_filtered),
-                    'flores_original_details': [],
-                    'flores_filtered_details': [],
-                    'min_minutes_filter': min_minutes,
-                    'max_minutes_filter': max_minutes,
-                    'min_mpg_filter': min_mpg,
-                    'max_mpg_filter': max_mpg,
-                }
-                
-                # Detalhes dos jogadores Flores no dataframe original
-                for idx, row in flores_players_original.iterrows():
-                    player_info = {
-                        'player': row['Player'] if 'Player' in row else 'Unknown',
-                        'minutes_played': row['Minutes played'] if 'Minutes played' in row else 'Unknown',
-                        'minutes_played_type': type(row['Minutes played']).__name__ if 'Minutes played' in row else 'N/A',
-                        'matches_played': row['Matches played'] if 'Matches played' in row else 'Unknown',
-                        'minutes_per_game': row['Minutes played'] / row['Matches played'] if 'Minutes played' in row and 'Matches played' in row and row['Matches played'] > 0 else 0,
-                        'age': row['Age'] if 'Age' in row else 'Unknown',
-                        'position': row['Position'] if 'Position' in row else 'Unknown',
-                    }
-                    flores_debug['flores_original_details'].append(player_info)
-                
-                # Detalhes dos jogadores Flores no dataframe filtrado
-                for idx, row in flores_players_filtered.iterrows():
-                    player_info = {
-                        'player': row['Player'] if 'Player' in row else 'Unknown',
-                        'minutes_played': row['Minutes played'] if 'Minutes played' in row else 'Unknown',
-                        'minutes_played_type': type(row['Minutes played']).__name__ if 'Minutes played' in row else 'N/A',
-                        'matches_played': row['Matches played'] if 'Matches played' in row else 'Unknown',
-                        'minutes_per_game': row['Minutes per game'] if 'Minutes per game' in row else 'Unknown',
-                        'age': row['Age'] if 'Age' in row else 'Unknown',
-                        'position': row['Position'] if 'Position' in row else 'Unknown',
-                    }
-                    flores_debug['flores_filtered_details'].append(player_info)
-                
-                # Adicionar verificações específicas
-                if not flores_players_original.empty:
-                    for i, player_row in enumerate(flores_debug['flores_original_details']):
-                        player_name = player_row['player']
-                        player_minutes = player_row['minutes_played']
-                        
-                        # Verificar se o jogador passa pelo filtro de minutos
-                        minutes_check = False
-                        if isinstance(player_minutes, (int, float)):
-                            minutes_check = min_minutes <= player_minutes <= max_minutes
-                        else:
-                            try:
-                                numeric_minutes = float(player_minutes)
-                                minutes_check = min_minutes <= numeric_minutes <= max_minutes
-                            except:
-                                minutes_check = False
-                                
-                        player_row['passes_minutes_filter'] = minutes_check
-                        
-                        # Verificar manualmente todos os filtros
-                        player_data = flores_players_original[flores_players_original['Player'] == player_name]
-                        if not player_data.empty:
-                            player_row_data = player_data.iloc[0]
-                            
-                            # Filtro de minutos por jogo
-                            mpg = 0
-                            if 'Minutes per game' in player_row_data:
-                                mpg = player_row_data['Minutes per game']
-                            elif 'Minutes played' in player_row_data and 'Matches played' in player_row_data and player_row_data['Matches played'] > 0:
-                                mpg = player_row_data['Minutes played'] / player_row_data['Matches played']
-                            
-                            mpg_check = min_mpg <= mpg <= max_mpg
-                            player_row['mpg'] = mpg
-                            player_row['passes_mpg_filter'] = mpg_check
-                            
-                            # Filtro de idade
-                            age_check = True
-                            if 'Age' in player_row_data:
-                                age = player_row_data['Age']
-                                if isinstance(age, (int, float)):
-                                    age_check = min_age_filter <= age <= max_age_filter
-                                else:
-                                    try:
-                                        numeric_age = float(age)
-                                        age_check = min_age_filter <= numeric_age <= max_age_filter
-                                    except:
-                                        age_check = False
-                            
-                            player_row['passes_age_filter'] = age_check
-                            
-                            # Filtro de posição
-                            pos_check = True
-                            if 'Position' in player_row_data and sel_pos:
-                                pos = player_row_data['Position']
-                                pos_list = [p.strip() for p in str(pos).split(',')]
-                                pos_check = any(p in sel_pos for p in pos_list)
-                            
-                            player_row['passes_position_filter'] = pos_check
-                            
-                            # Verificação final
-                            player_row['should_pass_all_filters'] = minutes_check and mpg_check and age_check and pos_check
-                
-                # Adicionar informações ao debug info
-                st.session_state.debug_info.update(flores_debug)
-                
-            except Exception as e:
-                st.session_state.debug_info.update({
-                    'debug_error': str(e)
-                })
-            
-            # Adicionar expansor para mostrar informações de debug
-            with st.expander("Debug Information (Click to expand)", expanded=False):
-                st.subheader("Filter Debug Info")
-                
-                if 'flores_found_count_original' in st.session_state.debug_info:
-                    # Mostrar contagem total de jogadores Flores
-                    found_count = st.session_state.debug_info['flores_found_count_original']
-                    filtered_count = st.session_state.debug_info['flores_found_count_filtered']
-                    
-                    st.markdown(f"### Jogadores com nome 'Flores'")
-                    st.markdown(f"- **Total no dataset original:** {found_count}")
-                    st.markdown(f"- **Total após filtros:** {filtered_count}")
-                    
-                    # Mostrar cada jogador encontrado no dataset original
-                    if found_count > 0:
-                        st.markdown("### Detalhes dos jogadores - Dataset Original")
-                        for i, player in enumerate(st.session_state.debug_info['flores_original_details']):
-                            with st.expander(f"{i+1}. {player['player']}", expanded=True):
-                                st.markdown(f"**Minutos jogados:** {player['minutes_played']} (tipo: {player['minutes_played_type']})")
-                                st.markdown(f"**Partidas jogadas:** {player['matches_played']}")
-                                
-                                # Mostrar verificações de filtro se disponíveis
-                                if 'passes_minutes_filter' in player:
-                                    st.markdown("#### Verificação dos filtros:")
-                                    st.markdown(f"- **Filtro de minutos ({st.session_state.debug_info['min_minutes_filter']} a {st.session_state.debug_info['max_minutes_filter']}):** {'✅ Passa' if player['passes_minutes_filter'] else '❌ Falha'}")
-                                    st.markdown(f"- **Filtro de minutos por jogo ({st.session_state.debug_info['min_mpg_filter']} a {st.session_state.debug_info['max_mpg_filter']}):** {'✅ Passa' if player['passes_mpg_filter'] else '❌ Falha'} (MPG: {player.get('mpg', 'N/A')})")
-                                    st.markdown(f"- **Filtro de idade:** {'✅ Passa' if player['passes_age_filter'] else '❌ Falha'}")
-                                    st.markdown(f"- **Filtro de posição:** {'✅ Passa' if player['passes_position_filter'] else '❌ Falha'}")
-                                    st.markdown(f"- **Deveria passar todos os filtros:** {'✅ Sim' if player['should_pass_all_filters'] else '❌ Não'}")
-                    
-                    # Mostrar cada jogador que passou pelos filtros
-                    if filtered_count > 0:
-                        st.markdown("### Detalhes dos jogadores - Após filtros")
-                        for i, player in enumerate(st.session_state.debug_info['flores_filtered_details']):
-                            with st.expander(f"{i+1}. {player['player']}", expanded=True):
-                                st.markdown(f"**Minutos jogados:** {player['minutes_played']} (tipo: {player['minutes_played_type']})")
-                                st.markdown(f"**Partidas jogadas:** {player['matches_played']}")
-                                st.markdown(f"**Minutos por jogo:** {player['minutes_per_game']}")
-                                st.markdown(f"**Idade:** {player['age']}")
-                                st.markdown(f"**Posição:** {player['position']}")
-                
-                # Mostrar informações completas de debug para análise
-                with st.expander("Raw Debug Data", expanded=False):
-                    st.json(st.session_state.debug_info)
-            
             # Feedback ao usuário
             st.sidebar.success(f"Filters applied: {len(df_minutes)} players match the criteria")
     else:
         # Se os filtros não foram aplicados, usar os últimos filtros válidos
         # Filtrar por minutos jogados
         minutes_range = st.session_state.last_minutes_range
-        
-        # Garantir que 'Minutes played' seja numérico e tratar possíveis erros
-        df['Minutes played'] = pd.to_numeric(df['Minutes played'], errors='coerce')
-        
-        # Aplicar filtro com verificação explícita
-        min_minutes, max_minutes = minutes_range
-        df_minutes = df[(df['Minutes played'] >= min_minutes) & (df['Minutes played'] <= max_minutes)].copy()
-        
-        # Debug info
-        st.session_state.debug_info = {
-            'total_players': len(df),
-            'filtered_players': len(df_minutes),
-            'min_minutes': min_minutes,
-            'max_minutes': max_minutes,
-            'minutes_range': minutes_range,
-            'filter_applied': False
-        }
+        df_minutes = df[df['Minutes played'].between(*minutes_range)].copy()
         
         # Calcular minutos por jogo
         df_minutes['Minutes per game'] = df_minutes['Minutes played'] / df_minutes['Matches played'].replace(0, np.nan)
@@ -3299,27 +3026,13 @@ if selected_leagues:
         
         # Filtrar por minutos por jogo
         mpg_range = st.session_state.last_mpg_range
-        min_mpg, max_mpg = mpg_range
-        
-        # Garantir que 'Minutes per game' seja numérico
-        df_minutes['Minutes per game'] = pd.to_numeric(df_minutes['Minutes per game'], errors='coerce')
-        
-        # Aplicar filtro com verificação explícita
-        df_filtered = df_minutes[(df_minutes['Minutes per game'] >= min_mpg) & 
-                                (df_minutes['Minutes per game'] <= max_mpg)]
+        df_filtered = df_minutes[df_minutes['Minutes per game'].between(*mpg_range)]
         if not df_filtered.empty:
             df_minutes = df_filtered
         
         # Filtrar por idade
         age_range = st.session_state.last_age_range
-        min_age, max_age = age_range
-        
-        # Garantir que 'Age' seja numérico
-        df_minutes['Age'] = pd.to_numeric(df_minutes['Age'], errors='coerce')
-        
-        # Aplicar filtro com verificação explícita
-        df_filtered = df_minutes[(df_minutes['Age'] >= min_age) & 
-                                (df_minutes['Age'] <= max_age)]
+        df_filtered = df_minutes[df_minutes['Age'].between(*age_range)]
         if not df_filtered.empty:
             df_minutes = df_filtered
         
