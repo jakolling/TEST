@@ -14,3 +14,4 @@ matplotlib>=3.7.0
 openpyxl
 plotly.express
 plotly
+kaleido
