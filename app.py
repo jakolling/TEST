@@ -3285,30 +3285,48 @@ if selected_leagues:
                     # Mostrar cada jogador encontrado no dataset original
                     if found_count > 0:
                         st.markdown("### Detalhes dos jogadores - Dataset Original")
-                        for i, player in enumerate(st.session_state.debug_info['flores_original_details']):
-                            with st.expander(f"{i+1}. {player['player']}", expanded=True):
-                                st.markdown(f"**Minutos jogados:** {player['minutes_played']} (tipo: {player['minutes_played_type']})")
-                                st.markdown(f"**Partidas jogadas:** {player['matches_played']}")
-                                
-                                # Mostrar verificações de filtro se disponíveis
-                                if 'passes_minutes_filter' in player:
-                                    st.markdown("#### Verificação dos filtros:")
-                                    st.markdown(f"- **Filtro de minutos ({st.session_state.debug_info['min_minutes_filter']} a {st.session_state.debug_info['max_minutes_filter']}):** {'✅ Passa' if player['passes_minutes_filter'] else '❌ Falha'}")
-                                    st.markdown(f"- **Filtro de minutos por jogo ({st.session_state.debug_info['min_mpg_filter']} a {st.session_state.debug_info['max_mpg_filter']}):** {'✅ Passa' if player['passes_mpg_filter'] else '❌ Falha'} (MPG: {player.get('mpg', 'N/A')})")
-                                    st.markdown(f"- **Filtro de idade:** {'✅ Passa' if player['passes_age_filter'] else '❌ Falha'}")
-                                    st.markdown(f"- **Filtro de posição:** {'✅ Passa' if player['passes_position_filter'] else '❌ Falha'}")
-                                    st.markdown(f"- **Deveria passar todos os filtros:** {'✅ Sim' if player['should_pass_all_filters'] else '❌ Não'}")
+                        # Mostrar informações em formato de tabela em vez de expansores aninhados
+                        orig_details = []
+                        for player in st.session_state.debug_info['flores_original_details']:
+                            player_detail = {
+                                'Jogador': player['player'],
+                                'Minutos': player['minutes_played'],
+                                'Tipo minutos': player['minutes_played_type'],
+                                'Partidas': player['matches_played']
+                            }
+                            
+                            # Adicionar informações de filtro se disponíveis
+                            if 'passes_minutes_filter' in player:
+                                player_detail['Passa filtro minutos'] = '✅' if player['passes_minutes_filter'] else '❌'
+                                player_detail['Passa filtro MPG'] = '✅' if player['passes_mpg_filter'] else '❌'
+                                player_detail['Passa filtro idade'] = '✅' if player['passes_age_filter'] else '❌' 
+                                player_detail['Passa filtro posição'] = '✅' if player['passes_position_filter'] else '❌'
+                                player_detail['Deveria passar tudo'] = '✅' if player['should_pass_all_filters'] else '❌'
+                            
+                            orig_details.append(player_detail)
+                        
+                        # Exibir em formato de tabela
+                        st.dataframe(pd.DataFrame(orig_details))
                     
                     # Mostrar cada jogador que passou pelos filtros
                     if filtered_count > 0:
                         st.markdown("### Detalhes dos jogadores - Após filtros")
-                        for i, player in enumerate(st.session_state.debug_info['flores_filtered_details']):
-                            with st.expander(f"{i+1}. {player['player']}", expanded=True):
-                                st.markdown(f"**Minutos jogados:** {player['minutes_played']} (tipo: {player['minutes_played_type']})")
-                                st.markdown(f"**Partidas jogadas:** {player['matches_played']}")
-                                st.markdown(f"**Minutos por jogo:** {player['minutes_per_game']}")
-                                st.markdown(f"**Idade:** {player['age']}")
-                                st.markdown(f"**Posição:** {player['position']}")
+                        # Mostrar informações em formato de tabela em vez de expansores aninhados
+                        filtered_details = []
+                        for player in st.session_state.debug_info['flores_filtered_details']:
+                            player_detail = {
+                                'Jogador': player['player'],
+                                'Minutos': player['minutes_played'],
+                                'Tipo minutos': player['minutes_played_type'],
+                                'Partidas': player['matches_played'],
+                                'MPG': player['minutes_per_game'],
+                                'Idade': player['age'],
+                                'Posição': player['position']
+                            }
+                            filtered_details.append(player_detail)
+                        
+                        # Exibir em formato de tabela
+                        st.dataframe(pd.DataFrame(filtered_details))
                 
                 # Mostrar informações completas de debug para análise
                 with st.expander("Raw Debug Data", expanded=False):
